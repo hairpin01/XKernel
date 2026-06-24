@@ -266,7 +266,37 @@ def _iter_loaded_targets(kernel: Any):
                 yield candidate
 
 
-def apply_patch(kernel, target):
+async def _account_has_premium(kernel: Any) -> bool:
+    try:
+        client = getattr(kernel, "client", None)
+    except Exception:
+        client = None
+    if client is None:
+        return False
+
+    try:
+        get_me = getattr(client, "get_me", None)
+    except Exception:
+        get_me = None
+    if not callable(get_me):
+        return False
+
+    try:
+        me = await get_me()
+    except Exception:
+        return False
+
+    return bool(
+        getattr(me, "premium", False)
+        or getattr(me, "is_premium", False)
+        or getattr(me, "telegram_premium", False)
+    )
+
+
+async def apply_patch(kernel, target):
+    if await _account_has_premium(kernel):
+        return {"converted": 0, "skipped": "telegram_premium"}
+
     seen: set[int] = set()
     changes = 0
     if target is not kernel:
