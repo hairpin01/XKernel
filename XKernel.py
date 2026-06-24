@@ -14,6 +14,8 @@ from .standard import Kernel as KernelBase
 _PATCH_TARGET_ATTRS = ("PATCH_TARGET", "patch_target", "target")
 _PATCH_TARGETS_ATTRS = ("PATCH_TARGETS", "patch_targets", "targets")
 _PATCH_APPLY_ATTRS = ("apply_patch", "patch", "apply")
+_MAGIC_KERNEL_TARGET = "__kernel__"
+_MAGIC_FULL_LOAD_TARGET = "__full_load__"
 
 
 class XPatchPatchManager:
@@ -208,9 +210,15 @@ class XPatchPatchManager:
         return dict(self.loaded_patches)
 
     def lookup_target(self, module_name: str) -> Any | None:
-        """Find a loaded MCUB module or class-style module instance by name."""
+        """Find a loaded MCUB module, class-style instance, or magic target."""
 
         needle = self._normalize(module_name)
+        if needle == _MAGIC_KERNEL_TARGET:
+            return self.kernel
+        if needle == _MAGIC_FULL_LOAD_TARGET:
+            if getattr(self.kernel, "_xpatch_full_load_complete", False):
+                return self.kernel
+            return None
 
         for name, instance in (getattr(self.kernel, "_class_module_instances", {}) or {}).items():
             if needle in self._names_for_object(name, instance):
@@ -476,7 +484,8 @@ class XPatchKernel(KernelBase):
         self._xpatch_stealth_mode = False
         self.ver = f"{self.VERSION}.XPatch"
         self.VERSION = self.ver
-        self.VERSION_XKERNEL = (0, 0, 3)
+        self.VERSION_XKERNEL = (0, 0, 4)
+        self._xpatch_full_load_complete = False
 
         self.patch_manager = XPatchPatchManager(self)
         self.xpatch = self.patch_manager
@@ -532,13 +541,14 @@ class XPatchKernel(KernelBase):
         self._xpatch_stealth_mode = False
         self.ver = f"{base_version}.XPatch"
         self.VERSION = self.ver
-        self.VERSION_XKERNEL = (0, 0, 3)
+        self.VERSION_XKERNEL = (0, 0, 4)
         self.CORE_NAME = "XPatchKernel"
 
     async def run(self) -> None:
         print('Start RUN')
         if not getattr(self, "_xpatch_stealth_mode", False):
             self.CORE_NAME = "XPatchKernel"
+        await self.patch_manager.apply_for_target(_MAGIC_KERNEL_TARGET, force=True)
         await super().run()
 
     def _install_xpatch_loader_hooks(self) -> None:
@@ -575,6 +585,11 @@ class XPatchKernel(KernelBase):
 
             async def load_user_modules_with_patches(*args: Any, **kwargs: Any) -> Any:
                 result = await load_user_modules(*args, **kwargs)
+                self._xpatch_full_load_complete = True
+                await self.patch_manager.apply_for_target(
+                    _MAGIC_FULL_LOAD_TARGET,
+                    force=True,
+                )
                 await self.patch_manager.apply_all()
                 return result
 

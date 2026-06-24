@@ -71,6 +71,27 @@ XKernel matches targets against loaded MCUB modules and class-style module insta
 
 Names are normalized before matching, so simple case and separator differences are tolerated.
 
+### Magic Targets
+
+XKernel also supports magic target names for patches that are not bound to one regular module:
+
+| Target | Callback target | When it becomes available | Use case |
+|--------|-----------------|---------------------------|----------|
+| `__kernel__` | Active kernel object | When `XPatchKernel.run()` starts | Kernel-level hooks and startup policy patches |
+| `__full_load__` | Active kernel object | After user modules finish loading | Global patches that must inspect all loaded modules |
+
+Example global patch:
+
+```python
+PATCH_TARGET = "__full_load__"
+
+
+def apply_patch(kernel, target):
+    # target is the active kernel; `kernel is target` for magic targets.
+    for module in kernel.loaded_modules.values():
+        ...
+```
+
 ## Callback Names
 
 XKernel uses the first callable found in this order:
