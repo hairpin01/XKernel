@@ -472,7 +472,7 @@ class XPatchKernel(KernelBase):
     def __init__(self) -> None:
         super().__init__()
 
-        self.ver = f"{self.VERSION}:XPatch"
+        self.ver = f"{self.VERSION}.XPatch"
         self.VERSION = self.ver
 
         self.patch_manager = XPatchPatchManager(self)
