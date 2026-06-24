@@ -166,6 +166,12 @@ class XKernelInstaller(ModuleBase):
     def _cfg(self, key: str, default: Any = None) -> Any:
         return self.config.get(key, default)
 
+    def _kernel_object(self) -> Any:
+        try:
+            return object.__getattribute__(self.kernel, "_kernel")
+        except Exception:
+            return self.kernel
+
     def _kernel_attr(
         self,
         name: str,
@@ -173,19 +179,21 @@ class XKernelInstaller(ModuleBase):
         *,
         protected: bool = False,
     ) -> Any:
+        kernel = self._kernel_object() if protected else self.kernel
         if protected:
             try:
-                return object.__getattribute__(self.kernel, name)
+                return object.__getattribute__(kernel, name)
             except Exception:
                 pass
         try:
-            return getattr(self.kernel, name, default)
+            return getattr(kernel, name, default)
         except Exception:
             return default
 
     def _kernel_patch_manager(self) -> Any | None:
+        kernel = self._kernel_object()
         try:
-            return object.__getattribute__(self.kernel, "patch_manager")
+            return object.__getattribute__(kernel, "patch_manager")
         except Exception:
             return None
 
@@ -194,7 +202,10 @@ class XKernelInstaller(ModuleBase):
             return
 
         try:
-            enable_stealth = object.__getattribute__(self.kernel, "enable_stealth_mode")
+            enable_stealth = object.__getattribute__(
+                self._kernel_object(),
+                "enable_stealth_mode",
+            )
         except Exception:
             enable_stealth = None
         if callable(enable_stealth):
@@ -208,7 +219,10 @@ class XKernelInstaller(ModuleBase):
 
     def _disable_runtime_stealth(self) -> None:
         try:
-            disable_stealth = object.__getattribute__(self.kernel, "disable_stealth_mode")
+            disable_stealth = object.__getattribute__(
+                self._kernel_object(),
+                "disable_stealth_mode",
+            )
         except Exception:
             disable_stealth = None
         if callable(disable_stealth):

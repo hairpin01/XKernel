@@ -237,7 +237,14 @@ class XPatchPatchManager:
         if needle == _MAGIC_KERNEL_TARGET:
             return self.kernel
         if needle == _MAGIC_FULL_LOAD_TARGET:
-            if getattr(self.kernel, "_xpatch_full_load_complete", False):
+            try:
+                full_load_complete = object.__getattribute__(
+                    self.kernel,
+                    "_xpatch_full_load_complete",
+                )
+            except Exception:
+                full_load_complete = False
+            if full_load_complete:
                 return self.kernel
             return None
 
