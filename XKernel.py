@@ -9,6 +9,12 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+try:
+    from core.lib.utils.exceptions import CallInsecure
+except Exception:  # pragma: no cover - lets docs/tools import this file outside MCUB
+    class CallInsecure(RuntimeError):
+        pass
+
 from .standard import Kernel as KernelBase
 
 _PATCH_TARGET_ATTRS = ("PATCH_TARGET", "patch_target", "target")
@@ -16,6 +22,21 @@ _PATCH_TARGETS_ATTRS = ("PATCH_TARGETS", "patch_targets", "targets")
 _PATCH_APPLY_ATTRS = ("apply_patch", "patch", "apply")
 _MAGIC_KERNEL_TARGET = "__kernel__"
 _MAGIC_FULL_LOAD_TARGET = "__full_load__"
+_XPATCH_STEALTH_PROTECTED_ATTRS = frozenset(
+    {
+        "VERSION_XKERNEL",
+        "ver",
+        "patch_manager",
+        "xpatch",
+        "patches",
+        "apply_patches",
+        "apply_patches_for_module",
+        "enable_stealth_mode",
+        "disable_stealth_mode",
+        "_xpatch_base_version",
+        "_xpatch_full_load_complete",
+    }
+)
 
 
 class XPatchPatchManager:
@@ -477,6 +498,19 @@ class XPatchKernel(KernelBase):
 
     PATCHES_DIR = "patches"
 
+    def __getattribute__(self, name: str) -> Any:
+        if name in _XPATCH_STEALTH_PROTECTED_ATTRS:
+            state = object.__getattribute__(self, "__dict__")
+            if state.get("_xpatch_stealth_mode", False):
+                raise CallInsecure(
+                    f"Access to protected XKernel attribute {name!r} is denied "
+                    "in stealth mode"
+                )
+        return super().__getattribute__(name)
+
+    def _xpatch_manager(self) -> XPatchPatchManager:
+        return object.__getattribute__(self, "patch_manager")
+
     def __init__(self) -> None:
         super().__init__()
 
@@ -504,7 +538,7 @@ class XPatchKernel(KernelBase):
     ) -> dict[str, list[tuple[str, str]]]:
         """Public helper for manually applying XPatch patches."""
 
-        return await self.patch_manager.apply_all(target_name=target_name, force=force)
+        return await self._xpatch_manager().apply_all(target_name=target_name, force=force)
 
     async def apply_patches_for_module(
         self,
@@ -514,31 +548,31 @@ class XPatchKernel(KernelBase):
     ) -> dict[str, list[tuple[str, str]]]:
         """Re-apply XPatch patches for one loaded module."""
 
-        return await self.patch_manager.apply_for_target(module_name, force=force)
+        return await self._xpatch_manager().apply_for_target(module_name, force=force)
 
     def enable_stealth_mode(self) -> None:
         """Hide XPatch-specific runtime markers while keeping patch hooks active."""
 
-        base_version = str(getattr(self, "_xpatch_base_version", self.VERSION))
+        base_version = str(object.__getattribute__(self, "_xpatch_base_version"))
         if base_version.endswith(".XPatch"):
             base_version = base_version[: -len(".XPatch")]
 
-        self._xpatch_stealth_mode = True
         self.VERSION = base_version
         self.CORE_NAME = "standard"
 
+        state = object.__getattribute__(self, "__dict__")
         for attr in ("VERSION_XKERNEL", "ver"):
-            if hasattr(self, attr):
-                delattr(self, attr)
+            state.pop(attr, None)
+        object.__setattr__(self, "_xpatch_stealth_mode", True)
 
     def disable_stealth_mode(self) -> None:
         """Restore XPatch-specific runtime markers after stealth mode."""
 
-        base_version = str(getattr(self, "_xpatch_base_version", self.VERSION))
+        object.__setattr__(self, "_xpatch_stealth_mode", False)
+        base_version = str(object.__getattribute__(self, "_xpatch_base_version"))
         if base_version.endswith(".XPatch"):
             base_version = base_version[: -len(".XPatch")]
 
-        self._xpatch_stealth_mode = False
         self.ver = f"{base_version}.XPatch"
         self.VERSION = self.ver
         self.VERSION_XKERNEL = (0, 0, 4)
@@ -548,7 +582,7 @@ class XPatchKernel(KernelBase):
         print('Start RUN')
         if not getattr(self, "_xpatch_stealth_mode", False):
             self.CORE_NAME = "XPatchKernel"
-        await self.patch_manager.apply_for_target(_MAGIC_KERNEL_TARGET, force=True)
+        await self._xpatch_manager().apply_for_target(_MAGIC_KERNEL_TARGET, force=True)
         await super().run()
 
     def _install_xpatch_loader_hooks(self) -> None:
@@ -564,8 +598,8 @@ class XPatchKernel(KernelBase):
                 if self._xpatch_load_result_ok(result):
                     target_hint = self._xpatch_target_hint(args, kwargs)
                     if target_hint:
-                        await self.patch_manager.apply_for_target(target_hint, force=True)
-                    await self.patch_manager.apply_all()
+                        await self._xpatch_manager().apply_for_target(target_hint, force=True)
+                    await self._xpatch_manager().apply_all()
                 return result
 
             loader.load_module_from_file = load_module_from_file_with_patches
@@ -575,7 +609,7 @@ class XPatchKernel(KernelBase):
 
             async def load_system_modules_with_patches(*args: Any, **kwargs: Any) -> Any:
                 result = await load_system_modules(*args, **kwargs)
-                await self.patch_manager.apply_all()
+                await self._xpatch_manager().apply_all()
                 return result
 
             loader.load_system_modules = load_system_modules_with_patches
@@ -586,11 +620,11 @@ class XPatchKernel(KernelBase):
             async def load_user_modules_with_patches(*args: Any, **kwargs: Any) -> Any:
                 result = await load_user_modules(*args, **kwargs)
                 self._xpatch_full_load_complete = True
-                await self.patch_manager.apply_for_target(
+                await self._xpatch_manager().apply_for_target(
                     _MAGIC_FULL_LOAD_TARGET,
                     force=True,
                 )
-                await self.patch_manager.apply_all()
+                await self._xpatch_manager().apply_all()
                 return result
 
             loader.load_user_modules = load_user_modules_with_patches

@@ -66,8 +66,14 @@ The manager can enable stealth mode from its settings. Stealth mode keeps the pa
 |-------------|--------------|
 | `CORE_NAME = "XPatchKernel"` | `CORE_NAME = "standard"` |
 | `VERSION` has `.XPatch` suffix | `VERSION` is restored to the base version |
-| `VERSION_XKERNEL` exists | `VERSION_XKERNEL` is removed |
-| `ver` exists | `ver` is removed |
+| `VERSION_XKERNEL` exists | `VERSION_XKERNEL` is removed/protected |
+| `ver` exists | `ver` is removed/protected |
+| XKernel patch API attrs are public | XKernel attrs raise `CallInsecure` on direct access |
+
+In stealth mode, direct access to XKernel-specific attributes such as `patch_manager`,
+`xpatch`, `patches`, `apply_patches`, `VERSION_XKERNEL`, `ver`, and internal
+`_xpatch_*` state raises MCUB `CallInsecure`. The patch hooks keep working, and
+the manager uses internal accessors for its own UI/actions.
 
 Use stealth mode only when a module or integration expects the standard core name or a clean version string.
 

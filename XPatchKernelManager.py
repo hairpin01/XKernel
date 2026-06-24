@@ -40,7 +40,7 @@ class XKernelInstaller(ModuleBase):
         ConfigValue(
             "stealth_mode",
             False,
-            description="Hide XPatch markers: clean VERSION, no VERSION_XKERNEL/ver, CORE_NAME=standard",
+            description="Hide XPatch markers and protect XKernel attrs with CallInsecure",
             validator=Boolean(default=False),
         ),
         ConfigValue(
@@ -166,11 +166,37 @@ class XKernelInstaller(ModuleBase):
     def _cfg(self, key: str, default: Any = None) -> Any:
         return self.config.get(key, default)
 
+    def _kernel_attr(
+        self,
+        name: str,
+        default: Any = None,
+        *,
+        protected: bool = False,
+    ) -> Any:
+        if protected:
+            try:
+                return object.__getattribute__(self.kernel, name)
+            except Exception:
+                pass
+        try:
+            return getattr(self.kernel, name, default)
+        except Exception:
+            return default
+
+    def _kernel_patch_manager(self) -> Any | None:
+        try:
+            return object.__getattribute__(self.kernel, "patch_manager")
+        except Exception:
+            return None
+
     def _apply_stealth_from_config(self) -> None:
         if not self._cfg("stealth_mode", False):
             return
 
-        enable_stealth = getattr(self.kernel, "enable_stealth_mode", None)
+        try:
+            enable_stealth = object.__getattribute__(self.kernel, "enable_stealth_mode")
+        except Exception:
+            enable_stealth = None
         if callable(enable_stealth):
             enable_stealth()
             return
@@ -181,7 +207,10 @@ class XKernelInstaller(ModuleBase):
         )
 
     def _disable_runtime_stealth(self) -> None:
-        disable_stealth = getattr(self.kernel, "disable_stealth_mode", None)
+        try:
+            disable_stealth = object.__getattribute__(self.kernel, "disable_stealth_mode")
+        except Exception:
+            disable_stealth = None
         if callable(disable_stealth):
             disable_stealth()
 
@@ -189,13 +218,11 @@ class XKernelInstaller(ModuleBase):
         return  re.sub(r"<[^>]+>", "", text)
 
     def _is_xpatch_active(self) -> bool:
-        return bool(getattr(self.kernel, "patch_manager", None))
+        return bool(self._kernel_patch_manager())
 
     def _get_pm(self):
         """Return patch_manager if XPatchKernel is active, else None."""
-        if not self._is_xpatch_active():
-            return None
-        return getattr(self.kernel, "patch_manager", None)
+        return self._kernel_patch_manager()
 
     def _patch_stats(self) -> tuple[int, int, int]:
         pm = self._get_pm()
@@ -245,8 +272,8 @@ class XKernelInstaller(ModuleBase):
     def _build_main_page(self) -> tuple[str, list]:
         C = self.C
         is_xpatch = self._is_xpatch_active()
-        ver = html.escape(str(getattr(self.kernel, "VERSION", "?")))
-        core_name = html.escape(getattr(self.kernel, "CORE_NAME", "unknown"))
+        ver = html.escape(str(self._kernel_attr("VERSION", "?")))
+        core_name = html.escape(str(self._kernel_attr("CORE_NAME", "unknown")))
         xkernel_ver = html.escape(self._display_xkernel_version())
         applied, pending, failed = self._patch_stats()
         stealth = "on" if self._cfg("stealth_mode", False) else "off"
@@ -520,9 +547,9 @@ class XKernelInstaller(ModuleBase):
                 "",
             ]
 
-        ver = html.escape(str(getattr(self.kernel, "VERSION", "?")))
+        ver = html.escape(str(self._kernel_attr("VERSION", "?")))
         xkernel_ver = html.escape(self._display_xkernel_version())
-        core_name = html.escape(getattr(self.kernel, "CORE_NAME", "?"))
+        core_name = html.escape(str(self._kernel_attr("CORE_NAME", "?")))
         patches_dir = html.escape(
             str(getattr(pm, "patches_dir", "patches") if pm else "patches")
         )
@@ -660,7 +687,7 @@ class XKernelInstaller(ModuleBase):
             f"{C['loading']} <b>Применяю патчи...</b>",
         )
         try:
-            result = await self.kernel.apply_patches()
+            result = await pm.apply_all()
         except Exception as exc:
             self.log.exception("apply_patches failed")
             await call.edit(
@@ -1012,7 +1039,7 @@ class XKernelInstaller(ModuleBase):
         )
 
     def _current_xkernel_version(self) -> tuple[int, ...] | None:
-        version = getattr(self.kernel, "VERSION_XKERNEL", None)
+        version = self._kernel_attr("VERSION_XKERNEL", None, protected=True)
         if isinstance(version, tuple):
             return tuple(int(part) for part in version)
 
