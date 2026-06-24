@@ -522,6 +522,19 @@ class XPatchKernel(KernelBase):
             if hasattr(self, attr):
                 delattr(self, attr)
 
+    def disable_stealth_mode(self) -> None:
+        """Restore XPatch-specific runtime markers after stealth mode."""
+
+        base_version = str(getattr(self, "_xpatch_base_version", self.VERSION))
+        if base_version.endswith(".XPatch"):
+            base_version = base_version[: -len(".XPatch")]
+
+        self._xpatch_stealth_mode = False
+        self.ver = f"{base_version}.XPatch"
+        self.VERSION = self.ver
+        self.VERSION_XKERNEL = (0, 0, 3)
+        self.CORE_NAME = "XPatchKernel"
+
     async def run(self) -> None:
         print('Start RUN')
         if not getattr(self, "_xpatch_stealth_mode", False):
