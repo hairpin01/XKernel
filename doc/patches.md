@@ -189,6 +189,8 @@ await kernel.apply_patches_for_module("OpenApp")
 
 If a patch import or callback fails, XKernel stores the error in `patch_manager.failed_patches` and logs it through the kernel logger when possible.
 
+After the full user-module load completes, XKernel also performs a few delayed retry passes. This lets patches recover from short readiness races where the target is registered but finishes its own async setup just after the loader returns. Already-applied patches are skipped, so callbacks should remain idempotent for reloads and manual reapply operations.
+
 The manager patch page shows:
 
 | Section | Meaning |

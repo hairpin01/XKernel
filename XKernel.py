@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import importlib.util
 import inspect
@@ -527,6 +528,7 @@ class XPatchKernel(KernelBase):
         self.VERSION = self.ver
         self.VERSION_XKERNEL = (0, 0, 4)
         self._xpatch_full_load_complete = False
+        self._xpatch_retry_task = None
 
         self.patch_manager = XPatchPatchManager(self)
         self.xpatch = self.patch_manager
@@ -632,11 +634,39 @@ class XPatchKernel(KernelBase):
                     force=True,
                 )
                 await self._xpatch_manager().apply_all()
+                self._schedule_xpatch_retry_after_full_load()
                 return result
 
             loader.load_user_modules = load_user_modules_with_patches
 
         loader._xpatch_hooks_installed = True
+
+    def _schedule_xpatch_retry_after_full_load(self) -> None:
+        task = object.__getattribute__(self, "_xpatch_retry_task")
+        if task is not None and not task.done():
+            return
+        object.__setattr__(
+            self,
+            "_xpatch_retry_task",
+            asyncio.create_task(self._retry_xpatch_after_full_load()),
+        )
+
+    async def _retry_xpatch_after_full_load(self) -> None:
+        # Some modules finish their own async readiness right after the loader
+        # returns. Retry a few times so pending/early-failed patches (for
+        # example UI/string patches) do not require manual Apply all.
+        for delay in (0.05, 0.25, 1.0, 3.0):
+            await asyncio.sleep(delay)
+            pm = self._xpatch_manager()
+            if not pm.pending_patches and not pm.failed_patches:
+                return
+            try:
+                await pm.apply_all()
+            except Exception as e:
+                logger = getattr(self, "logger", None)
+                log_method = getattr(logger, "debug", None)
+                if callable(log_method):
+                    log_method("[xpatch] delayed retry failed: %s", e)
 
     @staticmethod
     def _xpatch_load_result_ok(result: Any) -> bool:
