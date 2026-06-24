@@ -225,36 +225,6 @@ def _patch_value(value: Any, seen: set[int], depth: int = 0) -> int:
     return changes
 
 
-def _iter_loaded_targets(kernel: Any):
-    yielded: set[int] = set()
-
-    def emit(value: Any):
-        value_id = id(value)
-        if value_id in yielded:
-            return None
-        yielded.add(value_id)
-        return value
-
-    for attr in ("_class_module_instances", "loaded_modules", "system_modules"):
-        try:
-            collection = getattr(kernel, attr, None)
-        except Exception:
-            collection = None
-        if isinstance(collection, dict):
-            for module in collection.values():
-                emitted = emit(module)
-                if emitted is not None:
-                    yield emitted
-                try:
-                    instance = getattr(module, "_class_instance", None)
-                except Exception:
-                    instance = None
-                if instance is not None:
-                    emitted = emit(instance)
-                    if emitted is not None:
-                        yield emitted
-
-
 def _patch_target(target: Any) -> int:
     seen: set[int] = set()
     if isinstance(target, ModuleType):
@@ -272,10 +242,8 @@ def _patch_target(target: Any) -> int:
     return changes
 
 
-def apply_patch(kernel, target):
-    changes = _patch_target(target)
-
-    for loaded in _iter_loaded_targets(kernel):
-        changes += _patch_target(loaded)
-
-    return {"cleaned": changes}
+def apply_patch(target):
+    # IMPORTANT: patch only the XPatch target passed by XKernel.
+    # Do not walk kernel.loaded_modules here, otherwise one target applies this
+    # cleanup to every loaded module in runtime.
+    return {"cleaned": _patch_target(target)}
