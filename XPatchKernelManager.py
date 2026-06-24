@@ -34,6 +34,8 @@ class XKernelInstaller(ModuleBase):
     }
     dependencies = ["aiohttp"]
 
+    strings = {'name': 'null'}
+
     config = ModuleConfig(
         ConfigValue(
             "stealth_mode",
