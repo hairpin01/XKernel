@@ -506,7 +506,7 @@ class XPatchKernel(KernelBase):
 
     async def run(self) -> None:
         print('Start RUN')
-        self.CORE_NAME = "XKernel"
+        self.CORE_NAME = "XPatchKernel"
         await super().run()
 
     def _install_xpatch_loader_hooks(self) -> None:
