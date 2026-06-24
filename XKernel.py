@@ -472,9 +472,11 @@ class XPatchKernel(KernelBase):
     def __init__(self) -> None:
         super().__init__()
 
+        self._xpatch_base_version = self.VERSION
+        self._xpatch_stealth_mode = False
         self.ver = f"{self.VERSION}.XPatch"
         self.VERSION = self.ver
-        self.VERSION_XKERNEL = (0, 0, 2)
+        self.VERSION_XKERNEL = (0, 0, 3)
 
         self.patch_manager = XPatchPatchManager(self)
         self.xpatch = self.patch_manager
@@ -505,9 +507,25 @@ class XPatchKernel(KernelBase):
 
         return await self.patch_manager.apply_for_target(module_name, force=force)
 
+    def enable_stealth_mode(self) -> None:
+        """Hide XPatch-specific runtime markers while keeping patch hooks active."""
+
+        base_version = str(getattr(self, "_xpatch_base_version", self.VERSION))
+        if base_version.endswith(".XPatch"):
+            base_version = base_version[: -len(".XPatch")]
+
+        self._xpatch_stealth_mode = True
+        self.VERSION = base_version
+        self.CORE_NAME = "standard"
+
+        for attr in ("VERSION_XKERNEL", "ver"):
+            if hasattr(self, attr):
+                delattr(self, attr)
+
     async def run(self) -> None:
         print('Start RUN')
-        self.CORE_NAME = "XPatchKernel"
+        if not getattr(self, "_xpatch_stealth_mode", False):
+            self.CORE_NAME = "XPatchKernel"
         await super().run()
 
     def _install_xpatch_loader_hooks(self) -> None:
