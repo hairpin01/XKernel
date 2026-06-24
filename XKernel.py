@@ -474,6 +474,7 @@ class XPatchKernel(KernelBase):
 
         self.ver = f"{self.VERSION}.XPatch"
         self.VERSION = self.ver
+        self.VERSION_XKERNEL = (0, 0, 2)
 
         self.patch_manager = XPatchPatchManager(self)
         self.xpatch = self.patch_manager
