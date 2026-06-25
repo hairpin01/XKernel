@@ -21,6 +21,9 @@ from .standard import Kernel as KernelBase
 _PATCH_TARGET_ATTRS = ("PATCH_TARGET", "patch_target", "target")
 _PATCH_TARGETS_ATTRS = ("PATCH_TARGETS", "patch_targets", "targets")
 _PATCH_APPLY_ATTRS = ("apply_patch", "patch", "apply")
+_PATCH_UNAPPLY_ATTRS = ("unapply_patch", "unpatch", "unapply")
+_PATCH_CONDITION_ATTRS = ("PATCH_CONDITION", "patch_condition", "condition")
+_MAGIC_PRE_LOAD_TARGET = "__pre_load__"
 _MAGIC_KERNEL_TARGET = "__kernel__"
 _MAGIC_FULL_LOAD_TARGET = "__full_load__"
 _XPATCH_STEALTH_PROTECTED_ATTRS = frozenset(
@@ -34,7 +37,43 @@ _XPATCH_STEALTH_PROTECTED_ATTRS = frozenset(
         "apply_patches_for_module",
         "enable_stealth_mode",
         "disable_stealth_mode",
+        "set_xpatch_events_enabled",
+        "set_xpatch_hot_reload_enabled",
+        "set_extera_proxy_all",
+        "set_extera_proxy_modules",
+        "set_extera_proxy_scopes",
+        "add_extera_proxy_module",
+        "remove_extera_proxy_module",
+        "clear_extera_proxy_modules",
+        "extera_proxy_status",
+        "_install_extera_proxy_hook",
+        "_extera_proxy_should_bypass",
+        "_extera_proxy_scope_enabled",
+        "_patch_extera_proxy_function",
+        "_protect_xkernel_proxy_controls",
+        "_patch_extera_client_proxy_class",
+        "_patch_extera_proxy_imported_wrappers",
+        "_apply_extera_proxy_to_loaded_modules",
+        "_iter_extera_loaded_module_targets",
+        "_extera_names_for_target",
+        "_make_extera_client_proxy",
+        "_start_xpatch_hot_reload",
+        "_stop_xpatch_hot_reload",
+        "_watch_xpatch_files",
         "_xpatch_base_version",
+        "_xpatch_kernel_version",
+        "_xpatch_events_enabled",
+        "_xpatch_hot_reload_enabled",
+        "_xpatch_hot_reload_interval",
+        "_xpatch_hot_reload_task",
+        "_xpatch_extera_proxy_all",
+        "_xpatch_extera_proxy_modules",
+        "_xpatch_extera_proxy_scopes",
+        "_xpatch_extera_original_get_module_kernel",
+        "_xpatch_extera_original_get_module_client",
+        "_xpatch_extera_original_wrap_event_for_module",
+        "_xpatch_extera_original_client_proxy_class",
+        "_xpatch_extera_proxy_hook_installed",
         "_xpatch_full_load_complete",
     }
 )
@@ -75,6 +114,7 @@ class XPatchPatchManager:
         self._patch_states: dict[str, tuple[int, int]] = {}
         self.applied_patches: dict[tuple[str, str], dict[str, Any]] = {}
         self.pending_patches: dict[str, list[str]] = {}
+        self.pending_reasons: dict[tuple[str, str], str] = {}
         self.failed_patches: dict[tuple[str, str], str] = {}
 
         os.makedirs(self.patches_dir, exist_ok=True)
@@ -97,7 +137,16 @@ class XPatchPatchManager:
             "skipped": [],
         }
 
-        for patch_key, patch_module in self.load_patches().items():
+        patches = sorted(
+            self.load_patches().items(),
+            key=lambda item: (
+                self._patch_priority(item[1]),
+                self._patch_display_name(item[1], item[0]).casefold(),
+                item[0],
+            ),
+        )
+
+        for patch_key, patch_module in patches:
             patch_name = self._patch_display_name(patch_module, patch_key)
             targets = self._patch_targets(patch_module)
             if not targets:
@@ -155,10 +204,34 @@ class XPatchPatchManager:
         if applied_key in self.applied_patches and not force:
             return "skipped"
 
-        target = self.lookup_target(target_name)
         patch_name = self._patch_display_name(patch_module, patch_key)
+        version_error = self._patch_version_error(patch_module)
+        if version_error:
+            self.failed_patches[applied_key] = version_error
+            self._log("warning", "[xpatch] patch %s incompatible: %s", patch_name, version_error)
+            await self._emit_patch_event("xpatch:failed", patch_name, target_name, version_error)
+            return "failed"
+
+        dependency_error = self._patch_dependency_error(patch_module)
+        if dependency_error:
+            self._remember_pending(patch_key, target_name, dependency_error)
+            self._log("debug", "[xpatch] patch %s is pending: %s", patch_name, dependency_error)
+            return "pending"
+
+        condition_status = await self._patch_condition_status(patch_module)
+        if condition_status is not None:
+            status, reason = condition_status
+            if status == "failed":
+                self.failed_patches[applied_key] = reason
+                await self._emit_patch_event("xpatch:failed", patch_name, target_name, reason)
+                return "failed"
+            self._remember_pending(patch_key, target_name, reason)
+            self._log("debug", "[xpatch] patch %s is pending: %s", patch_name, reason)
+            return "pending"
+
+        target = self.lookup_target(target_name)
         if target is None:
-            self._remember_pending(patch_key, target_name)
+            self._remember_pending(patch_key, target_name, "Target is not loaded")
             self._log(
                 "debug",
                 "[xpatch] patch %s is pending: target %s is not loaded",
@@ -169,12 +242,14 @@ class XPatchPatchManager:
 
         apply_callback = self._apply_callback(patch_module)
         if apply_callback is None:
-            self.failed_patches[applied_key] = "Patch apply callback is not declared"
+            error = "Patch apply callback is not declared"
+            self.failed_patches[applied_key] = error
             self._log(
                 "warning",
                 "[xpatch] patch %s has no apply_patch/patch/apply callback",
                 patch_name,
             )
+            await self._emit_patch_event("xpatch:failed", patch_name, target_name, error)
             return "failed"
 
         try:
@@ -182,7 +257,8 @@ class XPatchPatchManager:
             if inspect.isawaitable(patch_result):
                 patch_result = await patch_result
         except Exception as e:
-            self.failed_patches[applied_key] = str(e)
+            error = str(e)
+            self.failed_patches[applied_key] = error
             self._log(
                 "error",
                 "[xpatch] patch %s failed for %s: %s",
@@ -190,6 +266,7 @@ class XPatchPatchManager:
                 target_name,
                 e,
             )
+            await self._emit_patch_event("xpatch:failed", patch_name, target_name, error)
             return "failed"
 
         self.applied_patches[applied_key] = {
@@ -205,7 +282,97 @@ class XPatchPatchManager:
             patch_name,
             target_name,
         )
+        await self._emit_patch_event("xpatch:applied", patch_name, target_name, patch_result)
         return "applied"
+
+    async def unapply_patch(self, patch_key: str, target_name: str) -> str:
+        """Call one patch's unapply callback for a target, if available."""
+
+        target_norm = self._normalize(target_name)
+        applied_key = (patch_key, target_norm)
+        info = self.applied_patches.get(applied_key)
+        patch_module = self.loaded_patches.get(patch_key)
+        if info is None or patch_module is None:
+            return "skipped"
+
+        patch_name = self._patch_display_name(patch_module, patch_key)
+        callback = self._unapply_callback(patch_module)
+        if callback is None:
+            return "skipped"
+
+        target = self.lookup_target(target_name)
+        if target is None:
+            return "pending"
+
+        try:
+            result = self._call_patch_callback(callback, target)
+            if inspect.isawaitable(result):
+                await result
+        except Exception as e:
+            self.failed_patches[applied_key] = str(e)
+            self._log("error", "[xpatch] patch %s failed to unapply from %s: %s", patch_name, target_name, e)
+            await self._emit_patch_event("xpatch:failed", patch_name, target_name, str(e))
+            return "failed"
+
+        self.applied_patches.pop(applied_key, None)
+        self.failed_patches.pop(applied_key, None)
+        await self._emit_patch_event("xpatch:unapplied", patch_name, target_name, None)
+        return "unapplied"
+
+    async def unapply_patch_key(self, patch_key: str) -> dict[str, list[tuple[str, str]]]:
+        """Unapply all targets for one loaded patch key."""
+
+        result: dict[str, list[tuple[str, str]]] = {
+            "unapplied": [],
+            "pending": [],
+            "failed": [],
+            "skipped": [],
+        }
+        patch_module = self.loaded_patches.get(patch_key)
+        patch_name = self._patch_display_name(patch_module, patch_key) if patch_module else patch_key
+        targets = [target for key, target in self.applied_patches if key == patch_key]
+        if not targets:
+            result["skipped"].append((patch_name, "<none>"))
+            return result
+        for target in targets:
+            status = await self.unapply_patch(patch_key, target)
+            result.setdefault(status, []).append((patch_name, target))
+        return result
+
+    async def reload_changed_patches(self) -> dict[str, list[str]]:
+        """Hot-reload changed patch files and re-apply available targets."""
+
+        result: dict[str, list[str]] = {"reloaded": [], "loaded": [], "removed": [], "failed": []}
+        files = {self._patch_key(path): path for path in self._iter_patch_files()}
+
+        for stale_key in set(self.loaded_patches) - set(files):
+            await self.unapply_patch_key(stale_key)
+            self._forget_patch(stale_key)
+            result["removed"].append(stale_key)
+
+        changed = False
+        for patch_key, file_path in files.items():
+            state = self._file_state(file_path)
+            known_state = self._patch_states.get(patch_key)
+            if patch_key in self.loaded_patches and known_state == state:
+                continue
+            if patch_key in self.loaded_patches:
+                await self.unapply_patch_key(patch_key)
+                self._forget_patch(patch_key)
+                result["reloaded"].append(patch_key)
+            else:
+                result["loaded"].append(patch_key)
+            try:
+                self.loaded_patches[patch_key] = self._load_patch_module(file_path, patch_key)
+                changed = True
+            except Exception as e:
+                self.failed_patches[(patch_key, "<load>")] = str(e)
+                result["failed"].append(patch_key)
+                self._log("error", "[xpatch] failed to hot-reload %s: %s", file_path, e)
+
+        if changed:
+            await self.apply_all()
+        return result
 
     def load_patches(self) -> dict[str, ModuleType]:
         """Discover and import patch files from ``patches_dir``."""
@@ -235,6 +402,8 @@ class XPatchPatchManager:
         """Find a loaded MCUB module, class-style instance, or magic target."""
 
         needle = self._normalize(module_name)
+        if needle == _MAGIC_PRE_LOAD_TARGET:
+            return self.kernel
         if needle == _MAGIC_KERNEL_TARGET:
             return self.kernel
         if needle == _MAGIC_FULL_LOAD_TARGET:
@@ -334,6 +503,147 @@ class XPatchPatchManager:
                 return callback
         return None
 
+    def _unapply_callback(self, patch_module: ModuleType) -> Any | None:
+        for attr_name in _PATCH_UNAPPLY_ATTRS:
+            callback = getattr(patch_module, attr_name, None)
+            if callable(callback):
+                return callback
+        return None
+
+    async def _emit_patch_event(self, event_name: str, *args: Any) -> None:
+        if not bool(object.__getattribute__(self.kernel, "__dict__").get("_xpatch_events_enabled", False)):
+            return
+        emit = getattr(self.kernel, "emit", None)
+        if not callable(emit):
+            return
+        try:
+            result = emit(event_name, *args)
+            if inspect.isawaitable(result):
+                await result
+        except Exception as e:
+            self._log("debug", "[xpatch] event %s failed: %s", event_name, e)
+
+    def _patch_priority(self, patch_module: ModuleType) -> int:
+        value = getattr(patch_module, "PATCH_PRIORITY", 100)
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 100
+
+    def _patch_depends(self, patch_module: ModuleType) -> list[str]:
+        return self._coerce_targets(getattr(patch_module, "PATCH_DEPENDS", None))
+
+    def _patch_dependency_error(self, patch_module: ModuleType) -> str | None:
+        depends = {self._normalize(item) for item in self._patch_depends(patch_module)}
+        if not depends:
+            return None
+        applied = {
+            self._normalize(str(info.get("patch", "")))
+            for info in self.applied_patches.values()
+        }
+        missing = sorted(dep for dep in depends if dep not in applied)
+        if missing:
+            return "Waiting for patch dependencies: " + ", ".join(missing)
+        return None
+
+    def _patch_required_xkernel(self, patch_module: ModuleType) -> tuple[int, ...] | None:
+        value = getattr(patch_module, "PATCH_REQUIRES_XKERNEL", None)
+        if value is None:
+            return None
+        return self._coerce_version_tuple(value)
+
+    def _patch_version_error(self, patch_module: ModuleType) -> str | None:
+        required = self._patch_required_xkernel(patch_module)
+        if not required:
+            return None
+        current = self._current_xkernel_version()
+        if self._version_less(current, required):
+            return (
+                "requires XKernel >= "
+                f"{self._format_version(required)}, current is {self._format_version(current)}"
+            )
+        return None
+
+    async def _patch_condition_status(self, patch_module: ModuleType) -> tuple[str, str] | None:
+        condition = None
+        for attr_name in _PATCH_CONDITION_ATTRS:
+            if hasattr(patch_module, attr_name):
+                condition = getattr(patch_module, attr_name)
+                break
+        if condition is None:
+            return None
+        try:
+            if callable(condition):
+                result = self._call_condition(condition)
+                if inspect.isawaitable(result):
+                    result = await result
+            else:
+                result = condition
+        except Exception as e:
+            return "failed", f"Patch condition failed: {e}"
+        if result:
+            return None
+        return "pending", "Patch condition is false"
+
+    def _call_condition(self, condition: Any) -> Any:
+        try:
+            signature = inspect.signature(condition)
+        except (TypeError, ValueError):
+            return condition(self.kernel)
+        params = list(signature.parameters.values())
+        if any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in params):
+            return condition(self.kernel, self)
+        positional = [
+            p
+            for p in params
+            if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        ]
+        if len(positional) >= 2:
+            return condition(self.kernel, self)
+        if len(positional) == 1:
+            name = positional[0].name.lower()
+            if name in {"manager", "patch_manager"}:
+                return condition(self)
+            return condition(self.kernel)
+        kwargs: dict[str, Any] = {}
+        for param in params:
+            if param.kind not in (inspect.Parameter.KEYWORD_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD):
+                continue
+            name = param.name.lower()
+            if name in {"kernel", "k"}:
+                kwargs[param.name] = self.kernel
+            elif name in {"manager", "patch_manager"}:
+                kwargs[param.name] = self
+        return condition(**kwargs)
+
+    def _current_xkernel_version(self) -> tuple[int, ...]:
+        state = object.__getattribute__(self.kernel, "__dict__")
+        version = state.get("_xpatch_kernel_version", state.get("VERSION_XKERNEL", (0, 0, 0)))
+        return self._coerce_version_tuple(version) or (0, 0, 0)
+
+    @staticmethod
+    def _version_less(current: tuple[int, ...], required: tuple[int, ...]) -> bool:
+        size = max(len(current), len(required))
+        return current + (0,) * (size - len(current)) < required + (0,) * (size - len(required))
+
+    @staticmethod
+    def _format_version(version: tuple[int, ...]) -> str:
+        return ".".join(str(part) for part in version)
+
+    @staticmethod
+    def _coerce_version_tuple(value: Any) -> tuple[int, ...] | None:
+        if isinstance(value, str):
+            parts = [part for part in value.replace(",", ".").split(".") if part.strip()]
+        elif isinstance(value, (list, tuple)):
+            parts = list(value)
+        else:
+            parts = [value]
+        try:
+            numbers = tuple(int(part) for part in parts)
+        except (TypeError, ValueError):
+            return None
+        return numbers if numbers else None
+
     def _call_patch_callback(self, callback: Any, target: Any) -> Any:
         try:
             signature = inspect.signature(callback)
@@ -427,16 +737,25 @@ class XPatchPatchManager:
             if key[0] == patch_key:
                 self.failed_patches.pop(key, None)
         self.pending_patches.pop(patch_key, None)
+        for key in list(self.pending_reasons):
+            if key[0] == patch_key:
+                self.pending_reasons.pop(key, None)
 
     def _forget_applied_targets(self, target_aliases: set[str]) -> None:
         for applied_key in list(self.applied_patches):
             if applied_key[1] in target_aliases:
                 self.applied_patches.pop(applied_key, None)
 
-    def _remember_pending(self, patch_key: str, target_name: str) -> None:
+    def _remember_pending(
+        self,
+        patch_key: str,
+        target_name: str,
+        reason: str = "Pending",
+    ) -> None:
         pending = self.pending_patches.setdefault(patch_key, [])
         if target_name not in pending:
             pending.append(target_name)
+        self.pending_reasons[(patch_key, self._normalize(target_name))] = reason
 
     def _drop_pending(self, patch_key: str, target_name: str) -> None:
         pending = self.pending_patches.get(patch_key)
@@ -446,6 +765,7 @@ class XPatchPatchManager:
         self.pending_patches[patch_key] = [
             item for item in pending if self._normalize(item) != target_norm
         ]
+        self.pending_reasons.pop((patch_key, target_norm), None)
         if not self.pending_patches[patch_key]:
             self.pending_patches.pop(patch_key, None)
 
@@ -523,16 +843,30 @@ class XPatchKernel(KernelBase):
         super().__init__()
 
         self._xpatch_base_version = self.VERSION
+        self._xpatch_kernel_version = (0, 0, 6)
         self._xpatch_stealth_mode = False
+        self._xpatch_events_enabled = False
+        self._xpatch_hot_reload_enabled = False
+        self._xpatch_hot_reload_interval = 2.0
+        self._xpatch_extera_proxy_all = False
+        self._xpatch_extera_proxy_modules: set[str] = set()
+        self._xpatch_extera_proxy_scopes: set[str] = {"kernel"}
+        self._xpatch_extera_original_get_module_kernel = None
+        self._xpatch_extera_original_get_module_client = None
+        self._xpatch_extera_original_wrap_event_for_module = None
+        self._xpatch_extera_original_client_proxy_class = None
+        self._xpatch_extera_proxy_hook_installed = False
         self.ver = f"{self.VERSION}.XPatch"
         self.VERSION = self.ver
-        self.VERSION_XKERNEL = (0, 0, 4)
+        self.VERSION_XKERNEL = (0, 0, 6)
         self._xpatch_full_load_complete = False
         self._xpatch_retry_task = None
+        self._xpatch_hot_reload_task = None
 
         self.patch_manager = XPatchPatchManager(self)
         self.xpatch = self.patch_manager
         self.patches = self.patch_manager
+        self._install_extera_proxy_hook()
         self._install_xpatch_loader_hooks()
 
     def setup_directories(self) -> None:
@@ -584,15 +918,413 @@ class XPatchKernel(KernelBase):
 
         self.ver = f"{base_version}.XPatch"
         self.VERSION = self.ver
-        self.VERSION_XKERNEL = (0, 0, 4)
+        self.VERSION_XKERNEL = object.__getattribute__(self, "_xpatch_kernel_version")
         self.CORE_NAME = "XPatchKernel"
+
+    def set_extera_proxy_all(self, enabled: bool) -> None:
+        """Force raw kernel instead of ModuleKernelProxy for all user modules."""
+
+        object.__setattr__(self, "_xpatch_extera_proxy_all", bool(enabled))
+        object.__getattribute__(self, "_install_extera_proxy_hook")()
+        object.__getattribute__(self, "_apply_extera_proxy_to_loaded_modules")()
+
+    def set_extera_proxy_modules(self, modules: Any) -> None:
+        """Set module allowlist for ExteraProxy raw-kernel access."""
+
+        normalized = {
+            self._normalize_extera_module_name(item)
+            for item in self._coerce_extera_modules(modules)
+        }
+        normalized.discard("")
+        object.__setattr__(self, "_xpatch_extera_proxy_modules", normalized)
+        object.__getattribute__(self, "_install_extera_proxy_hook")()
+        object.__getattribute__(self, "_apply_extera_proxy_to_loaded_modules")()
+
+    def set_extera_proxy_scopes(self, scopes: Any) -> None:
+        """Choose which proxies ExteraProxy disables: kernel, client, event."""
+
+        normalized = {
+            str(item).strip().casefold()
+            for item in self._coerce_extera_modules(scopes)
+        }
+        allowed = {"kernel", "client", "event", "root"}
+        normalized = {item for item in normalized if item in allowed}
+        if "root" in normalized or {"kernel", "client", "event"}.issubset(normalized):
+            normalized = {"root"}
+        if not normalized:
+            normalized = {"kernel"}
+        object.__setattr__(self, "_xpatch_extera_proxy_scopes", normalized)
+        object.__getattribute__(self, "_install_extera_proxy_hook")()
+        object.__getattribute__(self, "_apply_extera_proxy_to_loaded_modules")()
+
+    def add_extera_proxy_module(self, module_name: str) -> set[str]:
+        modules = set(object.__getattribute__(self, "_xpatch_extera_proxy_modules"))
+        normalized = self._normalize_extera_module_name(module_name)
+        if normalized:
+            modules.add(normalized)
+        object.__setattr__(self, "_xpatch_extera_proxy_modules", modules)
+        object.__getattribute__(self, "_install_extera_proxy_hook")()
+        object.__getattribute__(self, "_apply_extera_proxy_to_loaded_modules")()
+        return set(modules)
+
+    def remove_extera_proxy_module(self, module_name: str) -> set[str]:
+        modules = set(object.__getattribute__(self, "_xpatch_extera_proxy_modules"))
+        modules.discard(self._normalize_extera_module_name(module_name))
+        object.__setattr__(self, "_xpatch_extera_proxy_modules", modules)
+        object.__getattribute__(self, "_apply_extera_proxy_to_loaded_modules")()
+        return set(modules)
+
+    def clear_extera_proxy_modules(self) -> None:
+        object.__setattr__(self, "_xpatch_extera_proxy_modules", set())
+        object.__getattribute__(self, "_apply_extera_proxy_to_loaded_modules")()
+
+    def extera_proxy_status(self) -> dict[str, Any]:
+        modules = sorted(object.__getattribute__(self, "_xpatch_extera_proxy_modules"))
+        return {
+            "all": bool(object.__getattribute__(self, "_xpatch_extera_proxy_all")),
+            "modules": modules,
+            "count": len(modules),
+            "scopes": sorted(object.__getattribute__(self, "_xpatch_extera_proxy_scopes")),
+            "hook_installed": bool(
+                object.__getattribute__(self, "_xpatch_extera_proxy_hook_installed")
+            ),
+        }
+
+    def _install_extera_proxy_hook(self) -> None:
+        try:
+            from core.lib.loader import kernel_proxy as kernel_proxy_module
+        except Exception as e:
+            logger = getattr(self, "logger", None)
+            log_method = getattr(logger, "debug", None)
+            if callable(log_method):
+                log_method("[xpatch] ExteraProxy hook unavailable: %s", e)
+            return
+
+        self._protect_xkernel_proxy_controls(kernel_proxy_module)
+        self._patch_extera_proxy_function(
+            kernel_proxy_module,
+            "get_module_kernel",
+            "_xpatch_extera_original_get_module_kernel",
+            self._make_extera_get_module_kernel,
+        )
+        self._patch_extera_proxy_function(
+            kernel_proxy_module,
+            "get_module_client",
+            "_xpatch_extera_original_get_module_client",
+            self._make_extera_get_module_client,
+        )
+        self._patch_extera_proxy_function(
+            kernel_proxy_module,
+            "wrap_event_for_module",
+            "_xpatch_extera_original_wrap_event_for_module",
+            self._make_extera_wrap_event_for_module,
+        )
+        self._patch_extera_client_proxy_class(kernel_proxy_module)
+        self._patch_extera_proxy_imported_wrappers(kernel_proxy_module)
+        object.__setattr__(self, "_xpatch_extera_proxy_hook_installed", True)
+
+    def _protect_xkernel_proxy_controls(self, kernel_proxy_module: Any) -> None:
+        protected = getattr(kernel_proxy_module, "PROTECTED_KERNEL_NAMES", frozenset())
+        xkernel_controls = {
+            "patch_manager",
+            "xpatch",
+            "patches",
+            "apply_patches",
+            "apply_patches_for_module",
+            "enable_stealth_mode",
+            "disable_stealth_mode",
+            "set_xpatch_events_enabled",
+            "set_xpatch_hot_reload_enabled",
+            "set_extera_proxy_all",
+            "set_extera_proxy_modules",
+            "set_extera_proxy_scopes",
+            "add_extera_proxy_module",
+            "remove_extera_proxy_module",
+            "clear_extera_proxy_modules",
+            "extera_proxy_status",
+        }
+        try:
+            kernel_proxy_module.PROTECTED_KERNEL_NAMES = frozenset(
+                set(protected) | xkernel_controls
+            )
+        except Exception:
+            pass
+
+    def _patch_extera_proxy_function(
+        self,
+        module: Any,
+        attr_name: str,
+        original_attr_name: str,
+        factory: Any,
+    ) -> None:
+        current = getattr(module, attr_name, None)
+        if current is None:
+            return
+        original = object.__getattribute__(self, original_attr_name)
+        if original is None:
+            original = getattr(current, "__xpatch_extera_original__", current)
+            object.__setattr__(self, original_attr_name, original)
+        if getattr(current, "__xpatch_extera_kernel_id__", None) == id(self):
+            return
+        wrapper = factory(original)
+        wrapper.__xpatch_extera_original__ = original
+        wrapper.__xpatch_extera_kernel_id__ = id(self)
+        setattr(module, attr_name, wrapper)
+
+    def _patch_extera_client_proxy_class(self, kernel_proxy_module: Any) -> None:
+        current = getattr(kernel_proxy_module, "ClientProxy", None)
+        if current is None:
+            return
+        original = object.__getattribute__(self, "_xpatch_extera_original_client_proxy_class")
+        if original is None:
+            original = getattr(current, "__xpatch_extera_original__", current)
+            object.__setattr__(self, "_xpatch_extera_original_client_proxy_class", original)
+        if getattr(current, "__xpatch_extera_kernel_id__", None) == id(self):
+            return
+        wrapper = self._make_extera_client_proxy(original)
+        wrapper.__xpatch_extera_original__ = original
+        wrapper.__xpatch_extera_kernel_id__ = id(self)
+        setattr(kernel_proxy_module, "ClientProxy", wrapper)
+
+    def _patch_extera_proxy_imported_wrappers(self, kernel_proxy_module: Any) -> None:
+        # Several core modules import proxy helpers directly. Patch module-level
+        # aliases too, otherwise old aliases keep returning EventProxy/ClientProxy.
+        import sys
+
+        replacements = {
+            "get_module_kernel": getattr(kernel_proxy_module, "get_module_kernel", None),
+            "get_module_client": getattr(kernel_proxy_module, "get_module_client", None),
+            "wrap_event_for_module": getattr(kernel_proxy_module, "wrap_event_for_module", None),
+            "ClientProxy": getattr(kernel_proxy_module, "ClientProxy", None),
+        }
+        originals = {
+            name: getattr(wrapper, "__xpatch_extera_original__", None)
+            for name, wrapper in replacements.items()
+            if wrapper is not None
+        }
+
+        for module_name, module in list(sys.modules.items()):
+            if not module_name.startswith("core."):
+                continue
+            for attr_name, wrapper in replacements.items():
+                if wrapper is None or not hasattr(module, attr_name):
+                    continue
+                current = getattr(module, attr_name, None)
+                original = originals.get(attr_name)
+                if (
+                    current is original
+                    or getattr(current, "__xpatch_extera_original__", None) is original
+                    or getattr(current, "__module__", "").startswith("core.")
+                ):
+                    setattr(module, attr_name, wrapper)
+
+    def _make_extera_get_module_kernel(self, original: Any) -> Any:
+        kernel_self = self
+
+        def get_module_kernel_with_extera(kernel: Any, module_name: str, is_system: bool) -> Any:
+            if is_system:
+                return original(kernel, module_name, is_system)
+            should_bypass = object.__getattribute__(kernel_self, "_extera_proxy_should_bypass")
+            scope_enabled = object.__getattribute__(kernel_self, "_extera_proxy_scope_enabled")
+            if kernel is kernel_self and scope_enabled("kernel") and should_bypass(module_name):
+                return kernel
+            return original(kernel, module_name, is_system)
+
+        return get_module_kernel_with_extera
+
+    def _apply_extera_proxy_to_loaded_modules(self) -> None:
+        raw_client = getattr(self, "client", None)
+        if raw_client is None:
+            return
+        client_scope = self._extera_proxy_scope_enabled("client")
+        original_client_proxy = object.__getattribute__(
+            self,
+            "_xpatch_extera_original_client_proxy_class",
+        )
+        for module_names, target in self._iter_extera_loaded_module_targets():
+            bypass = client_scope and self._extera_proxy_should_bypass_names(module_names)
+            display_name = sorted(module_names)[0] if module_names else "<unknown>"
+            replacement = raw_client
+            if not bypass:
+                if original_client_proxy is None:
+                    continue
+                replacement = original_client_proxy(raw_client, module_name=display_name)
+            for attr_name in ("client", "_client"):
+                if not hasattr(target, attr_name):
+                    continue
+                try:
+                    current = getattr(target, attr_name)
+                    if bypass or current is raw_client:
+                        setattr(target, attr_name, replacement)
+                except Exception:
+                    pass
+            allmodules = getattr(target, "allmodules", None)
+            if allmodules is not None and hasattr(allmodules, "_client_proxy"):
+                try:
+                    current = allmodules._client_proxy
+                    if bypass or current is raw_client:
+                        allmodules._client_proxy = replacement
+                except Exception:
+                    pass
+
+    def _iter_extera_loaded_module_targets(self) -> list[tuple[set[str], Any]]:
+        items: list[tuple[set[str], Any]] = []
+        target_aliases: dict[int, set[str]] = {}
+        target_objects: dict[int, Any] = {}
+
+        def add(name: Any, target: Any) -> None:
+            if target is None:
+                return
+            target_id = id(target)
+            aliases = target_aliases.setdefault(target_id, set())
+            aliases.update(self._extera_names_for_target(name, target))
+            target_objects[target_id] = target
+
+        for name, module in (getattr(self, "loaded_modules", {}) or {}).items():
+            add(name, module)
+            add(name, getattr(module, "_class_instance", None))
+        for name, instance in (getattr(self, "_class_module_instances", {}) or {}).items():
+            add(name, instance)
+        for target_id, aliases in target_aliases.items():
+            items.append(({item for item in aliases if item}, target_objects[target_id]))
+        return items
+
+    def _extera_names_for_target(self, name: Any, target: Any) -> set[str]:
+        names = {
+            self._normalize_extera_module_name(name),
+            self._normalize_extera_module_name(getattr(target, "name", "")),
+            self._normalize_extera_module_name(getattr(target, "__name__", "")),
+            self._normalize_extera_module_name(type(target).__name__),
+        }
+        return {item for item in names if item}
+
+    def _make_extera_client_proxy(self, original: Any) -> Any:
+        kernel_self = self
+
+        def ClientProxy_with_extera(client: Any, module_name: str) -> Any:
+            should_bypass = object.__getattribute__(kernel_self, "_extera_proxy_should_bypass")
+            scope_enabled = object.__getattribute__(kernel_self, "_extera_proxy_scope_enabled")
+            kernel_client = getattr(kernel_self, "client", None)
+            if client is kernel_client and scope_enabled("client") and should_bypass(module_name):
+                return client
+            return original(client, module_name)
+
+        return ClientProxy_with_extera
+
+    def _make_extera_get_module_client(self, original: Any) -> Any:
+        kernel_self = self
+
+        def get_module_client_with_extera(kernel: Any, module_name: str, is_system: bool) -> Any:
+            if is_system:
+                return original(kernel, module_name, is_system)
+            should_bypass = object.__getattribute__(kernel_self, "_extera_proxy_should_bypass")
+            scope_enabled = object.__getattribute__(kernel_self, "_extera_proxy_scope_enabled")
+            if kernel is kernel_self and scope_enabled("client") and should_bypass(module_name):
+                return kernel.client
+            return original(kernel, module_name, is_system)
+
+        return get_module_client_with_extera
+
+    def _make_extera_wrap_event_for_module(self, original: Any) -> Any:
+        kernel_self = self
+
+        def wrap_event_for_module_with_extera(event: Any, module_name: str, kernel: Any) -> Any:
+            should_bypass = object.__getattribute__(kernel_self, "_extera_proxy_should_bypass")
+            scope_enabled = object.__getattribute__(kernel_self, "_extera_proxy_scope_enabled")
+            if kernel is kernel_self and scope_enabled("event") and should_bypass(module_name):
+                return event
+            return original(event, module_name, kernel)
+
+        return wrap_event_for_module_with_extera
+
+    def _extera_proxy_should_bypass_names(self, module_names: set[str]) -> bool:
+        modules = object.__getattribute__(self, "_xpatch_extera_proxy_modules")
+        if bool(object.__getattribute__(self, "_xpatch_extera_proxy_all")):
+            return module_names.isdisjoint(modules)
+        return bool(module_names & modules)
+
+    def _extera_proxy_should_bypass(self, module_name: Any) -> bool:
+        modules = object.__getattribute__(self, "_xpatch_extera_proxy_modules")
+        normalized = self._normalize_extera_module_name(module_name)
+        if bool(object.__getattribute__(self, "_xpatch_extera_proxy_all")):
+            return normalized not in modules
+        return normalized in modules
+
+    def _extera_proxy_scope_enabled(self, scope: str) -> bool:
+        scopes = object.__getattribute__(self, "_xpatch_extera_proxy_scopes")
+        return "root" in scopes or str(scope).casefold() in scopes
+
+    @staticmethod
+    def _coerce_extera_modules(value: Any) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            raw_items = value.replace("\n", ",").split(",")
+        elif isinstance(value, (list, tuple, set, frozenset)):
+            raw_items = list(value)
+        else:
+            raw_items = [value]
+        return [str(item).strip() for item in raw_items if str(item).strip()]
+
+    @staticmethod
+    def _normalize_extera_module_name(value: Any) -> str:
+        return str(value).strip().casefold() if value is not None else ""
 
     async def run(self) -> None:
         print('Start RUN')
+        self._install_extera_proxy_hook()
         if not getattr(self, "_xpatch_stealth_mode", False):
             self.CORE_NAME = "XPatchKernel"
+        await self._xpatch_manager().apply_for_target(_MAGIC_PRE_LOAD_TARGET, force=True)
         await self._xpatch_manager().apply_for_target(_MAGIC_KERNEL_TARGET, force=True)
         await super().run()
+
+    def set_xpatch_events_enabled(self, enabled: bool) -> None:
+        object.__setattr__(self, "_xpatch_events_enabled", bool(enabled))
+
+    def set_xpatch_hot_reload_enabled(
+        self,
+        enabled: bool,
+        *,
+        interval: float | None = None,
+    ) -> None:
+        object.__setattr__(self, "_xpatch_hot_reload_enabled", bool(enabled))
+        if interval is not None:
+            object.__setattr__(self, "_xpatch_hot_reload_interval", max(float(interval), 0.5))
+        if enabled:
+            self._start_xpatch_hot_reload()
+        else:
+            self._stop_xpatch_hot_reload()
+
+    def _start_xpatch_hot_reload(self) -> None:
+        task = object.__getattribute__(self, "_xpatch_hot_reload_task")
+        if task is not None and not task.done():
+            return
+        object.__setattr__(
+            self,
+            "_xpatch_hot_reload_task",
+            asyncio.create_task(self._watch_xpatch_files()),
+        )
+
+    def _stop_xpatch_hot_reload(self) -> None:
+        task = object.__getattribute__(self, "_xpatch_hot_reload_task")
+        if task is not None and not task.done():
+            task.cancel()
+        object.__setattr__(self, "_xpatch_hot_reload_task", None)
+
+    async def _watch_xpatch_files(self) -> None:
+        while bool(object.__getattribute__(self, "_xpatch_hot_reload_enabled")):
+            interval = float(object.__getattribute__(self, "_xpatch_hot_reload_interval"))
+            await asyncio.sleep(interval)
+            try:
+                await self._xpatch_manager().reload_changed_patches()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger = getattr(self, "logger", None)
+                log_method = getattr(logger, "debug", None)
+                if callable(log_method):
+                    log_method("[xpatch] hot reload check failed: %s", e)
 
     def _install_xpatch_loader_hooks(self) -> None:
         loader = getattr(self, "_loader", None)
