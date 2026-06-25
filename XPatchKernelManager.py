@@ -558,6 +558,30 @@ class XKernelInstaller(ModuleBase):
     async def _placeholder_xkernel_version(self, data: dict[str, Any] | None = None) -> str:
         return self._display_xkernel_version()
 
+    def _extera_proxy_scopes_label(self) -> str:
+        scopes = self._extera_scopes_from_config()
+        if "root" in scopes:
+            return "Root"
+        return ", ".join(scope.title() for scope in scopes)
+
+    @utils.placeholders(
+        "extera_proxy_status",
+        description="ExteraProxy status: disabled, selected modules, all modules, or all except list",
+    )
+    async def _placeholder_extera_proxy_status(
+        self, data: dict[str, Any] | None = None
+    ) -> str:
+        return self._extera_proxy_status_label()
+
+    @utils.placeholders(
+        "extera_proxy_scopes",
+        description="ExteraProxy active scopes: Kernel, Client, Event, or Root",
+    )
+    async def _placeholder_extera_proxy_scopes(
+        self, data: dict[str, Any] | None = None
+    ) -> str:
+        return self._extera_proxy_scopes_label()
+
     @utils.placeholders(
         "xkernel_custom_text",
         description="Configured XKernel state text: installed, not installed, stealth, or inactive core",
@@ -573,6 +597,8 @@ class XKernelInstaller(ModuleBase):
             template,
             data={
                 "xkernel_version": self._display_xkernel_version(),
+                "extera_proxy_status": self._extera_proxy_status_label(),
+                "extera_proxy_scopes": self._extera_proxy_scopes_label(),
                 "xkernel_custom_text": "",
             },
             strict=False,
@@ -603,7 +629,7 @@ class XKernelInstaller(ModuleBase):
                 f"{C['lock']} Stealth: <code>{stealth}</code>  "
                 f"Auto: <code>{auto_update}</code>  "
                 f"Notify: <code>{notifications}</code>\n"
-                f"{C['injection']} ExteraProxy: <i>{extera_proxy}</i>"
+                f"{C['injection']} <b>ExteraProxy Inject:</b> <i>{extera_proxy}</i>"
             )
         else:
             text = (
@@ -787,6 +813,7 @@ class XKernelInstaller(ModuleBase):
                     f"Stealth: {'ON' if stealth else 'OFF'}",
                     self.on_toggle_stealth,
                     ttl=600,
+                    style='danger' if not stealth else 'success',
                 )
             ],
             [
@@ -794,6 +821,7 @@ class XKernelInstaller(ModuleBase):
                     f"Auto update: {'ON' if auto_update else 'OFF'}",
                     self.on_toggle_auto_update,
                     ttl=600,
+                    style='danger' if not auto_update else 'success',
                 )
             ],
             [
@@ -801,13 +829,15 @@ class XKernelInstaller(ModuleBase):
                     f"Notify: {'ON' if notifications else 'OFF'}",
                     self.on_toggle_notifications,
                     ttl=600,
+                    style='danger' if not notifications else 'success',
                 )
             ],
             [
                 self.Button.inline(
-                    f"{self._clear_text(C['injection'])} ExteraProxy",
+                    f"{self._clear_text(C['injection'])} ExteraProxy Inject",
                     self.on_extera_proxy_menu,
                     ttl=600,
+                    style='primary',
                 )
             ],
             [
@@ -815,6 +845,7 @@ class XKernelInstaller(ModuleBase):
                     f"{self._clear_text(C['magic'])} Экспериментальные функции",
                     self.on_experimental_settings_menu,
                     ttl=600,
+                    style='primary',
                 )
             ],
             [self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_back_to_main, ttl=600)],
@@ -836,7 +867,7 @@ class XKernelInstaller(ModuleBase):
         modules_text = ", ".join(html.escape(item) for item in modules) or "нет"
         scopes = self._extera_scopes_from_config()
         root_enabled = "root" in scopes
-        scopes_text = "Root" if root_enabled else ", ".join(scope.title() for scope in scopes)
+        scopes_text = self._extera_proxy_scopes_label()
         modules_label = "Исключения" if all_enabled else "Выбранные модули"
         status = html.escape(self._extera_proxy_status_label())
         text = (
@@ -855,6 +886,7 @@ class XKernelInstaller(ModuleBase):
                     f"Для всех: {'ON' if all_enabled else 'OFF'}",
                     self.on_toggle_extera_proxy_all,
                     ttl=600,
+                    style='danger' if not all_enabled else "success",
                 )
             ],
             (
@@ -863,6 +895,7 @@ class XKernelInstaller(ModuleBase):
                         "Root: ON → custom",
                         self.on_toggle_extera_scope_root,
                         ttl=600,
+                        style='success'
                     )
                 ]
                 if root_enabled
@@ -871,16 +904,19 @@ class XKernelInstaller(ModuleBase):
                         f"Kernel: {'ON' if 'kernel' in scopes else 'OFF'}",
                         self.on_toggle_extera_scope_kernel,
                         ttl=600,
+                        style='danger' if not 'kernel' in scopes else 'success',
                     ),
                     self.Button.inline(
                         f"Client: {'ON' if 'client' in scopes else 'OFF'}",
                         self.on_toggle_extera_scope_client,
                         ttl=600,
+                        style='danger' if not 'client' in scopes else 'success',
                     ),
                     self.Button.inline(
                         f"Event: {'ON' if 'event' in scopes else 'OFF'}",
                         self.on_toggle_extera_scope_event,
                         ttl=600,
+                        style='danger' if not 'event' in scopes else 'success'
                     ),
                 ]
             ),
@@ -890,12 +926,14 @@ class XKernelInstaller(ModuleBase):
                     self.on_extera_proxy_add_input,
                     placeholder="ModuleName",
                     ttl=600,
+                    style='success'
                 ),
                 self.Button.input(
                     "➖ Убрать модуль",
                     self.on_extera_proxy_remove_input,
                     placeholder="ModuleName",
                     ttl=600,
+                    style='danger'
                 ),
             ],
             [
@@ -951,6 +989,7 @@ class XKernelInstaller(ModuleBase):
                     f"Patch events: {'ON' if patch_events else 'OFF'}",
                     self.on_toggle_patch_events,
                     ttl=600,
+                    style='danger' if not patch_events else 'success',
                 )
             ],
             [
@@ -958,6 +997,7 @@ class XKernelInstaller(ModuleBase):
                     f"Hot reload: {'ON' if hot_reload else 'OFF'}",
                     self.on_toggle_patch_hot_reload,
                     ttl=600,
+                    style='danger' if not hot_reload else 'success',
                 )
             ],
             [
