@@ -110,6 +110,12 @@ PATCH_CONDITION = lambda kernel: not getattr(kernel, "power_save_mode", False)
 - `PATCH_REQUIRES_XKERNEL`: incompatible patches fail early with a clear message.
 - `PATCH_CONDITION`: false conditions stay pending and are retried by normal retry passes.
 
+The manager shows `PATCH_REQUIRES_XKERNEL` on the patch detail page. If the
+current XKernel is too old, it warns with the minimum required version. If the
+version is compatible, it shows a compatibility confirmation. If the metadata is
+missing, the detail page warns that the patch does not declare its minimum
+XKernel version.
+
 ## Callback Names
 
 XKernel uses the first callable found in this order:
@@ -129,6 +135,10 @@ For reversible patches, XKernel also recognizes unapply callbacks:
 | `unapply` | Short compatibility name |
 
 If no apply callback is found, the patch is marked as failed. If no unapply callback is found, hot reload can still reload the patch but cannot automatically revert old monkey-patches.
+
+When an unapply callback exists, the manager exposes an `Unapply` action on the
+patch detail page. The same detail page can also reload a patch file and disable
+or re-enable a patch without deleting it from `patches/`.
 
 ## Callback Signatures
 

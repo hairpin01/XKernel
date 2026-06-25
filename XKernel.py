@@ -4,8 +4,10 @@ import asyncio
 import hashlib
 import importlib.util
 import inspect
+import json
 import os
 import sys
+import traceback
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -116,6 +118,8 @@ class XPatchPatchManager:
         self.pending_patches: dict[str, list[str]] = {}
         self.pending_reasons: dict[tuple[str, str], str] = {}
         self.failed_patches: dict[tuple[str, str], str] = {}
+        self.failed_tracebacks: dict[tuple[str, str], str] = {}
+        self.disabled_patches: set[str] = self._load_disabled_patches()
 
         os.makedirs(self.patches_dir, exist_ok=True)
 
@@ -135,6 +139,7 @@ class XPatchPatchManager:
             "pending": [],
             "failed": [],
             "skipped": [],
+            "disabled": [],
         }
 
         patches = sorted(
@@ -148,6 +153,12 @@ class XPatchPatchManager:
 
         for patch_key, patch_module in patches:
             patch_name = self._patch_display_name(patch_module, patch_key)
+            if self.is_patch_disabled(patch_key):
+                result["disabled"].append((patch_name, "<disabled>"))
+                continue
+            if self._safe_mode_enabled():
+                result["skipped"].append((patch_name, "<safe-mode>"))
+                continue
             targets = self._patch_targets(patch_module)
             if not targets:
                 target = "<missing-target>"
@@ -259,6 +270,7 @@ class XPatchPatchManager:
         except Exception as e:
             error = str(e)
             self.failed_patches[applied_key] = error
+            self.failed_tracebacks[applied_key] = traceback.format_exc()
             self._log(
                 "error",
                 "[xpatch] patch %s failed for %s: %s",
@@ -310,12 +322,14 @@ class XPatchPatchManager:
                 await result
         except Exception as e:
             self.failed_patches[applied_key] = str(e)
+            self.failed_tracebacks[applied_key] = traceback.format_exc()
             self._log("error", "[xpatch] patch %s failed to unapply from %s: %s", patch_name, target_name, e)
             await self._emit_patch_event("xpatch:failed", patch_name, target_name, str(e))
             return "failed"
 
         self.applied_patches.pop(applied_key, None)
         self.failed_patches.pop(applied_key, None)
+        self.failed_tracebacks.pop(applied_key, None)
         await self._emit_patch_event("xpatch:unapplied", patch_name, target_name, None)
         return "unapplied"
 
@@ -367,11 +381,43 @@ class XPatchPatchManager:
                 changed = True
             except Exception as e:
                 self.failed_patches[(patch_key, "<load>")] = str(e)
+                self.failed_tracebacks[(patch_key, "<load>")] = traceback.format_exc()
                 result["failed"].append(patch_key)
                 self._log("error", "[xpatch] failed to hot-reload %s: %s", file_path, e)
 
         if changed:
             await self.apply_all()
+        return result
+
+    async def reload_patch_key(self, patch_key: str) -> dict[str, list[str]]:
+        """Reload one patch file and run a fresh apply pass."""
+
+        result: dict[str, list[str]] = {"reloaded": [], "failed": [], "missing": []}
+        patch_key = str(patch_key)
+        patch_module = self.loaded_patches.get(patch_key)
+        file_path = getattr(patch_module, "__xpatch_file__", "") if patch_module else ""
+        if not file_path:
+            for candidate in self._iter_patch_files():
+                if self._patch_key(candidate) == patch_key:
+                    file_path = str(candidate)
+                    break
+        if not file_path or not Path(file_path).exists():
+            result["missing"].append(patch_key)
+            return result
+
+        await self.unapply_patch_key(patch_key)
+        self._forget_patch(patch_key)
+        try:
+            self.loaded_patches[patch_key] = self._load_patch_module(Path(file_path), patch_key)
+        except Exception as e:
+            self.failed_patches[(patch_key, "<load>")] = str(e)
+            self.failed_tracebacks[(patch_key, "<load>")] = traceback.format_exc()
+            result["failed"].append(patch_key)
+            self._log("error", "[xpatch] failed to reload %s: %s", file_path, e)
+            return result
+
+        result["reloaded"].append(patch_key)
+        await self.apply_all()
         return result
 
     def load_patches(self) -> dict[str, ModuleType]:
@@ -389,6 +435,7 @@ class XPatchPatchManager:
             except Exception as e:
                 target = "<load>"
                 self.failed_patches[(patch_key, target)] = str(e)
+                self.failed_tracebacks[(patch_key, target)] = traceback.format_exc()
                 self._log("error", "[xpatch] failed to load %s: %s", file_path, e)
 
         for stale_key in set(self.loaded_patches) - seen:
@@ -736,6 +783,9 @@ class XPatchPatchManager:
         for key in list(self.failed_patches):
             if key[0] == patch_key:
                 self.failed_patches.pop(key, None)
+        for key in list(self.failed_tracebacks):
+            if key[0] == patch_key:
+                self.failed_tracebacks.pop(key, None)
         self.pending_patches.pop(patch_key, None)
         for key in list(self.pending_reasons):
             if key[0] == patch_key:
@@ -745,6 +795,57 @@ class XPatchPatchManager:
         for applied_key in list(self.applied_patches):
             if applied_key[1] in target_aliases:
                 self.applied_patches.pop(applied_key, None)
+
+    def _disabled_state_path(self) -> Path:
+        return Path(self.patches_dir) / ".xpatch_disabled.json"
+
+    def _load_disabled_patches(self) -> set[str]:
+        path = self._disabled_state_path()
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return set()
+        except Exception as e:
+            self._log("warning", "[xpatch] cannot read disabled patch state: %s", e)
+            return set()
+        if isinstance(data, dict):
+            items = data.get("disabled", [])
+        else:
+            items = data
+        if not isinstance(items, list):
+            return set()
+        return {str(item) for item in items if str(item).strip()}
+
+    def _save_disabled_patches(self) -> None:
+        path = self._disabled_state_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {"disabled": sorted(self.disabled_patches)}
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def is_patch_disabled(self, patch_key: str) -> bool:
+        return str(patch_key) in self.disabled_patches
+
+    def set_patch_disabled(self, patch_key: str, disabled: bool = True) -> bool:
+        patch_key = str(patch_key)
+        changed = False
+        if disabled and patch_key not in self.disabled_patches:
+            self.disabled_patches.add(patch_key)
+            changed = True
+        elif not disabled and patch_key in self.disabled_patches:
+            self.disabled_patches.remove(patch_key)
+            changed = True
+        if changed:
+            self._save_disabled_patches()
+        return changed
+
+    def _safe_mode_enabled(self) -> bool:
+        state = object.__getattribute__(self.kernel, "__dict__")
+        if bool(state.get("_xpatch_safe_mode", False)):
+            return True
+        raw = os.environ.get("XKERNEL_SAFE_MODE") or os.environ.get("XPATCH_SAFE_MODE")
+        if raw and str(raw).strip().casefold() not in {"0", "false", "off", "no"}:
+            return True
+        return any(arg in {"--xpatch-safe", "--xkernel-safe"} for arg in sys.argv)
 
     def _remember_pending(
         self,
@@ -839,12 +940,25 @@ class XPatchKernel(KernelBase):
     def _xpatch_manager(self) -> XPatchPatchManager:
         return object.__getattribute__(self, "patch_manager")
 
+    @staticmethod
+    def _detect_xpatch_safe_mode() -> bool:
+        raw = os.environ.get("XKERNEL_SAFE_MODE") or os.environ.get("XPATCH_SAFE_MODE")
+        if raw and str(raw).strip().casefold() not in {"0", "false", "off", "no"}:
+            return True
+        return any(arg in {"--xpatch-safe", "--xkernel-safe"} for arg in sys.argv)
+
+    def xpatch_safe_mode_enabled(self) -> bool:
+        """Return True when patch application is disabled for recovery boot."""
+
+        return bool(object.__getattribute__(self, "__dict__").get("_xpatch_safe_mode", False))
+
     def __init__(self) -> None:
         super().__init__()
 
         self._xpatch_base_version = self.VERSION
         self._xpatch_kernel_version = (0, 0, 6)
         self._xpatch_stealth_mode = False
+        self._xpatch_safe_mode = self._detect_xpatch_safe_mode()
         self._xpatch_events_enabled = False
         self._xpatch_hot_reload_enabled = False
         self._xpatch_hot_reload_interval = 2.0
@@ -867,7 +981,8 @@ class XPatchKernel(KernelBase):
         self.xpatch = self.patch_manager
         self.patches = self.patch_manager
         self._install_extera_proxy_hook()
-        self._install_xpatch_loader_hooks()
+        if not self._xpatch_safe_mode:
+            self._install_xpatch_loader_hooks()
 
     def setup_directories(self) -> None:
         super().setup_directories()
@@ -1275,8 +1390,9 @@ class XPatchKernel(KernelBase):
         self._install_extera_proxy_hook()
         if not getattr(self, "_xpatch_stealth_mode", False):
             self.CORE_NAME = "XPatchKernel"
-        await self._xpatch_manager().apply_for_target(_MAGIC_PRE_LOAD_TARGET, force=True)
-        await self._xpatch_manager().apply_for_target(_MAGIC_KERNEL_TARGET, force=True)
+        if not self.xpatch_safe_mode_enabled():
+            await self._xpatch_manager().apply_for_target(_MAGIC_PRE_LOAD_TARGET, force=True)
+            await self._xpatch_manager().apply_for_target(_MAGIC_KERNEL_TARGET, force=True)
         await super().run()
 
     def set_xpatch_events_enabled(self, enabled: bool) -> None:

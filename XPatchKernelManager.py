@@ -6,6 +6,8 @@ import hashlib
 import html
 import os
 import re
+import shutil
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -144,7 +146,11 @@ class XKernelInstaller(ModuleBase):
     X_KERNEL_URL = (
         "https://raw.githubusercontent.com/hairpin01/XKernel/refs/heads/main/XKernel.py"
     )
+    X_MANAGER_URL = (
+        "https://raw.githubusercontent.com/hairpin01/XKernel/refs/heads/main/XPatchKernelManager.py"
+    )
     X_KERNEL_REPO = "https://github.com/hairpin01/XKernel"
+    MANAGER_UPDATE_CACHE_TTL = 6 * 60 * 60
 
     async def on_load(self) -> None:
         self.CUSTOM_EMOJI = {
@@ -176,6 +182,8 @@ class XKernelInstaller(ModuleBase):
             "magic": '<tg-emoji emoji-id="5785326857587003471">🪄</tg-emoji>',
             "utils": '<tg-emoji emoji-id="5884290437459480896">📸</tg-emoji>',
             "logs": '<tg-emoji emoji-id="5960551395730919906">📝</tg-emoji>',
+            "pending": '<tg-emoji emoji-id="5839380464116175529">✏️</tg-emoji>',
+            "result": '<tg-emoji emoji-id="5877540355187937244">📤</tg-emoji>',
 
         }
         self.C = self.CUSTOM_EMOJI
@@ -202,11 +210,20 @@ class XKernelInstaller(ModuleBase):
         utils.unregister_scope(self.name)
 
     def _ensure_update_task(self) -> None:
-        if not (self._cfg("auto_update_kernel") or self._cfg("update_notifications")):
+        if not (
+            self._cfg("auto_update_kernel")
+            or self._cfg("update_notifications")
+            or self._manager_update_cache_stale()
+        ):
             return
         task = getattr(self, "_update_task", None)
         if task is None or task.done():
-            self._update_task = asyncio.create_task(self._check_kernel_update())
+            self._update_task = asyncio.create_task(self._run_update_checks())
+
+    async def _run_update_checks(self) -> None:
+        await self._refresh_manager_update_cache()
+        if self._cfg("auto_update_kernel") or self._cfg("update_notifications"):
+            await self._check_kernel_update()
 
     async def _load_config(self) -> None:
         config_dict = await self.kernel.get_module_config(
@@ -413,13 +430,15 @@ class XKernelInstaller(ModuleBase):
         self._set_runtime_extera_proxy_scopes(self._extera_scopes_from_config())
 
     def _extera_proxy_status_label(self) -> str:
+        if self._get_pm() is None:
+            return "Не поддерживается текущим ядром"
         count = len(self._extera_modules_from_config())
         if bool(self._cfg("extera_proxy_all", False)):
             if count:
                 return f"Принуждёный для всех, кроме {count} модуля(-лей)"
             return "Принуждёный для всех"
         if count == 0:
-            return "Не активированый"
+            return "Не активен"
         return f"Принуждёный только для {count} модуля(-лей)"
 
     def _clear_text(self, text) -> str:
@@ -559,6 +578,8 @@ class XKernelInstaller(ModuleBase):
         return self._display_xkernel_version()
 
     def _extera_proxy_scopes_label(self) -> str:
+        if self._get_pm() is None:
+            return "No access"
         scopes = self._extera_scopes_from_config()
         if "root" in scopes:
             return "Root"
@@ -638,6 +659,12 @@ class XKernelInstaller(ModuleBase):
                 f"{C['info']} Version XPatchKernel: <code>{xkernel_ver}</code>\n\n"
                 f"<blockquote>{C['warning']} <i>XPatchKernel не активен — "
                 f"патчи и некоторые функции недоступны</i></blockquote>"
+            )
+
+        if self._manager_update_available():
+            text += (
+                f"\n\n<blockquote>{C['warning']} <b>Надо обновить XPatch Manager из репозитория, "
+                f"иначе через UI нельзя будет потрогать новые фишки.</b></blockquote>"
             )
 
         buttons: list[list] = []
@@ -722,10 +749,14 @@ class XKernelInstaller(ModuleBase):
             f"{C['utils']} <b>XPatch Utils</b>\n\n"
             f"<blockquote>{C['logs']} <b>Live logs</b> — live-просмотр строк "
             f"<code>[xpatch]</code> из <code>logs/kernel.log</code>. "
-            f"Можно выбрать лимит строк и интервал обновления.</blockquote>"
+            f"Можно выбрать лимит строк и интервал обновления.</blockquote>\n"
+            f"<blockquote>{C['warning']} <b>Удаление XKernel</b> — мастер удаления ядра, "
+            f"бекапов, патчей и модуля-менеджера. Можно отдельно выбрать, "
+            f"сбрасывать ли default core на <code>standard</code> и делать ли авто-рестарт.</blockquote>"
         )
         buttons = [
             [self.Button.inline(f"{self._clear_text(C['logs'])} Live logs", self.on_live_logs_menu, ttl=600)],
+            [self.Button.inline("🧨 Удаление XKernel", self.on_remove_xkernel_menu, ttl=600)],
             [self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_back_to_main, ttl=600)],
         ]
         return text, buttons
@@ -741,6 +772,128 @@ class XKernelInstaller(ModuleBase):
         self._stop_live_logs()
         text, buttons = self._build_utils_page()
         await call.edit(text, buttons=buttons)
+
+    def _xkernel_remove_options(self) -> dict[str, bool]:
+        options = getattr(self, "_xkernel_remove_state", None)
+        if not isinstance(options, dict):
+            options = {
+                "core": True,
+                "backups": False,
+                "manager": False,
+                "patches": False,
+                "default_standard": True,
+                "restart": True,
+            }
+            self._xkernel_remove_state = options
+        return options
+
+    def _toggle_text(self, label: str, enabled: bool) -> str:
+        state = "ON" if enabled else "OFF"
+        icon = self._clear_text(self.C.get("true", "✅") if enabled else self.C.get("off", "❌"))
+        return f"{icon} {label}: {state}"
+
+    def _build_remove_xkernel_page(self) -> tuple[str, list]:
+        C = self.C
+        options = self._xkernel_remove_options()
+        text = (
+            f"{C['warning']} <b>Удаление XKernel</b>\n\n"
+            f"<blockquote>Выбери, что удалить. Действие необратимо для выбранных файлов. "
+            f"Порядок: ядро → бэкапы → патчи → default core → менеджер → restart.</blockquote>"
+        )
+        buttons = [
+            [self.Button.inline("🧨 Начать процесс удаления", self.on_remove_xkernel_start, ttl=300)],
+            [self.Button.inline(self._toggle_text("Ядро", options["core"]), self.on_toggle_remove_option, data="core", ttl=600)],
+            [self.Button.inline(self._toggle_text("Все бекапы", options["backups"]), self.on_toggle_remove_option, data="backups", ttl=600)],
+            [self.Button.inline(self._toggle_text("Модуль-менеджер", options["manager"]), self.on_toggle_remove_option, data="manager", ttl=600)],
+            [self.Button.inline(self._toggle_text("Все патчи", options["patches"]), self.on_toggle_remove_option, data="patches", ttl=600)],
+            [self.Button.inline(self._toggle_text("Default → standard", options["default_standard"]), self.on_toggle_remove_option, data="default_standard", ttl=600)],
+            [self.Button.inline(self._toggle_text("Авто-рестарт", options["restart"]), self.on_toggle_remove_option, data="restart", ttl=600)],
+            [self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_back_to_utils, ttl=600)],
+        ]
+        return text, buttons
+
+    @callback(ttl=600)
+    async def on_remove_xkernel_menu(self, call) -> None:
+        self._stop_live_logs()
+        self._xkernel_remove_options()
+        text, buttons = self._build_remove_xkernel_page()
+        await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
+    async def on_toggle_remove_option(self, call, data: Any = None) -> None:
+        options = self._xkernel_remove_options()
+        key = str(data or "")
+        if key in options:
+            options[key] = not bool(options[key])
+        text, buttons = self._build_remove_xkernel_page()
+        await call.edit(text, buttons=buttons)
+
+    def _patches_dir_path(self) -> Path:
+        pm = self._get_pm()
+        raw = getattr(pm, "patches_dir", "patches") if pm else "patches"
+        path = Path(str(raw))
+        return path if path.is_absolute() else self._repo_root() / path
+
+    async def _execute_xkernel_removal(self, options: dict[str, bool]) -> list[str]:
+        lines: list[str] = []
+
+        if options.get("core", False):
+            target = self._xkernel_path()
+            if target.exists():
+                target.unlink()
+                lines.append(f"✅ Ядро удалено: <code>{html.escape(str(target))}</code>")
+            else:
+                lines.append("ℹ️ Ядро уже отсутствует")
+
+        if options.get("backups", False):
+            backups = self._backup_files()
+            for backup in backups:
+                backup.unlink(missing_ok=True)
+            lines.append(f"✅ Бекапы удалены: <b>{len(backups)}</b>")
+
+        if options.get("patches", False):
+            patches_dir = self._patches_dir_path()
+            if patches_dir.exists():
+                shutil.rmtree(patches_dir)
+                lines.append(f"✅ Патчи удалены: <code>{html.escape(str(patches_dir))}</code>")
+            else:
+                lines.append("ℹ️ Папка патчей уже отсутствует")
+
+        if options.get("default_standard", False):
+            self._set_default_core("standard")
+            lines.append("✅ Default core установлен: <code>standard</code>")
+
+        if options.get("manager", False):
+            await self.invoke("um", args=self.name, chat_id="me")
+            lines.append("✅ Запрошено удаление модуля-менеджера")
+
+        if options.get("restart", False):
+            await self.invoke("restart", chat_id="me")
+            lines.append("✅ Запрошен рестарт MCUB")
+
+        return lines or ["ℹ️ Ничего не выбрано"]
+
+    @callback(ttl=300)
+    async def on_remove_xkernel_start(self, call) -> None:
+        options = dict(self._xkernel_remove_options())
+        await call.answer("Удаляю XKernel...", alert=False)
+        try:
+            lines = await self._execute_xkernel_removal(options)
+        except Exception as exc:
+            self.log.exception("XKernel removal failed")
+            await call.edit(
+                f"{self.C['off']} <b>Удаление XKernel сорвалось</b>\n\n"
+                f"<blockquote><code>{html.escape(str(exc))}</code></blockquote>",
+                buttons=[[self.Button.inline(f"{self._clear_text(self.C['back'])} Назад", self.on_remove_xkernel_menu, ttl=600)]],
+            )
+            return
+
+        await call.edit(
+            f"{self.C['true']} <b>Удаление XKernel завершено</b>\n\n<blockquote>"
+            + "\n".join(lines)
+            + "</blockquote>",
+            buttons=[[self.Button.inline(f"{self._clear_text(self.C['back'])} Назад", self.on_utils_menu, ttl=600)]],
+        )
 
     @callback(ttl=600)
     async def on_live_logs_menu(self, call) -> None:
@@ -842,10 +995,10 @@ class XKernelInstaller(ModuleBase):
             ],
             [
                 self.Button.inline(
-                    f"{self._clear_text(C['magic'])} Экспериментальные функции",
+                    f"{self._clear_text(C['magic'] if self._get_pm() is not None else C['warning'])} Экспериментальные функции",
                     self.on_experimental_settings_menu,
                     ttl=600,
-                    style='primary',
+                    style='primary' if self._get_pm() is not None else 'danger',
                 )
             ],
             [self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_back_to_main, ttl=600)],
@@ -862,24 +1015,32 @@ class XKernelInstaller(ModuleBase):
 
     def _build_extera_proxy_page(self) -> tuple[str, list]:
         C = self.C
+        supported = self._get_pm() is not None
         all_enabled = bool(self._cfg("extera_proxy_all", False))
         modules = self._extera_modules_from_config()
         modules_text = ", ".join(html.escape(item) for item in modules) or "нет"
         scopes = self._extera_scopes_from_config()
         root_enabled = "root" in scopes
-        scopes_text = self._extera_proxy_scopes_label()
+        scopes_text = self._extera_proxy_scopes_label() if supported else "No access"
         modules_label = "Исключения" if all_enabled else "Выбранные модули"
-        status = html.escape(self._extera_proxy_status_label())
+        status = html.escape(
+            self._extera_proxy_status_label()
+            if supported
+            else "Не поддерживается текущим ядром"
+        )
+        status_icon = C["moon"] if supported else C["warning"]
         text = (
             f"{C['injection']} <b>ExteraProxy Inject</b>\n"
             f"<blockquote>{C['info']} Что это? Можно сказать патчит ядро так, что оно <b>даёт Root модулю. Доступ к ядру/клиенту или событию</b>, нужно только если модуль требует защищённый объект (например, session у client)</blockquote>\n"
             f"<blockquote>{C['warning']} Если вы не знаете зачем это вам - <b>не трогайте</b></blockquote>\n"
-            f"{C['moon']} Статус: <b>{status}</b>\n"
+            f"{status_icon} Статус: <b>{status}</b>\n"
             f"{C['command']} <b>Scopes:</b> <code>{html.escape(scopes_text)}</code>\n"
             f"{C['info']} {modules_label}: <code>{modules_text}</code>\n"
             f"<blockquote expandable>{C['warning']} <b>Включай только для известных и доверенных модулей. "
             f"Не включай для неизвестных или подозрительных модулей.</b></blockquote>"
         )
+        if not supported:
+            return text, [[self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_settings_menu, ttl=600)]]
         buttons = [
             [
                 self.Button.inline(
@@ -1012,6 +1173,14 @@ class XKernelInstaller(ModuleBase):
 
     @callback(ttl=600)
     async def on_experimental_settings_menu(self, call) -> None:
+        if self._get_pm() is None:
+            await call.answer("Не поддерживается текущим ядром", alert=True)
+            await call.edit(
+                f"{self.C['warning']} <b>Экспериментальные функции недоступны</b>\n\n"
+                f"<blockquote>Текущее ядро не поддерживает runtime-функции XKernel.</blockquote>",
+                buttons=[[self.Button.inline(f"{self._clear_text(self.C['back'])} Назад", self.on_settings_menu, ttl=600)]],
+            )
+            return
         text, buttons = self._build_experimental_settings_page()
         await call.edit(text, buttons=buttons)
 
@@ -1201,6 +1370,197 @@ class XKernelInstaller(ModuleBase):
         text, buttons = self._build_experimental_settings_page()
         await call.edit(text, buttons=buttons)
 
+    def _patch_button_entries(self, pm: Any) -> list[dict[str, str]]:
+        entries: list[dict[str, str]] = []
+        seen: set[tuple[str, str]] = set()
+
+        def add(patch_key: str, target: str, status: str) -> None:
+            target_text = str(target)
+            entry_key = (patch_key, self._patch_target_norm(pm, target_text))
+            if entry_key in seen:
+                return
+            seen.add(entry_key)
+            entries.append({"patch_key": patch_key, "target": target_text, "status": status})
+
+        for patch_key, target_norm in pm.applied_patches:
+            info = pm.applied_patches[(patch_key, target_norm)]
+            add(patch_key, str(info.get("target", target_norm)), "applied")
+        for patch_key, target in pm.failed_patches:
+            add(patch_key, str(target), "failed")
+        for patch_key, targets in pm.pending_patches.items():
+            for target in targets:
+                add(patch_key, str(target), "pending")
+        for patch_key in sorted(getattr(pm, "disabled_patches", set()) or set()):
+            mod = pm.loaded_patches.get(patch_key)
+            if mod is None:
+                add(str(patch_key), "<disabled>", "disabled")
+                continue
+            targets = pm._patch_targets(mod) if hasattr(pm, "_patch_targets") else []
+            for target in targets or ["<disabled>"]:
+                add(str(patch_key), str(target), "disabled")
+        return entries
+
+    def _patch_target_norm(self, pm: Any, target: str) -> str:
+        normalize = getattr(pm, "_normalize", None)
+        return normalize(target) if callable(normalize) else str(target).strip().casefold()
+
+    def _patch_display_name_safe(self, pm: Any, patch_key: str) -> str:
+        mod = pm.loaded_patches.get(patch_key)
+        try:
+            return pm._patch_display_name(mod, patch_key) if mod else patch_key
+        except Exception:
+            return patch_key
+
+    def _patch_detail_info(self, pm: Any, data: Any) -> dict[str, Any]:
+        data = data or {}
+        patch_key = str(data.get("patch_key", ""))
+        target = str(data.get("target", ""))
+        target_norm = self._patch_target_norm(pm, target)
+        applied_key = (patch_key, target_norm)
+        mod = pm.loaded_patches.get(patch_key)
+        name = self._patch_display_name_safe(pm, patch_key)
+        file_path = getattr(mod, "__xpatch_file__", "") if mod else ""
+        info: dict[str, Any] = {
+            "patch_key": patch_key,
+            "name": name,
+            "target": target,
+            "target_norm": target_norm,
+            "file": file_path or "unknown",
+            "status": "loaded" if mod else "unknown",
+            "result": "",
+            "error": "",
+            "pending_reason": "",
+            "traceback": "",
+            "has_unapply": False,
+            "disabled": False,
+            "required_xkernel": "",
+            "current_xkernel": "",
+            "version_ok": True,
+            "version_known": False,
+        }
+
+        is_disabled = getattr(pm, "is_patch_disabled", lambda key: False)
+        info["disabled"] = bool(is_disabled(patch_key)) if callable(is_disabled) else False
+        if info["disabled"]:
+            info["status"] = "disabled"
+
+        if mod is not None:
+            unapply_callback = getattr(pm, "_unapply_callback", None)
+            if callable(unapply_callback):
+                info["has_unapply"] = bool(unapply_callback(mod))
+            required_getter = getattr(pm, "_patch_required_xkernel", None)
+            current_getter = getattr(pm, "_current_xkernel_version", None)
+            version_less = getattr(pm, "_version_less", None)
+            format_version = getattr(pm, "_format_version", None)
+            required = required_getter(mod) if callable(required_getter) else None
+            current = current_getter() if callable(current_getter) else None
+            if required and current:
+                info["version_known"] = True
+                info["version_ok"] = not bool(version_less(current, required)) if callable(version_less) else True
+                if callable(format_version):
+                    info["required_xkernel"] = format_version(required)
+                    info["current_xkernel"] = format_version(current)
+                else:
+                    info["required_xkernel"] = ".".join(str(part) for part in required)
+                    info["current_xkernel"] = ".".join(str(part) for part in current)
+
+        if applied_key in pm.applied_patches:
+            applied = pm.applied_patches[applied_key]
+            if not info["disabled"]:
+                info["status"] = "applied"
+            info["target"] = str(applied.get("target", target))
+            info["result"] = repr(applied.get("result", ""))
+            return info
+
+        for (failed_key, failed_target), error in pm.failed_patches.items():
+            if failed_key != patch_key:
+                continue
+            if (
+                str(failed_target) == target
+                or self._patch_target_norm(pm, str(failed_target)) == target_norm
+            ):
+                info["status"] = "failed"
+                info["target"] = str(failed_target)
+                info["error"] = str(error)
+                tracebacks = getattr(pm, "failed_tracebacks", {}) or {}
+                info["traceback"] = str(tracebacks.get((patch_key, failed_target), ""))
+                return info
+
+        pending = pm.pending_patches.get(patch_key, [])
+        for pending_target in pending:
+            if self._patch_target_norm(pm, str(pending_target)) == target_norm:
+                info["status"] = "pending"
+                info["target"] = str(pending_target)
+                reasons = getattr(pm, "pending_reasons", {}) or {}
+                info["pending_reason"] = str(reasons.get((patch_key, target_norm), ""))
+                return info
+        return info
+
+    def _patch_status_icon(self, status: str) -> str:
+        if status == "applied":
+            return self.C["true"]
+        if status == "failed":
+            return self.C["off"]
+        if status == "pending":
+            return self.C["pending"]
+        if status == "disabled":
+            return self.C["warning"]
+        return self.C["info"]
+
+    def _patch_detail_text(self, info: dict[str, Any]) -> str:
+        error = str(info.get("error") or "")
+        full_traceback = str(info.get("traceback") or "")
+        result = str(info.get("result") or "")
+        pending_reason = str(info.get("pending_reason") or "")
+        version_known = bool(info.get("version_known", False))
+        version_ok = bool(info.get("version_ok", True))
+        required_xkernel = str(info.get("required_xkernel") or "")
+        lines = [
+            f"{self.C['menu']} <b>Patch detail</b>",
+            "",
+            f"{self._patch_status_icon(str(info['status']))} Status: <b>{html.escape(str(info['status']))}</b>",
+            f"<blockquote expandable>Patch: <code>{html.escape(str(info['name']))}</code>",
+            f"Target: <code>{html.escape(str(info['target']))}</code>",
+            f"File: <code>{html.escape(str(info['file']))}</code>",
+            f"Key: <code>{html.escape(str(info['patch_key']))}</code></blockquote>",
+        ]
+        if result:
+            lines += [
+                "",
+                f"<blockquote expandable>{self.C['result']} <b>Result</b>\n<code>{html.escape(result)}</code></blockquote>",
+            ]
+        if pending_reason:
+            lines += [
+                "",
+                f"<blockquote expandable>{self.C['pending']} <b>Pending reason</b>\n<code>{html.escape(pending_reason)}</code></blockquote>",
+            ]
+        if error:
+            lines += [
+                "",
+                f"<blockquote expandable>{self.C['off']} <b>Error</b>\n{html.escape(error)}</blockquote>",
+            ]
+        if full_traceback:
+            lines += [
+                "",
+                f"<blockquote expandable>{self.C['logs']} <b>Traceback</b>\n<code>{html.escape(full_traceback)}</code></blockquote>",
+            ]
+        if version_known and not version_ok:
+            lines += [
+                "",
+                f"<blockquote>{self.C['warning']} <b>Минимальная версия XKernel для этого патча: {html.escape(required_xkernel)}</b></blockquote>",
+            ]
+        elif version_known:
+            lines += [
+                "",
+                f"<blockquote>{self.C['on']} <b>Патч совместим с текущей версией XKernel</b></blockquote>",
+            ]
+        else:
+            lines += [
+                "",
+                f"<blockquote>{self.C['warning']} <b>Минимальная версия XKernel для этого патча не указана</b></blockquote>",
+            ]
+        return "\n".join(lines)
+
     @callback(ttl=600)
     async def on_patches_menu(self, call) -> None:
         C = self.C
@@ -1209,47 +1569,130 @@ class XKernelInstaller(ModuleBase):
             await call.answer("XPatchKernel не активен", alert=True)
             return
 
-        lines: list[str] = []
+        applied = len(pm.applied_patches)
+        pending = sum(len(v) for v in pm.pending_patches.values())
+        failed = len(pm.failed_patches)
+        disabled = len(getattr(pm, "disabled_patches", set()) or set())
+        text = (
+            f"{C['menu']} <b>Патчи</b>\n\n"
+            f"{C['true']} Applied: <b>{applied}</b>  "
+            f"{C['pending']} Pending: <b>{pending}</b>  "
+            f"{C['off']} Failed: <b>{failed}</b>  "
+            f"{C['warning']} Disabled: <b>{disabled}</b>\n"
+            f"<blockquote>Нажми на патч, чтобы открыть детали.</blockquote>"
+        )
 
-        if pm.applied_patches:
-            lines.append(f"<b>{C['true']} Applied ({len(pm.applied_patches)})</b>")
-            for (patch_key, target), info in pm.applied_patches.items():
-                name = html.escape(info.get("patch", patch_key))
-                tgt = html.escape(info.get("target", target))
-                lines.append(f"  <code>{name}</code> → <i>{tgt}</i>")
+        buttons: list[list] = []
+        for entry in self._patch_button_entries(pm):
+            info = self._patch_detail_info(pm, entry)
+            label = (
+                f"{self._clear_text(self._patch_status_icon(str(info['status'])))} "
+                f"{str(info['name'])[:32]} → {str(info['target'])[:24]}"
+            )
+            buttons.append([self.Button.inline(label, self.on_patch_detail, data=entry, ttl=600)])
 
-        pending_flat = [
-            (pk, t) for pk, targets in pm.pending_patches.items() for t in targets
-        ]
-        if pending_flat:
-            lines.append(f"\n<b>⏳ Pending ({len(pending_flat)})</b>")
-            for patch_key, target in pending_flat:
-                mod = pm.loaded_patches.get(patch_key)
-                try:
-                    name = pm._patch_display_name(mod, patch_key) if mod else patch_key
-                except Exception:
-                    name = patch_key
-                lines.append(
-                    f"  <code>{html.escape(name)}</code> → <i>{html.escape(target)}</i>"
-                )
-
-        if pm.failed_patches:
-            lines.append(f"\n<b>{C['off']} Failed ({len(pm.failed_patches)})</b>")
-            for (patch_key, target), err in pm.failed_patches.items():
-                mod = pm.loaded_patches.get(patch_key)
-                try:
-                    name = pm._patch_display_name(mod, patch_key) if mod else patch_key
-                except Exception:
-                    name = patch_key
-                short_err = html.escape(str(err)[:60])
-                lines.append(f"  <code>{html.escape(name)}</code>: <i>{short_err}</i>")
-
-        body = "\n".join(lines) if lines else "<i>Патчи не найдены</i>"
-        text = f"{C['menu']} <b>Патчи</b>\n\n<blockquote expandable>{body}</blockquote>"
-        buttons = [
-            [self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_back_to_main, ttl=600)],
-        ]
+        if not buttons:
+            text += "\n\n<i>Патчи не найдены</i>"
+        buttons.append([self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_back_to_main, ttl=600)])
         await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
+    async def on_patch_detail(self, call, data: Any = None) -> None:
+        pm = self._get_pm()
+        if pm is None:
+            await call.answer("XPatchKernel не активен", alert=True)
+            return
+        info = self._patch_detail_info(pm, data)
+        buttons: list[list] = []
+        buttons.append([self.Button.inline("🔁 Reload patch", self.on_patch_reload, data=data, ttl=600)])
+        if info["disabled"]:
+            buttons.append([self.Button.inline("✅ Enable patch", self.on_patch_enable, data=data, ttl=600)])
+        else:
+            buttons.append([self.Button.inline("🚫 Disable patch", self.on_patch_disable, data=data, ttl=600)])
+        if info["status"] == "applied" and info.get("has_unapply"):
+            buttons.append([self.Button.inline("↩️ Unapply", self.on_patch_unapply, data=data, ttl=600)])
+        if info["status"] == "failed" and str(info["target"]) not in {"<load>", "<missing-target>"}:
+            buttons.append([self.Button.inline("🔁 Retry", self.on_patch_retry, data=data, ttl=600)])
+        buttons.append([self.Button.inline(f"{self._clear_text(self.C['back'])} Назад", self.on_patches_menu, ttl=600)])
+        await call.edit(self._patch_detail_text(info), buttons=buttons)
+
+    @callback(ttl=600)
+    async def on_patch_reload(self, call, data: Any = None) -> None:
+        pm = self._get_pm()
+        if pm is None:
+            await call.answer("XPatchKernel не активен", alert=True)
+            return
+        patch_key = str((data or {}).get("patch_key", ""))
+        reload_patch_key = getattr(pm, "reload_patch_key", None)
+        if not callable(reload_patch_key):
+            await call.answer("Это XKernel ядро не поддерживает reload одного патча", alert=True)
+            return
+        result = await reload_patch_key(patch_key)
+        if result.get("failed"):
+            await call.answer("Reload failed", alert=True)
+        elif result.get("missing"):
+            await call.answer("Patch file not found", alert=True)
+        else:
+            await call.answer("Reloaded", alert=False)
+        await self.on_patch_detail(call, data)
+
+    @callback(ttl=600)
+    async def on_patch_unapply(self, call, data: Any = None) -> None:
+        pm = self._get_pm()
+        if pm is None:
+            await call.answer("XPatchKernel не активен", alert=True)
+            return
+        patch_key = str((data or {}).get("patch_key", ""))
+        target = str((data or {}).get("target", ""))
+        result = await pm.unapply_patch(patch_key, target)
+        await call.answer(f"Unapply: {result}", alert=result == "failed")
+        await self.on_patch_detail(call, data)
+
+    async def _set_patch_disabled_from_detail(self, call, data: Any, disabled: bool) -> None:
+        pm = self._get_pm()
+        if pm is None:
+            await call.answer("XPatchKernel не активен", alert=True)
+            return
+        patch_key = str((data or {}).get("patch_key", ""))
+        setter = getattr(pm, "set_patch_disabled", None)
+        if not callable(setter):
+            await call.answer("Это XKernel ядро не поддерживает enable/disable патчей", alert=True)
+            return
+        setter(patch_key, disabled)
+        if disabled:
+            await pm.unapply_patch_key(patch_key)
+            await call.answer("Patch disabled", alert=False)
+        else:
+            await pm.apply_all(force=True)
+            await call.answer("Patch enabled", alert=False)
+        await self.on_patch_detail(call, data)
+
+    @callback(ttl=600)
+    async def on_patch_disable(self, call, data: Any = None) -> None:
+        await self._set_patch_disabled_from_detail(call, data, True)
+
+    @callback(ttl=600)
+    async def on_patch_enable(self, call, data: Any = None) -> None:
+        await self._set_patch_disabled_from_detail(call, data, False)
+
+    @callback(ttl=600)
+    async def on_patch_retry(self, call, data: Any = None) -> None:
+        pm = self._get_pm()
+        if pm is None:
+            await call.answer("XPatchKernel не активен", alert=True)
+            return
+        info = self._patch_detail_info(pm, data)
+        target = str(info.get("target") or "")
+        await call.answer("Retry patch...", alert=False)
+        try:
+            if target in {"<load>", "<missing-target>", ""}:
+                await pm.apply_all()
+            else:
+                await pm.apply_for_target(target, force=True)
+        except Exception as exc:
+            self.log.exception("XPatch retry failed")
+            await call.answer(str(exc), alert=True)
+        await self.on_patch_detail(call, data)
 
     @callback(ttl=600)
     async def on_details_menu(self, call) -> None:
@@ -1327,15 +1770,20 @@ class XKernelInstaller(ModuleBase):
                 f"{C['file']} Файл: <code>{html.escape(str(target_path))}</code>\n"
                 f"{C['lock']} SHA: <code>{sha[:16]}…</code>"
                 f"</blockquote>\n"
-                f"{C['warning']} <i>Нужен рестарт MCUB</i>"
+                f"{C['warning']} <b>Сделать XKernel ядром по умолчанию?</b>\n"
+                f"<blockquote>Если выбрать да, MCUB будет стартовать с XKernel без ручного <code>--core XKernel</code>.</blockquote>"
             )
             buttons = [
                 [
                     self.Button.inline(
-                        f"{self._clear_text(C['reboot'])} Рестарт", self.on_restart, ttl=120
+                        "✅ Установить по дефолту",
+                        self.on_install_set_default,
+                        ttl=300,
                     ),
                     self.Button.inline(
-                        f"{self._clear_text(C['back'])} Назад", self.on_back_to_main, ttl=600
+                        "Нет, спасибо",
+                        self.on_install_skip_default,
+                        ttl=300,
                     ),
                 ],
             ]
@@ -1349,6 +1797,39 @@ class XKernelInstaller(ModuleBase):
                     )
                 ],
             ]
+        await call.edit(text, buttons=buttons)
+
+    def _install_finish_page(self, default_changed: bool) -> tuple[str, list]:
+        C = self.C
+        default_text = "XKernel" if default_changed else "не менял"
+        text = (
+            f"{C['true']} <b>Готово</b>\n\n"
+            f"<blockquote>{C['lock']} Default core: <code>{html.escape(default_text)}</code></blockquote>\n"
+            f"{C['warning']} <i>Нужен рестарт MCUB</i>"
+        )
+        buttons = [
+            [
+                self.Button.inline(
+                    f"{self._clear_text(C['reboot'])} Рестарт", self.on_restart, ttl=120
+                ),
+                self.Button.inline(
+                    f"{self._clear_text(C['back'])} Назад", self.on_back_to_main, ttl=600
+                ),
+            ],
+        ]
+        return text, buttons
+
+    @callback(ttl=300)
+    async def on_install_set_default(self, call) -> None:
+        self._set_default_core("XKernel")
+        await call.answer("XKernel установлен по умолчанию", alert=False)
+        text, buttons = self._install_finish_page(default_changed=True)
+        await call.edit(text, buttons=buttons)
+
+    @callback(ttl=300)
+    async def on_install_skip_default(self, call) -> None:
+        await call.answer("Default core не менял", alert=False)
+        text, buttons = self._install_finish_page(default_changed=False)
         await call.edit(text, buttons=buttons)
 
     @callback(ttl=300)
@@ -1456,7 +1937,7 @@ class XKernelInstaller(ModuleBase):
                     f"  <code>{html.escape(name)}</code> → <i>{html.escape(tgt)}</i>"
                 )
         if pending:
-            lines.append(f"\n⏳ Pending ({len(pending)}):")
+            lines.append(f"\n{C['pending']} Pending ({len(pending)}):")
             for name, tgt in pending:
                 lines.append(
                     f"  <code>{html.escape(name)}</code> → <i>{html.escape(tgt)}</i>"
@@ -1667,6 +2148,9 @@ class XKernelInstaller(ModuleBase):
     async def _check_kernel_update(self) -> None:
         if self._is_xpatch_active():
             return
+        if not self._xkernel_path().exists():
+            self.log.debug("XKernel update check skipped: core file is not installed")
+            return
 
         try:
             update = await self._get_kernel_update_info()
@@ -1832,6 +2316,49 @@ class XKernelInstaller(ModuleBase):
     def _format_version(version: tuple[int, ...] | None) -> str:
         return ".".join(str(part) for part in version) if version else "unknown"
 
+    @staticmethod
+    def _coerce_dotted_version(value: Any) -> tuple[int, ...] | None:
+        if value is None:
+            return None
+        parts = re.findall(r"\d+", str(value))
+        return tuple(int(part) for part in parts) if parts else None
+
+    def _manager_local_version(self) -> tuple[int, ...] | None:
+        return self._coerce_dotted_version(getattr(self, "version", None))
+
+    def _manager_cached_remote_version(self) -> tuple[int, ...] | None:
+        return self._coerce_dotted_version(
+            self._cfg("manager_remote_version_cache", None)
+        )
+
+    def _manager_update_cache_stale(self) -> bool:
+        try:
+            checked_at = float(self._cfg("manager_remote_version_checked_at", 0) or 0)
+        except (TypeError, ValueError):
+            return True
+        return time.time() - checked_at >= self.MANAGER_UPDATE_CACHE_TTL
+
+    def _manager_update_available(self) -> bool:
+        return self._is_remote_newer(
+            self._manager_cached_remote_version(),
+            self._manager_local_version(),
+        )
+
+    async def _refresh_manager_update_cache(self, *, force: bool = False) -> tuple[int, ...] | None:
+        if not force and not self._manager_update_cache_stale():
+            return self._manager_cached_remote_version()
+        try:
+            source = await self._download_manager()
+            remote_version = self._manager_version_from_source(source)
+        except Exception as exc:
+            self.log.debug("XPatch manager update check failed: %s", exc)
+            return self._manager_cached_remote_version()
+        if remote_version:
+            self.config["manager_remote_version_cache"] = self._format_version(remote_version)
+            self.config["manager_remote_version_checked_at"] = str(int(time.time()))
+            await self._save_config()
+        return remote_version
+
     async def _already_notified_version(self, version: tuple[int, ...] | None) -> bool:
         if not version:
             return False
@@ -1853,6 +2380,21 @@ class XKernelInstaller(ModuleBase):
                 if response.status != 200:
                     raise RuntimeError(f"download failed: HTTP {response.status}")
                 return await response.text(encoding="utf-8")
+
+    async def _download_manager(self) -> str:
+        timeout = aiohttp.ClientTimeout(total=30)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(self.X_MANAGER_URL) as response:
+                if response.status != 200:
+                    raise RuntimeError(f"manager download failed: HTTP {response.status}")
+                return await response.text(encoding="utf-8")
+
+    @staticmethod
+    def _manager_version_from_source(source: str) -> tuple[int, ...] | None:
+        match = re.search(r"\bversion\s*=\s*[\"']([^\"']+)[\"']", source)
+        if not match:
+            return None
+        return XKernelInstaller._coerce_dotted_version(match.group(1))
 
     def _validate_xkernel_source(self, source: str) -> None:
         if not source.strip():

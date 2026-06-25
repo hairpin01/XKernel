@@ -96,6 +96,27 @@ Use the manager settings page to open `ExteraProxy`, choose scopes, toggle globa
 > [!WARNING]
 > ExteraProxy is dangerous for unknown or suspicious modules. Disabling safety proxies gives modules direct access to protected kernel/client/event internals. Enable it only for modules you trust and understand.
 
+## Safe Boot Mode
+
+Safe boot starts XKernel without applying patch callbacks. The manager and patch
+metadata remain available, so a broken patch can be disabled or inspected before
+normal patching is enabled again.
+
+Enable it with an environment variable:
+
+```bash
+XKERNEL_SAFE_MODE=1 python3 -m core --core XKernel
+```
+
+Or with a startup flag:
+
+```bash
+python3 -m core --core XKernel --xpatch-safe
+```
+
+Accepted flags are `--xpatch-safe` and `--xkernel-safe`. Accepted environment
+variables are `XKERNEL_SAFE_MODE` and `XPATCH_SAFE_MODE`.
+
 ## Patch Lifecycle
 
 XKernel installs loader hooks so patches can be applied after normal MCUB modules are loaded. The patch manager tracks four states:
@@ -106,6 +127,7 @@ XKernel installs loader hooks so patches can be applied after normal MCUB module
 | `pending` | Patch was loaded, but the target module is not available yet |
 | `failed` | Patch import or callback raised an exception |
 | `skipped` | Patch was already applied and `force` was not requested |
+| `disabled` | Patch is present but disabled by the manager |
 
 Manual helpers are available from the kernel:
 
@@ -115,9 +137,33 @@ await kernel.apply_patches(target_name="OpenApp", force=True)
 await kernel.apply_patches_for_module("OpenApp")
 ```
 
+The manager patch detail page can reload a patch, unapply it when an
+`unapply_patch` callback exists, disable or enable it, and show full traceback
+details for failed callbacks. It also shows XKernel compatibility information
+when `PATCH_REQUIRES_XKERNEL` is declared.
+
+## Removal Flow
+
+The manager `Utils` page includes an XKernel removal flow. It lets you choose
+what to remove before executing anything:
+
+- XKernel core file;
+- all XKernel core backups;
+- the manager module;
+- all patch files;
+- reset the default core to `standard`;
+- restart MCUB automatically.
+
+The removal order is: core file, backups, patches, default core reset, manager
+module uninstall, then restart.
+
 ## Manager Module
 
 `XPatchKernelManager` is a normal MCUB module that installs and manages the core file.
+It also checks the remote manager module version with a cached GitHub fetch. If
+the installed manager is older than the repository version, the main menu warns
+that the manager should be updated; otherwise new runtime features may be
+unavailable from the UI.
 
 | Command | Alias | Description |
 |---------|-------|-------------|
