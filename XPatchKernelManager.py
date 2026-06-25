@@ -28,7 +28,7 @@ from utils.platform import get_platform_name
 
 class XKernelInstaller(ModuleBase):
     name = "XPatchKernelManager"
-    version = "1.4.0"
+    version = "1.5.0"
     author = "@Hairpin00"
     description = {
         "ru": "Менеджер и установщик XKernel core/патчей для MCUB",
