@@ -77,6 +77,25 @@ the manager uses internal accessors for its own UI/actions.
 
 Use stealth mode only when a module or integration expects the standard core name or a clean version string.
 
+
+## ExteraProxy
+
+ExteraProxy is an XKernel runtime feature that can disable selected MCUB safety proxies for chosen user modules, or for all user modules. It can bypass:
+
+- `kernel` - raw kernel instead of `ModuleKernelProxy`;
+- `client` - raw Telegram client instead of `ClientProxy` (needed for attributes such as `client.session`);
+- `event` - raw event instead of `EventProxy`.
+
+The manager shows the current state on the main page:
+
+- `Принуждёный для всех` - raw kernel is forced for every user module.
+- `Принуждёный только для N модулей` - raw kernel is forced only for the configured allowlist.
+
+Use the manager settings page to open `ExteraProxy`, choose scopes, toggle global mode, or add/remove module names with input buttons.
+
+> [!WARNING]
+> ExteraProxy is dangerous for unknown or suspicious modules. Disabling safety proxies gives modules direct access to protected kernel/client/event internals. Enable it only for modules you trust and understand.
+
 ## Patch Lifecycle
 
 XKernel installs loader hooks so patches can be applied after normal MCUB modules are loaded. The patch manager tracks four states:
@@ -114,6 +133,11 @@ Manager settings:
 | `stealth_mode` | `False` | Hide XKernel runtime markers while keeping hooks active |
 | `auto_update_kernel` | `False` | Install a newer remote XKernel automatically when detected |
 | `update_notifications` | `True` | Send update notices to the log chat or admin target |
+| `experimental_patch_events` | `False` | Emit best-effort `xpatch:*` lifecycle events |
+| `experimental_patch_hot_reload` | `False` | Watch patch files and hot-reload changed patches |
+| `extera_proxy_all` | `False` | Dangerous: disable `ModuleKernelProxy` for all user modules |
+| `extera_proxy_modules` | `""` | Comma-separated allowlist of modules with selected proxies disabled |
+| `extera_proxy_scopes` | `"kernel"` | Comma-separated ExteraProxy scopes: `kernel`, `client`, `event` |
 
 ## Install Flow
 

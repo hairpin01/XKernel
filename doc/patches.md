@@ -77,6 +77,7 @@ XKernel also supports magic target names for patches that are not bound to one r
 
 | Target | Callback target | When it becomes available | Use case |
 |--------|-----------------|---------------------------|----------|
+| `__pre_load__` | Active kernel object | Before normal module loading starts | Early loader hooks and startup guards |
 | `__kernel__` | Active kernel object | When `XPatchKernel.run()` starts | Kernel-level hooks and startup policy patches |
 | `__full_load__` | Active kernel object | After user modules finish loading | Global patches that must inspect all loaded modules |
 
@@ -92,6 +93,23 @@ def apply_patch(kernel, target):
         ...
 ```
 
+## Patch Metadata
+
+Optional metadata controls ordering, compatibility, dependencies, and conditional application:
+
+```python
+PATCH_NAME = "OpenAppTitlePatch"
+PATCH_PRIORITY = 10  # lower runs earlier; default is 100
+PATCH_DEPENDS = ["BasePatch"]
+PATCH_REQUIRES_XKERNEL = (0, 0, 5)
+PATCH_CONDITION = lambda kernel: not getattr(kernel, "power_save_mode", False)
+```
+
+- `PATCH_PRIORITY`: patches are sorted by priority, then by display name.
+- `PATCH_DEPENDS`: waits in `pending` until named patches have been applied.
+- `PATCH_REQUIRES_XKERNEL`: incompatible patches fail early with a clear message.
+- `PATCH_CONDITION`: false conditions stay pending and are retried by normal retry passes.
+
 ## Callback Names
 
 XKernel uses the first callable found in this order:
@@ -102,7 +120,15 @@ XKernel uses the first callable found in this order:
 | `patch` | Short compatibility name |
 | `apply` | Short compatibility name |
 
-If no callback is found, the patch is marked as failed.
+For reversible patches, XKernel also recognizes unapply callbacks:
+
+| Callback | Description |
+|----------|-------------|
+| `unapply_patch` | Preferred rollback callback name |
+| `unpatch` | Short compatibility name |
+| `unapply` | Short compatibility name |
+
+If no apply callback is found, the patch is marked as failed. If no unapply callback is found, hot reload can still reload the patch but cannot automatically revert old monkey-patches.
 
 ## Callback Signatures
 
@@ -157,7 +183,27 @@ async def apply_patch(kernel, target):
     target._xpatch_openapp_wrapped = True
 ```
 
-This pattern keeps the patch idempotent and reduces the risk of stacked wrappers after reloads.
+This pattern keeps the patch idempotent and reduces the risk of stacked wrappers after reloads. For hot reload, prefer a reversible patch:
+
+```python
+def apply_patch(target):
+    if getattr(target, "_xpatch_original_render", None):
+        return
+    target._xpatch_original_render = target.render
+
+    async def render_with_patch(*args, **kwargs):
+        result = await target._xpatch_original_render(*args, **kwargs)
+        return result.replace("Old", "New")
+
+    target.render = render_with_patch
+
+
+def unapply_patch(target):
+    original = getattr(target, "_xpatch_original_render", None)
+    if original is not None:
+        target.render = original
+        delattr(target, "_xpatch_original_render")
+```
 
 ## Patching Class-Style Modules
 
@@ -190,6 +236,16 @@ await kernel.apply_patches_for_module("OpenApp")
 If a patch import or callback fails, XKernel stores the error in `patch_manager.failed_patches` and logs it through the kernel logger when possible.
 
 After the full user-module load completes, XKernel also performs a few delayed retry passes. This lets patches recover from short readiness races where the target is registered but finishes its own async setup just after the loader returns. Already-applied patches are skipped, so callbacks should remain idempotent for reloads and manual reapply operations.
+
+Experimental hot reload can be enabled from the manager settings. It watches patch files, calls `unapply_patch` when available, reloads changed files, and applies them again. Keep hot-reloadable patches reversible and idempotent.
+
+If experimental patch events are enabled, XKernel emits best-effort events through `kernel.emit` when available:
+
+- `xpatch:applied`
+- `xpatch:failed`
+- `xpatch:unapplied`
+
+Event handler failures are logged at debug level and do not fail the patch operation.
 
 The manager patch page shows:
 
