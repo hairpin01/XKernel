@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import hashlib
 import html
+import inspect
 import os
 import re
 import shutil
@@ -86,6 +87,36 @@ class XKernelInstaller(ModuleBase):
             "kernel",
             description="Comma-separated ExteraProxy scopes: kernel, client, event",
             validator=String(default="kernel"),
+        ),
+        ConfigValue(
+            "client_patch_app_version",
+            "",
+            description="Client Patch app_version override",
+            validator=String(default=""),
+        ),
+        ConfigValue(
+            "client_patch_device_model",
+            "",
+            description="Client Patch device_model override",
+            validator=String(default=""),
+        ),
+        ConfigValue(
+            "client_patch_system_version",
+            "",
+            description="Client Patch system_version override",
+            validator=String(default=""),
+        ),
+        ConfigValue(
+            "client_patch_lang_code",
+            "",
+            description="Client Patch lang_code override",
+            validator=String(default=""),
+        ),
+        ConfigValue(
+            "client_patch_system_lang_code",
+            "",
+            description="Client Patch system_lang_code override",
+            validator=String(default=""),
         ),
         ConfigValue(
             "live_logs_max_lines",
@@ -184,6 +215,7 @@ class XKernelInstaller(ModuleBase):
             "logs": '<tg-emoji emoji-id="5960551395730919906">📝</tg-emoji>',
             "pending": '<tg-emoji emoji-id="5839380464116175529">✏️</tg-emoji>',
             "result": '<tg-emoji emoji-id="5877540355187937244">📤</tg-emoji>',
+            "phone": '<tg-emoji emoji-id="5407025283456835913">📱</tg-emoji>',
 
         }
         self.C = self.CUSTOM_EMOJI
@@ -191,12 +223,14 @@ class XKernelInstaller(ModuleBase):
         utils.register_decorated_placeholders(self.name, self)
         self.config["placeholders"] = utils.format_placeholders(self.name)
         await self._save_config()
+        await self._load_client_patch_db_status()
         try:
             self._apply_stealth_from_config()
         except RuntimeError as exc:
             self.log.warning("Stealth mode is configured but unavailable: %s", exc)
         self._apply_experimental_from_config()
         self._apply_extera_proxy_from_config()
+        self._apply_client_patch_from_config()
         self._ensure_update_task()
         self.log.info("XKernelInstaller loaded")
 
@@ -428,6 +462,106 @@ class XKernelInstaller(ModuleBase):
         self._set_runtime_extera_proxy_all(bool(self._cfg("extera_proxy_all", False)))
         self._set_runtime_extera_proxy_modules(self._extera_modules_from_config())
         self._set_runtime_extera_proxy_scopes(self._extera_scopes_from_config())
+
+    def _client_patch_options_from_config(self) -> dict[str, str]:
+        keys = {
+            "app_version": "client_patch_app_version",
+            "device_model": "client_patch_device_model",
+            "system_version": "client_patch_system_version",
+            "lang_code": "client_patch_lang_code",
+            "system_lang_code": "client_patch_system_lang_code",
+        }
+        options: dict[str, str] = {}
+        for option_name, config_key in keys.items():
+            value = str(self._cfg(config_key, "") or "").strip()
+            if value:
+                options[option_name] = value
+        return options
+
+    def _client_patch_supported(self) -> bool:
+        try:
+            patcher = object.__getattribute__(
+                self._kernel_object(),
+                "patch_core_lib_client",
+            )
+        except Exception:
+            patcher = None
+        return callable(patcher)
+
+    def _set_runtime_client_patch(self, enabled: bool) -> bool:
+        kernel = self._kernel_object()
+        try:
+            patcher = object.__getattribute__(kernel, "patch_core_lib_client")
+        except Exception:
+            patcher = None
+        if not callable(patcher):
+            return False
+        patcher(enabled=enabled, **self._client_patch_options_from_config())
+        return True
+
+    def _clear_runtime_client_patch(self) -> bool:
+        kernel = self._kernel_object()
+        try:
+            clearer = object.__getattribute__(kernel, "clear_core_lib_client_patch")
+        except Exception:
+            clearer = None
+        if callable(clearer):
+            clearer()
+            return True
+        return self._set_runtime_client_patch(False)
+
+    def _is_client_patch_enabled(self) -> bool:
+        return bool(getattr(self, "_client_patch_enabled_db", False))
+
+    def _apply_client_patch_from_config(self) -> None:
+        if self._is_client_patch_enabled():
+            self._set_runtime_client_patch(True)
+        else:
+            self._clear_runtime_client_patch()
+
+    async def _load_client_patch_db_status(self) -> None:
+        enabled = False
+        db_get = getattr(self.kernel, "db_get", None)
+        if callable(db_get):
+            try:
+                result = db_get(self.name, "client_patch")
+                value = await result if inspect.isawaitable(result) else result
+                if isinstance(value, bool):
+                    enabled = value
+                else:
+                    enabled = str(value or "").strip().casefold() in {
+                        "client patch: on",
+                        "on",
+                        "true",
+                        "1",
+                        "yes",
+                    }
+            except Exception as exc:
+                self.log.debug("cannot load Client Patch status from db: %s", exc)
+        self._client_patch_enabled_db = enabled
+        await self._save_client_patch_db_status()
+
+    async def _save_client_patch_db_status(self) -> None:
+        db_set = getattr(self.kernel, "db_set", None)
+        if not callable(db_set):
+            return
+        status = "Client Patch: ON" if self._is_client_patch_enabled() else "Client Patch: OFF"
+        try:
+            result = db_set(self.name, "client_patch", status)
+            if inspect.isawaitable(result):
+                await result
+        except Exception as exc:
+            self.log.debug("cannot save Client Patch status to db: %s", exc)
+
+    def _client_patch_status_label(self) -> str:
+        if not self._client_patch_supported():
+            return "Не поддерживается текущим ядром"
+        if not self._is_client_patch_enabled():
+            return "Выключен"
+        count = len(self._client_patch_options_from_config())
+        if not count:
+            return "Включен без параметров"
+        return f"Включен, параметров: {count}"
 
     def _extera_proxy_status_label(self) -> str:
         if self._get_pm() is None:
@@ -995,6 +1129,14 @@ class XKernelInstaller(ModuleBase):
             ],
             [
                 self.Button.inline(
+                    f"{C['phone']} Client Patch",
+                    self.on_client_patch_menu,
+                    ttl=600,
+                    style='primary' if self._client_patch_supported() else 'danger',
+                )
+            ],
+            [
+                self.Button.inline(
                     f"{self._clear_text(C['magic'] if self._get_pm() is not None else C['warning'])} Экспериментальные функции",
                     self.on_experimental_settings_menu,
                     ttl=600,
@@ -1132,6 +1274,105 @@ class XKernelInstaller(ModuleBase):
         text, buttons = self._build_extera_proxy_page()
         await call.edit(text, buttons=buttons)
 
+    def _build_client_patch_page(self) -> tuple[str, list]:
+        C = self.C
+        supported = self._client_patch_supported()
+        enabled = self._is_client_patch_enabled()
+        options = self._client_patch_options_from_config()
+        status = html.escape(self._client_patch_status_label())
+
+        def value_line(label: str, key: str) -> str:
+            value = options.get(key) or "—"
+            return f"{C['info']} <b>{label}:</b> <code>{html.escape(value)}</code>"
+
+        text = (
+            f"{C['phone']} <b>Client Patch</b>\n"
+            f"<blockquote>{C['info']} Патчит <code>core.lib.base.client.TelegramClient</code> и меняет параметры клиента: название/девайс/язык.</blockquote>\n"
+            f"<blockquote>{C['warning']} Работает на создание нового TelegramClient. Если клиент уже создан — нужен рестарт MCUB/пересоздание клиента.</blockquote>\n"
+            f"{self._bool_icon(enabled and supported)} Статус: <b>{status}</b>\n"
+            f"{value_line('app_version', 'app_version')}\n"
+            f"{value_line('device_model', 'device_model')}\n"
+            f"{value_line('system_version', 'system_version')}\n"
+            f"{value_line('lang_code', 'lang_code')}\n"
+            f"{value_line('system_lang_code', 'system_lang_code')}"
+        )
+        if not supported:
+            return text, [[self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_settings_menu, ttl=600)]]
+
+        buttons = [
+            [
+                self.Button.inline(
+                    f"Client Patch: {'ON' if enabled else 'OFF'}",
+                    self.on_toggle_client_patch,
+                    ttl=600,
+                    style='success' if enabled else 'danger',
+                )
+            ],
+            [
+                self.Button.input(
+                    "📝 app_version",
+                    self.on_client_patch_app_version_input,
+                    placeholder="XClient 1.0",
+                    ttl=600,
+                ),
+                self.Button.input(
+                    f"{C['phone']} device_model",
+                    self.on_client_patch_device_model_input,
+                    placeholder="XPhone",
+                    ttl=600,
+                ),
+            ],
+            [
+                self.Button.input(
+                    "💿 system_version",
+                    self.on_client_patch_system_version_input,
+                    placeholder="XOS 1",
+                    ttl=600,
+                ),
+                self.Button.input(
+                    "🌐 lang_code",
+                    self.on_client_patch_lang_code_input,
+                    placeholder="en",
+                    ttl=600,
+                ),
+            ],
+            [
+                self.Button.input(
+                    "🌍 system_lang_code",
+                    self.on_client_patch_system_lang_code_input,
+                    placeholder="en-US",
+                    ttl=600,
+                )
+            ],
+            [
+                self.Button.inline(
+                    "🧹 Очистить параметры",
+                    self.on_clear_client_patch_options,
+                    ttl=600,
+                )
+            ],
+            [self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_settings_menu, ttl=600)],
+        ]
+        return text, buttons
+
+    async def _refresh_client_patch_event(self) -> bool:
+        call = getattr(self, "_client_patch_event", None)
+        if call is None:
+            return False
+        try:
+            text, buttons = self._build_client_patch_page()
+            await call.edit(text, buttons=buttons)
+            return True
+        except Exception as exc:
+            self.log.debug("cannot refresh Client Patch menu: %s", exc)
+            return False
+
+    @callback(ttl=600)
+    async def on_client_patch_menu(self, call) -> None:
+        self._client_patch_event = call
+        text, buttons = self._build_client_patch_page()
+        await call.edit(text, buttons=buttons)
+
     def _build_experimental_settings_page(self) -> tuple[str, list]:
         C = self.C
         patch_events = bool(self._cfg("experimental_patch_events", False))
@@ -1226,6 +1467,108 @@ class XKernelInstaller(ModuleBase):
         self._ensure_update_task()
         await call.answer(f"Уведомления: {'ON' if new_value else 'OFF'}", alert=False)
         text, buttons = self._build_settings_page()
+        await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
+    async def on_toggle_client_patch(self, call) -> None:
+        self._client_patch_event = call
+        new_value = not self._is_client_patch_enabled()
+        if new_value and not self._set_runtime_client_patch(True):
+            await call.answer("Текущее XKernel ядро не поддерживает Client Patch", alert=True)
+            return
+        if not new_value:
+            self._clear_runtime_client_patch()
+        self._client_patch_enabled_db = new_value
+        await self._save_client_patch_db_status()
+        await call.answer(f"Client Patch: {'ON' if new_value else 'OFF'}", alert=False)
+        text, buttons = self._build_client_patch_page()
+        await call.edit(text, buttons=buttons)
+
+    async def _set_client_patch_input(
+        self,
+        event: Any,
+        text: str,
+        config_key: str,
+        label: str,
+    ) -> None:
+        value = str(text or "").strip()
+        if value.casefold() in {"-", "none", "null", "clear", "reset", "off"}:
+            value = ""
+        self.config[config_key] = value
+        if self._is_client_patch_enabled() and not self._set_runtime_client_patch(True):
+            await self._edit(event, "🚫 Текущее XKernel ядро не поддерживает Client Patch")
+            return
+        await self._save_config()
+        await self._refresh_client_patch_event()
+        display = html.escape(value or "очищено")
+        await self._edit(
+            event,
+            f"{self.C['true']} <b>Client Patch обновлён</b>\n"
+            f"{html.escape(label)}: <code>{display}</code>\n\n"
+            f"<blockquote><em>Чтобы очистить поле, отправь <code>-</code> или <code>clear</code>.</em></blockquote>",
+        )
+
+    async def on_client_patch_app_version_input(
+        self,
+        event: Any,
+        text: str,
+        data: Any = None,
+    ) -> None:
+        await self._set_client_patch_input(event, text, "client_patch_app_version", "app_version")
+
+    async def on_client_patch_device_model_input(
+        self,
+        event: Any,
+        text: str,
+        data: Any = None,
+    ) -> None:
+        await self._set_client_patch_input(event, text, "client_patch_device_model", "device_model")
+
+    async def on_client_patch_system_version_input(
+        self,
+        event: Any,
+        text: str,
+        data: Any = None,
+    ) -> None:
+        await self._set_client_patch_input(event, text, "client_patch_system_version", "system_version")
+
+    async def on_client_patch_lang_code_input(
+        self,
+        event: Any,
+        text: str,
+        data: Any = None,
+    ) -> None:
+        await self._set_client_patch_input(event, text, "client_patch_lang_code", "lang_code")
+
+    async def on_client_patch_system_lang_code_input(
+        self,
+        event: Any,
+        text: str,
+        data: Any = None,
+    ) -> None:
+        await self._set_client_patch_input(
+            event,
+            text,
+            "client_patch_system_lang_code",
+            "system_lang_code",
+        )
+
+    @callback(ttl=600)
+    async def on_clear_client_patch_options(self, call) -> None:
+        self._client_patch_event = call
+        for key in (
+            "client_patch_app_version",
+            "client_patch_device_model",
+            "client_patch_system_version",
+            "client_patch_lang_code",
+            "client_patch_system_lang_code",
+        ):
+            self.config[key] = ""
+        if self._is_client_patch_enabled():
+            self._set_runtime_client_patch(True)
+        await self._save_config()
+        await call.answer("Параметры Client Patch очищены", alert=False)
+        text, buttons = self._build_client_patch_page()
         await call.edit(text, buttons=buttons)
 
     async def _toggle_extera_scope(self, call: Any, scope: str) -> None:
