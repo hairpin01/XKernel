@@ -96,6 +96,54 @@ Use the manager settings page to open `ExteraProxy`, choose scopes, toggle globa
 > [!WARNING]
 > ExteraProxy is dangerous for unknown or suspicious modules. Disabling safety proxies gives modules direct access to protected kernel/client/event internals. Enable it only for modules you trust and understand.
 
+## Built-in Core Patches API
+
+XKernel also exposes small runtime patch APIs directly on the kernel. They do
+not require a file in `patches/`.
+
+### Core-lib client identity
+
+`patch_core_lib_client()` patches `core.lib.base.client.TelegramClient` inside
+MCUB's client manager and overrides Telegram client identity kwargs before the
+real Telethon client is created:
+
+```python
+kernel.patch_core_lib_client(
+    app_version="XClient 1.0",
+    device_model="XPhone",
+    system_version="XOS 1",
+    lang_code="en",
+    system_lang_code="en-US",
+)
+```
+
+Helpers:
+
+- `set_core_lib_client_branding(...)` - alias for `patch_core_lib_client(...)`;
+- `core_lib_client_patch_status()` - current options and hook state;
+- `clear_core_lib_client_patch()` - disable the hook and restore the original constructor.
+
+### Core-web branding
+
+`patch_core_web()` wraps `core.web.app.create_app()` so every new web app gets
+branding metadata in app state/Jinja globals. It can also expose
+`/api/xkernel/branding` and apply simple text replacements to HTML/CSS/JS
+responses:
+
+```python
+kernel.patch_core_web(
+    app_name="XPanel",
+    title="XPanel - Setup",
+    replacements={"MCUB": "XPanel"},
+)
+```
+
+Helpers:
+
+- `set_core_web_branding(...)` - alias for `patch_core_web(...)`;
+- `core_web_patch_status()` - current options and hook state;
+- `clear_core_web_patch()` - disable the hook and restore `create_app()`.
+
 ## Safe Boot Mode
 
 Safe boot starts XKernel without applying patch callbacks. The manager and patch

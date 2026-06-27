@@ -41,6 +41,14 @@ _XPATCH_STEALTH_PROTECTED_ATTRS = frozenset(
         "disable_stealth_mode",
         "set_xpatch_events_enabled",
         "set_xpatch_hot_reload_enabled",
+        "patch_core_lib_client",
+        "set_core_lib_client_branding",
+        "clear_core_lib_client_patch",
+        "core_lib_client_patch_status",
+        "patch_core_web",
+        "set_core_web_branding",
+        "clear_core_web_patch",
+        "core_web_patch_status",
         "set_extera_proxy_all",
         "set_extera_proxy_modules",
         "set_extera_proxy_scopes",
@@ -48,6 +56,13 @@ _XPATCH_STEALTH_PROTECTED_ATTRS = frozenset(
         "remove_extera_proxy_module",
         "clear_extera_proxy_modules",
         "extera_proxy_status",
+        "_install_core_lib_client_hook",
+        "_make_core_lib_telegram_client",
+        "_install_core_web_hook",
+        "_apply_core_web_branding_to_app",
+        "_register_core_web_branding_route",
+        "_install_core_web_branding_middleware",
+        "_apply_core_web_replacements",
         "_install_extera_proxy_hook",
         "_extera_proxy_should_bypass",
         "_extera_proxy_scope_enabled",
@@ -68,6 +83,14 @@ _XPATCH_STEALTH_PROTECTED_ATTRS = frozenset(
         "_xpatch_hot_reload_enabled",
         "_xpatch_hot_reload_interval",
         "_xpatch_hot_reload_task",
+        "_xpatch_core_lib_client_patch_enabled",
+        "_xpatch_core_lib_client_options",
+        "_xpatch_core_lib_original_telegram_client",
+        "_xpatch_core_lib_client_hook_installed",
+        "_xpatch_core_web_patch_enabled",
+        "_xpatch_core_web_options",
+        "_xpatch_core_web_original_create_app",
+        "_xpatch_core_web_hook_installed",
         "_xpatch_extera_proxy_all",
         "_xpatch_extera_proxy_modules",
         "_xpatch_extera_proxy_scopes",
@@ -956,12 +979,20 @@ class XPatchKernel(KernelBase):
         super().__init__()
 
         self._xpatch_base_version = self.VERSION
-        self._xpatch_kernel_version = (0, 0, 6)
+        self._xpatch_kernel_version = (0, 0, 7)
         self._xpatch_stealth_mode = False
         self._xpatch_safe_mode = self._detect_xpatch_safe_mode()
         self._xpatch_events_enabled = False
         self._xpatch_hot_reload_enabled = False
         self._xpatch_hot_reload_interval = 2.0
+        self._xpatch_core_lib_client_patch_enabled = False
+        self._xpatch_core_lib_client_options: dict[str, Any] = {}
+        self._xpatch_core_lib_original_telegram_client = None
+        self._xpatch_core_lib_client_hook_installed = False
+        self._xpatch_core_web_patch_enabled = False
+        self._xpatch_core_web_options: dict[str, Any] = {}
+        self._xpatch_core_web_original_create_app = None
+        self._xpatch_core_web_hook_installed = False
         self._xpatch_extera_proxy_all = False
         self._xpatch_extera_proxy_modules: set[str] = set()
         self._xpatch_extera_proxy_scopes: set[str] = {"kernel"}
@@ -972,7 +1003,7 @@ class XPatchKernel(KernelBase):
         self._xpatch_extera_proxy_hook_installed = False
         self.ver = f"{self.VERSION}.XPatch"
         self.VERSION = self.ver
-        self.VERSION_XKERNEL = (0, 0, 6)
+        self.VERSION_XKERNEL = (0, 0, 7)
         self._xpatch_full_load_complete = False
         self._xpatch_retry_task = None
         self._xpatch_hot_reload_task = None
@@ -1035,6 +1066,328 @@ class XPatchKernel(KernelBase):
         self.VERSION = self.ver
         self.VERSION_XKERNEL = object.__getattribute__(self, "_xpatch_kernel_version")
         self.CORE_NAME = "XPatchKernel"
+
+    def patch_core_lib_client(
+        self,
+        *,
+        enabled: bool = True,
+        device_model: str | None = None,
+        system_version: str | None = None,
+        app_version: str | None = None,
+        lang_code: str | None = None,
+        system_lang_code: str | None = None,
+    ) -> dict[str, Any]:
+        """Patch ``core.lib.base.client`` Telegram identity kwargs at runtime.
+
+        MCUB builds the user ``TelegramClient`` inside
+        ``core/lib/base/client.py``. This API replaces only that module's
+        ``TelegramClient`` constructor reference and overrides selected
+        identity fields before the real Telethon client is created.
+        """
+
+        options = {
+            "device_model": device_model,
+            "system_version": system_version,
+            "app_version": app_version,
+            "lang_code": lang_code,
+            "system_lang_code": system_lang_code,
+        }
+        normalized = {
+            key: str(value)
+            for key, value in options.items()
+            if value is not None and str(value) != ""
+        }
+        object.__setattr__(self, "_xpatch_core_lib_client_patch_enabled", bool(enabled))
+        object.__setattr__(self, "_xpatch_core_lib_client_options", normalized)
+        object.__getattribute__(self, "_install_core_lib_client_hook")()
+        return object.__getattribute__(self, "core_lib_client_patch_status")()
+
+    def set_core_lib_client_branding(self, **options: Any) -> dict[str, Any]:
+        """Alias for :meth:`patch_core_lib_client`."""
+
+        return self.patch_core_lib_client(**options)
+
+    def clear_core_lib_client_patch(self) -> dict[str, Any]:
+        """Disable the core-lib client identity patch and restore the constructor."""
+
+        object.__setattr__(self, "_xpatch_core_lib_client_patch_enabled", False)
+        object.__setattr__(self, "_xpatch_core_lib_client_options", {})
+        object.__getattribute__(self, "_install_core_lib_client_hook")()
+        return object.__getattribute__(self, "core_lib_client_patch_status")()
+
+    def core_lib_client_patch_status(self) -> dict[str, Any]:
+        """Return current ``core.lib.base.client`` patch state."""
+
+        return {
+            "enabled": bool(
+                object.__getattribute__(self, "_xpatch_core_lib_client_patch_enabled")
+            ),
+            "options": dict(
+                object.__getattribute__(self, "_xpatch_core_lib_client_options")
+            ),
+            "hook_installed": bool(
+                object.__getattribute__(self, "_xpatch_core_lib_client_hook_installed")
+            ),
+        }
+
+    def patch_core_web(
+        self,
+        *,
+        enabled: bool = True,
+        app_name: str | None = None,
+        title: str | None = None,
+        replacements: dict[str, str] | None = None,
+        expose_api: bool = True,
+    ) -> dict[str, Any]:
+        """Patch ``core.web`` app creation with branding metadata and rewrites.
+
+        The web patch wraps ``core.web.app.create_app``. Every new aiohttp app
+        receives branding data in app state/Jinja globals, an optional status API,
+        and a lightweight HTML/JS/CSS text replacement middleware.
+        """
+
+        normalized_replacements: dict[str, str] = {}
+        if app_name:
+            normalized_replacements["MCUB"] = str(app_name)
+        if title:
+            normalized_replacements["MCUB - Setup"] = str(title)
+        elif app_name:
+            normalized_replacements["MCUB - Setup"] = f"{app_name} - Setup"
+        if replacements:
+            normalized_replacements.update(
+                {
+                    str(source): str(target)
+                    for source, target in replacements.items()
+                    if str(source)
+                }
+            )
+
+        options = {
+            "app_name": str(app_name) if app_name else None,
+            "title": str(title) if title else None,
+            "replacements": normalized_replacements,
+            "expose_api": bool(expose_api),
+        }
+        object.__setattr__(self, "_xpatch_core_web_patch_enabled", bool(enabled))
+        object.__setattr__(self, "_xpatch_core_web_options", options)
+        object.__getattribute__(self, "_install_core_web_hook")()
+        return object.__getattribute__(self, "core_web_patch_status")()
+
+    def set_core_web_branding(self, **options: Any) -> dict[str, Any]:
+        """Alias for :meth:`patch_core_web`."""
+
+        return self.patch_core_web(**options)
+
+    def clear_core_web_patch(self) -> dict[str, Any]:
+        """Disable the core.web patch and restore ``create_app`` when possible."""
+
+        object.__setattr__(self, "_xpatch_core_web_patch_enabled", False)
+        object.__setattr__(self, "_xpatch_core_web_options", {})
+        object.__getattribute__(self, "_install_core_web_hook")()
+        return object.__getattribute__(self, "core_web_patch_status")()
+
+    def core_web_patch_status(self) -> dict[str, Any]:
+        """Return current ``core.web`` patch state."""
+
+        return {
+            "enabled": bool(object.__getattribute__(self, "_xpatch_core_web_patch_enabled")),
+            "options": dict(object.__getattribute__(self, "_xpatch_core_web_options")),
+            "hook_installed": bool(
+                object.__getattribute__(self, "_xpatch_core_web_hook_installed")
+            ),
+        }
+
+    def _install_core_lib_client_hook(self) -> None:
+        try:
+            from core.lib.base import client as client_module
+        except Exception as e:
+            logger = getattr(self, "logger", None)
+            log_method = getattr(logger, "debug", None)
+            if callable(log_method):
+                log_method("[xpatch] core-lib client hook unavailable: %s", e)
+            return
+
+        current = getattr(client_module, "TelegramClient", None)
+        if current is None:
+            return
+
+        original = object.__getattribute__(self, "_xpatch_core_lib_original_telegram_client")
+        if original is None:
+            original = getattr(current, "__xkernel_original__", current)
+            object.__setattr__(self, "_xpatch_core_lib_original_telegram_client", original)
+
+        enabled = bool(object.__getattribute__(self, "_xpatch_core_lib_client_patch_enabled"))
+        if not enabled:
+            if getattr(current, "__xkernel_core_lib_client_patch__", False):
+                setattr(client_module, "TelegramClient", original)
+            object.__setattr__(self, "_xpatch_core_lib_client_hook_installed", False)
+            return
+
+        patched = object.__getattribute__(self, "_make_core_lib_telegram_client")(original)
+        setattr(client_module, "TelegramClient", patched)
+        object.__setattr__(self, "_xpatch_core_lib_client_hook_installed", True)
+
+    def _make_core_lib_telegram_client(self, original: Any) -> Any:
+        def xkernel_telegram_client(*args: Any, **kwargs: Any) -> Any:
+            if object.__getattribute__(self, "_xpatch_core_lib_client_patch_enabled"):
+                kwargs.update(
+                    object.__getattribute__(self, "_xpatch_core_lib_client_options")
+                )
+            return original(*args, **kwargs)
+
+        xkernel_telegram_client.__name__ = getattr(original, "__name__", "TelegramClient")
+        xkernel_telegram_client.__qualname__ = getattr(
+            original, "__qualname__", xkernel_telegram_client.__name__
+        )
+        xkernel_telegram_client.__doc__ = getattr(original, "__doc__", None)
+        xkernel_telegram_client.__xkernel_original__ = original
+        xkernel_telegram_client.__xkernel_core_lib_client_patch__ = True
+        return xkernel_telegram_client
+
+    def _install_core_web_hook(self) -> None:
+        try:
+            from core.web import app as web_app_module
+        except Exception as e:
+            logger = getattr(self, "logger", None)
+            log_method = getattr(logger, "debug", None)
+            if callable(log_method):
+                log_method("[xpatch] core.web hook unavailable: %s", e)
+            return
+
+        current = getattr(web_app_module, "create_app", None)
+        if current is None:
+            return
+
+        original = object.__getattribute__(self, "_xpatch_core_web_original_create_app")
+        if original is None:
+            original = getattr(current, "__xkernel_original__", current)
+            object.__setattr__(self, "_xpatch_core_web_original_create_app", original)
+
+        enabled = bool(object.__getattribute__(self, "_xpatch_core_web_patch_enabled"))
+        if not enabled:
+            if getattr(current, "__xkernel_core_web_patch__", False):
+                setattr(web_app_module, "create_app", original)
+            object.__setattr__(self, "_xpatch_core_web_hook_installed", False)
+            return
+
+        def xkernel_create_app(*args: Any, **kwargs: Any) -> Any:
+            app = original(*args, **kwargs)
+            object.__getattribute__(self, "_apply_core_web_branding_to_app")(app)
+            return app
+
+        xkernel_create_app.__name__ = getattr(original, "__name__", "create_app")
+        xkernel_create_app.__qualname__ = getattr(
+            original, "__qualname__", xkernel_create_app.__name__
+        )
+        xkernel_create_app.__doc__ = getattr(original, "__doc__", None)
+        xkernel_create_app.__xkernel_original__ = original
+        xkernel_create_app.__xkernel_core_web_patch__ = True
+        setattr(web_app_module, "create_app", xkernel_create_app)
+        object.__setattr__(self, "_xpatch_core_web_hook_installed", True)
+
+    def _apply_core_web_branding_to_app(self, app: Any) -> None:
+        if not object.__getattribute__(self, "_xpatch_core_web_patch_enabled"):
+            return
+
+        options = dict(object.__getattribute__(self, "_xpatch_core_web_options"))
+        try:
+            app["xkernel_web_branding"] = options
+            app["xkernel_branding"] = options
+        except Exception:
+            return
+
+        try:
+            import aiohttp_jinja2
+
+            env = aiohttp_jinja2.get_env(app)
+            env.globals["xkernel_branding"] = options
+            if options.get("app_name"):
+                env.globals["app_name"] = options["app_name"]
+            if options.get("title"):
+                env.globals["page_title"] = options["title"]
+        except Exception:
+            pass
+
+        if options.get("expose_api", True):
+            object.__getattribute__(self, "_register_core_web_branding_route")(app)
+        if options.get("replacements"):
+            object.__getattribute__(self, "_install_core_web_branding_middleware")(app)
+
+    def _register_core_web_branding_route(self, app: Any) -> None:
+        try:
+            from aiohttp import web
+        except Exception:
+            return
+
+        async def xkernel_branding(_request: Any) -> Any:
+            return web.json_response(object.__getattribute__(self, "core_web_patch_status")())
+
+        try:
+            app.router.add_get("/api/xkernel/branding", xkernel_branding)
+        except Exception:
+            pass
+
+    def _install_core_web_branding_middleware(self, app: Any) -> None:
+        try:
+            from aiohttp import web
+        except Exception:
+            return
+
+        if app.get("xkernel_branding_middleware_installed"):
+            return
+
+        @web.middleware
+        async def xkernel_branding_middleware(request: Any, handler: Any) -> Any:
+            response = await handler(request)
+            content_type = str(getattr(response, "content_type", "") or "")
+            if content_type not in {"text/html", "text/css", "application/javascript", "text/javascript"}:
+                return response
+
+            text = None
+            try:
+                text = response.text
+            except Exception:
+                body = getattr(response, "body", None)
+                if body is not None:
+                    try:
+                        text = body.decode(getattr(response, "charset", None) or "utf-8")
+                    except Exception:
+                        text = None
+            if not text:
+                return response
+
+            rewritten = object.__getattribute__(self, "_apply_core_web_replacements")(text)
+            if rewritten == text:
+                return response
+
+            headers = getattr(response, "headers", {}).copy()
+            headers.pop("Content-Length", None)
+            headers.pop("Content-Type", None)
+            response_kwargs = {
+                "text": rewritten,
+                "status": getattr(response, "status", 200),
+                "headers": headers,
+                "content_type": content_type,
+            }
+            charset = getattr(response, "charset", None)
+            if charset:
+                response_kwargs["charset"] = charset
+            return web.Response(
+                **response_kwargs,
+            )
+
+        try:
+            app.middlewares.append(xkernel_branding_middleware)
+            app["xkernel_branding_middleware_installed"] = True
+        except Exception:
+            pass
+
+    def _apply_core_web_replacements(self, text: str) -> str:
+        options = object.__getattribute__(self, "_xpatch_core_web_options")
+        replacements = dict(options.get("replacements") or {})
+        for source, target in sorted(replacements.items(), key=lambda item: len(item[0]), reverse=True):
+            text = text.replace(source, target)
+        return text
 
     def set_extera_proxy_all(self, enabled: bool) -> None:
         """Force raw kernel instead of ModuleKernelProxy for all user modules."""

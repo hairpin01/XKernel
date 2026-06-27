@@ -170,6 +170,83 @@ def test_extera_proxy_updates_already_loaded_hikka_like_client_attrs():
     assert isinstance(other_instance.allmodules._client_proxy, ClientProxy)
 
 
+def test_core_lib_client_patch_overrides_telegram_identity_kwargs():
+    Kernel, *_ = load_xkernel_with_proxy_stubs()
+
+    lib = sys.modules["core.lib"]
+    lib.__path__ = []
+    base_pkg = types.ModuleType("core.lib.base")
+    base_pkg.__path__ = []
+    client_module = types.ModuleType("core.lib.base.client")
+
+    calls = []
+
+    def telegram_client(*args, **kwargs):
+        calls.append((args, kwargs))
+        return {"args": args, "kwargs": kwargs}
+
+    client_module.TelegramClient = telegram_client
+    base_pkg.client = client_module
+    sys.modules["core.lib.base"] = base_pkg
+    sys.modules["core.lib.base.client"] = client_module
+
+    kernel = Kernel()
+    status = kernel.patch_core_lib_client(
+        device_model="XPhone",
+        system_version="XOS 1",
+        app_version="XClient 7",
+        lang_code="ru",
+        system_lang_code="ru-RU",
+    )
+
+    assert status["enabled"] is True
+    assert status["hook_installed"] is True
+    client_module.TelegramClient("session", app_version="old")
+    assert calls[-1][1] == {
+        "device_model": "XPhone",
+        "system_version": "XOS 1",
+        "app_version": "XClient 7",
+        "lang_code": "ru",
+        "system_lang_code": "ru-RU",
+    }
+
+    kernel.clear_core_lib_client_patch()
+    assert client_module.TelegramClient is telegram_client
+
+
+def test_core_web_patch_wraps_create_app_and_injects_branding_state():
+    Kernel, *_ = load_xkernel_with_proxy_stubs()
+
+    core = sys.modules["core"]
+    core.__path__ = []
+    web_pkg = types.ModuleType("core.web")
+    web_pkg.__path__ = []
+    app_module = types.ModuleType("core.web.app")
+
+    def create_app(*args, **kwargs):
+        return {}
+
+    app_module.create_app = create_app
+    web_pkg.app = app_module
+    sys.modules["core.web"] = web_pkg
+    sys.modules["core.web.app"] = app_module
+
+    kernel = Kernel()
+    status = kernel.patch_core_web(app_name="XPanel", expose_api=False)
+
+    assert status["enabled"] is True
+    assert status["hook_installed"] is True
+    app = app_module.create_app()
+    assert app["xkernel_branding"]["app_name"] == "XPanel"
+    assert app["xkernel_branding"]["replacements"] == {
+        "MCUB": "XPanel",
+        "MCUB - Setup": "XPanel - Setup",
+    }
+
+    kernel.clear_core_web_patch()
+    assert app_module.create_app is create_app
+
+
 def test_xkernel_control_methods_are_hidden_from_module_kernel_proxy():
     Kernel, kernel_proxy, _, _, _, _, ModuleKernelProxy, _ = load_xkernel_with_proxy_stubs()
     kernel = Kernel()
