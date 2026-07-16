@@ -119,6 +119,18 @@ class Kernel:
         pass
 
 
+class StringsStub:
+    def __init__(self, data):
+        self.data = data["ru"]
+
+    def __call__(self, key, **kwargs):
+        value = self.data[key]
+        return value.format(**kwargs) if kwargs else value
+
+    def __getitem__(self, key):
+        return self.data[key]
+
+
 def make_manager(tmp_root: Path):
     Manager, core = load_manager_class()
     (tmp_root / "core").mkdir()
@@ -159,6 +171,7 @@ def make_manager(tmp_root: Path):
     manager.Button = Button()
     manager.log = Log()
     manager.kernel = Kernel()
+    manager.strings = StringsStub(Manager.strings)
     return manager
 
 
@@ -197,7 +210,7 @@ def test_utils_page_describes_live_logs():
         assert "<blockquote>" in text
         assert "Live logs" in text
         assert "Можно выбрать лимит строк" in text
-        assert "мастер удаления ядра" in text
+        assert "удаление ядра" in text
         assert "default core" in text
         assert "Удаление XKernel" in str(_)
 
@@ -273,7 +286,7 @@ def test_extera_proxy_page_marks_missing_runtime_as_unsupported():
         text, buttons = manager._build_extera_proxy_page()
 
         assert "Не поддерживается текущим ядром" in text
-        assert "Scopes:</b> <code>No access</code>" in text
+        assert "Scopes:</b> <code>Нет доступа</code>" in text
         assert len(buttons) == 1
         assert "Назад" in str(buttons)
 
@@ -288,11 +301,11 @@ def test_extera_proxy_placeholders_mark_missing_runtime_as_unsupported():
         })
 
         assert manager._extera_proxy_status_label() == "Не поддерживается текущим ядром"
-        assert manager._extera_proxy_scopes_label() == "No access"
+        assert manager._extera_proxy_scopes_label() == "Нет доступа"
 
         async def run():
             assert await manager._placeholder_extera_proxy_status() == "Не поддерживается текущим ядром"
-            assert await manager._placeholder_extera_proxy_scopes() == "No access"
+            assert await manager._placeholder_extera_proxy_scopes() == "Нет доступа"
 
         asyncio.run(run())
 
@@ -371,11 +384,11 @@ def test_patch_detail_page_shows_full_error_and_retries_failed_target():
             assert "full error text" in detail_text
             assert "with traceback line" in detail_text
             assert "Traceback (most recent call last)" in detail_text
-            assert "Retry" in str(detail_buttons)
+            assert "Повторить" in str(detail_buttons)
 
             await manager.on_patch_retry(detail_call, detail_data)
             assert pm.retry_targets == [("TargetMod", True)]
-            assert "Status: <b>applied</b>" in detail_call.edits[-1][0]
+            assert "Статус: <b>applied</b>" in detail_call.edits[-1][0]
             assert "retried" in detail_call.edits[-1][0]
 
         asyncio.run(run())
@@ -486,9 +499,9 @@ def test_patch_detail_actions_and_version_compatibility():
             await manager.on_patch_detail(detail_call, detail_data)
             text, buttons = detail_call.edits[-1]
             assert "Патч совместим с текущей версией XKernel" in text
-            assert "Reload patch" in str(buttons)
-            assert "Unapply" in str(buttons)
-            assert "Disable patch" in str(buttons)
+            assert "Перезагрузить патч" in str(buttons)
+            assert "Откатить применение" in str(buttons)
+            assert "Отключить патч" in str(buttons)
 
             await manager.on_patch_reload(detail_call, detail_data)
             assert pm.reload_calls == ["patch_compat"]

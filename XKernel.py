@@ -6,6 +6,7 @@ import importlib.util
 import inspect
 import json
 import os
+import sqlite3
 import sys
 import traceback
 from pathlib import Path
@@ -28,6 +29,14 @@ _PATCH_CONDITION_ATTRS = ("PATCH_CONDITION", "patch_condition", "condition")
 _MAGIC_PRE_LOAD_TARGET = "__pre_load__"
 _MAGIC_KERNEL_TARGET = "__kernel__"
 _MAGIC_FULL_LOAD_TARGET = "__full_load__"
+_XPATCH_MANAGER_MODULE = "XPatchKernelManager"
+_CLIENT_PATCH_DB_KEYS = {
+    "app_version": "client_patch_app_version",
+    "device_model": "client_patch_device_model",
+    "system_version": "client_patch_system_version",
+    "lang_code": "client_patch_lang_code",
+    "system_lang_code": "client_patch_system_lang_code",
+}
 _XPATCH_STEALTH_PROTECTED_ATTRS = frozenset(
     {
         "VERSION_XKERNEL",
@@ -40,6 +49,9 @@ _XPATCH_STEALTH_PROTECTED_ATTRS = frozenset(
         "enable_stealth_mode",
         "disable_stealth_mode",
         "set_xpatch_events_enabled",
+        "add_xpatch_event_listener",
+        "remove_xpatch_event_listener",
+        "clear_xpatch_event_listeners",
         "set_xpatch_hot_reload_enabled",
         "patch_core_lib_client",
         "set_core_lib_client_branding",
@@ -63,6 +75,9 @@ _XPATCH_STEALTH_PROTECTED_ATTRS = frozenset(
         "_register_core_web_branding_route",
         "_install_core_web_branding_middleware",
         "_apply_core_web_replacements",
+        "_resolve_xpatch_preboot_db_file",
+        "_read_xpatch_preboot_db",
+        "_apply_core_lib_client_patch_from_preboot_db",
         "_install_extera_proxy_hook",
         "_extera_proxy_should_bypass",
         "_extera_proxy_scope_enabled",
@@ -165,8 +180,32 @@ class XPatchPatchManager:
             "disabled": [],
         }
 
+        known_patch_keys = set(self.loaded_patches)
+        known_failed_keys = set(self.failed_patches)
+        patches_by_key = self.load_patches()
+        for patch_key, target in sorted(set(self.failed_patches) - known_failed_keys):
+            if target != "<load>":
+                continue
+            await self._emit_patch_event(
+                "xpatch:failed",
+                patch_key,
+                target,
+                self.failed_patches[(patch_key, target)],
+                patch_key=patch_key,
+            )
+        for patch_key in sorted(set(patches_by_key) - known_patch_keys):
+            patch_module = patches_by_key[patch_key]
+            await self._emit_patch_event(
+                "xpatch:loaded",
+                self._patch_display_name(patch_module, patch_key),
+                "<load>",
+                getattr(patch_module, "__xpatch_file__", None),
+                patch_key=patch_key,
+                file=getattr(patch_module, "__xpatch_file__", None),
+            )
+
         patches = sorted(
-            self.load_patches().items(),
+            patches_by_key.items(),
             key=lambda item: (
                 self._patch_priority(item[1]),
                 self._patch_display_name(item[1], item[0]).casefold(),
@@ -178,9 +217,23 @@ class XPatchPatchManager:
             patch_name = self._patch_display_name(patch_module, patch_key)
             if self.is_patch_disabled(patch_key):
                 result["disabled"].append((patch_name, "<disabled>"))
+                await self._emit_patch_event(
+                    "xpatch:disabled",
+                    patch_name,
+                    "<disabled>",
+                    "Patch is disabled",
+                    patch_key=patch_key,
+                )
                 continue
             if self._safe_mode_enabled():
                 result["skipped"].append((patch_name, "<safe-mode>"))
+                await self._emit_patch_event(
+                    "xpatch:skipped",
+                    patch_name,
+                    "<safe-mode>",
+                    "XPatch safe mode is enabled",
+                    patch_key=patch_key,
+                )
                 continue
             targets = self._patch_targets(patch_module)
             if not targets:
@@ -191,6 +244,13 @@ class XPatchPatchManager:
                     "warning",
                     "[xpatch] patch %s has no PATCH_TARGET/PATCH_TARGETS",
                     patch_name,
+                )
+                await self._emit_patch_event(
+                    "xpatch:failed",
+                    patch_name,
+                    target,
+                    "Patch target is not declared",
+                    patch_key=patch_key,
                 )
                 continue
 
@@ -235,21 +295,30 @@ class XPatchPatchManager:
 
         target_norm = self._normalize(target_name)
         applied_key = (patch_key, target_norm)
+        patch_name = self._patch_display_name(patch_module, patch_key)
         if applied_key in self.applied_patches and not force:
+            await self._emit_patch_event(
+                "xpatch:skipped",
+                patch_name,
+                target_name,
+                "Patch is already applied",
+                patch_key=patch_key,
+                target_norm=target_norm,
+            )
             return "skipped"
 
-        patch_name = self._patch_display_name(patch_module, patch_key)
         version_error = self._patch_version_error(patch_module)
         if version_error:
             self.failed_patches[applied_key] = version_error
             self._log("warning", "[xpatch] patch %s incompatible: %s", patch_name, version_error)
-            await self._emit_patch_event("xpatch:failed", patch_name, target_name, version_error)
+            await self._emit_patch_event("xpatch:failed", patch_name, target_name, version_error, patch_key=patch_key, target_norm=target_norm)
             return "failed"
 
         dependency_error = self._patch_dependency_error(patch_module)
         if dependency_error:
             self._remember_pending(patch_key, target_name, dependency_error)
             self._log("debug", "[xpatch] patch %s is pending: %s", patch_name, dependency_error)
+            await self._emit_patch_event("xpatch:pending", patch_name, target_name, dependency_error, patch_key=patch_key, target_norm=target_norm)
             return "pending"
 
         condition_status = await self._patch_condition_status(patch_module)
@@ -257,10 +326,11 @@ class XPatchPatchManager:
             status, reason = condition_status
             if status == "failed":
                 self.failed_patches[applied_key] = reason
-                await self._emit_patch_event("xpatch:failed", patch_name, target_name, reason)
+                await self._emit_patch_event("xpatch:failed", patch_name, target_name, reason, patch_key=patch_key, target_norm=target_norm)
                 return "failed"
             self._remember_pending(patch_key, target_name, reason)
             self._log("debug", "[xpatch] patch %s is pending: %s", patch_name, reason)
+            await self._emit_patch_event("xpatch:pending", patch_name, target_name, reason, patch_key=patch_key, target_norm=target_norm)
             return "pending"
 
         target = self.lookup_target(target_name)
@@ -272,6 +342,7 @@ class XPatchPatchManager:
                 patch_name,
                 target_name,
             )
+            await self._emit_patch_event("xpatch:pending", patch_name, target_name, "Target is not loaded", patch_key=patch_key, target_norm=target_norm)
             return "pending"
 
         apply_callback = self._apply_callback(patch_module)
@@ -283,7 +354,7 @@ class XPatchPatchManager:
                 "[xpatch] patch %s has no apply_patch/patch/apply callback",
                 patch_name,
             )
-            await self._emit_patch_event("xpatch:failed", patch_name, target_name, error)
+            await self._emit_patch_event("xpatch:failed", patch_name, target_name, error, patch_key=patch_key, target_norm=target_norm)
             return "failed"
 
         try:
@@ -301,7 +372,7 @@ class XPatchPatchManager:
                 target_name,
                 e,
             )
-            await self._emit_patch_event("xpatch:failed", patch_name, target_name, error)
+            await self._emit_patch_event("xpatch:failed", patch_name, target_name, error, patch_key=patch_key, target_norm=target_norm)
             return "failed"
 
         self.applied_patches[applied_key] = {
@@ -317,7 +388,7 @@ class XPatchPatchManager:
             patch_name,
             target_name,
         )
-        await self._emit_patch_event("xpatch:applied", patch_name, target_name, patch_result)
+        await self._emit_patch_event("xpatch:applied", patch_name, target_name, patch_result, patch_key=patch_key, target_norm=target_norm)
         return "applied"
 
     async def unapply_patch(self, patch_key: str, target_name: str) -> str:
@@ -328,15 +399,40 @@ class XPatchPatchManager:
         info = self.applied_patches.get(applied_key)
         patch_module = self.loaded_patches.get(patch_key)
         if info is None or patch_module is None:
+            patch_name = self._patch_display_name(patch_module, patch_key) if patch_module else patch_key
+            await self._emit_patch_event(
+                "xpatch:skipped",
+                patch_name,
+                target_name,
+                "Patch is not applied",
+                patch_key=patch_key,
+                target_norm=target_norm,
+            )
             return "skipped"
 
         patch_name = self._patch_display_name(patch_module, patch_key)
         callback = self._unapply_callback(patch_module)
         if callback is None:
+            await self._emit_patch_event(
+                "xpatch:skipped",
+                patch_name,
+                target_name,
+                "Patch unapply callback is not declared",
+                patch_key=patch_key,
+                target_norm=target_norm,
+            )
             return "skipped"
 
         target = self.lookup_target(target_name)
         if target is None:
+            await self._emit_patch_event(
+                "xpatch:pending",
+                patch_name,
+                target_name,
+                "Target is not loaded",
+                patch_key=patch_key,
+                target_norm=target_norm,
+            )
             return "pending"
 
         try:
@@ -347,13 +443,13 @@ class XPatchPatchManager:
             self.failed_patches[applied_key] = str(e)
             self.failed_tracebacks[applied_key] = traceback.format_exc()
             self._log("error", "[xpatch] patch %s failed to unapply from %s: %s", patch_name, target_name, e)
-            await self._emit_patch_event("xpatch:failed", patch_name, target_name, str(e))
+            await self._emit_patch_event("xpatch:failed", patch_name, target_name, str(e), patch_key=patch_key, target_norm=target_norm)
             return "failed"
 
         self.applied_patches.pop(applied_key, None)
         self.failed_patches.pop(applied_key, None)
         self.failed_tracebacks.pop(applied_key, None)
-        await self._emit_patch_event("xpatch:unapplied", patch_name, target_name, None)
+        await self._emit_patch_event("xpatch:unapplied", patch_name, target_name, None, patch_key=patch_key, target_norm=target_norm)
         return "unapplied"
 
     async def unapply_patch_key(self, patch_key: str) -> dict[str, list[tuple[str, str]]]:
@@ -370,6 +466,13 @@ class XPatchPatchManager:
         targets = [target for key, target in self.applied_patches if key == patch_key]
         if not targets:
             result["skipped"].append((patch_name, "<none>"))
+            await self._emit_patch_event(
+                "xpatch:skipped",
+                patch_name,
+                "<none>",
+                "Patch has no applied targets",
+                patch_key=patch_key,
+            )
             return result
         for target in targets:
             status = await self.unapply_patch(patch_key, target)
@@ -401,12 +504,29 @@ class XPatchPatchManager:
                 result["loaded"].append(patch_key)
             try:
                 self.loaded_patches[patch_key] = self._load_patch_module(file_path, patch_key)
+                patch_module = self.loaded_patches[patch_key]
+                await self._emit_patch_event(
+                    "xpatch:loaded",
+                    self._patch_display_name(patch_module, patch_key),
+                    "<load>",
+                    str(file_path),
+                    patch_key=patch_key,
+                    file=str(file_path),
+                )
                 changed = True
             except Exception as e:
                 self.failed_patches[(patch_key, "<load>")] = str(e)
                 self.failed_tracebacks[(patch_key, "<load>")] = traceback.format_exc()
                 result["failed"].append(patch_key)
                 self._log("error", "[xpatch] failed to hot-reload %s: %s", file_path, e)
+                await self._emit_patch_event(
+                    "xpatch:failed",
+                    patch_key,
+                    "<load>",
+                    str(e),
+                    patch_key=patch_key,
+                    file=str(file_path),
+                )
 
         if changed:
             await self.apply_all()
@@ -432,11 +552,28 @@ class XPatchPatchManager:
         self._forget_patch(patch_key)
         try:
             self.loaded_patches[patch_key] = self._load_patch_module(Path(file_path), patch_key)
+            patch_module = self.loaded_patches[patch_key]
+            await self._emit_patch_event(
+                "xpatch:loaded",
+                self._patch_display_name(patch_module, patch_key),
+                "<load>",
+                str(file_path),
+                patch_key=patch_key,
+                file=str(file_path),
+            )
         except Exception as e:
             self.failed_patches[(patch_key, "<load>")] = str(e)
             self.failed_tracebacks[(patch_key, "<load>")] = traceback.format_exc()
             result["failed"].append(patch_key)
             self._log("error", "[xpatch] failed to reload %s: %s", file_path, e)
+            await self._emit_patch_event(
+                "xpatch:failed",
+                patch_key,
+                "<load>",
+                str(e),
+                patch_key=patch_key,
+                file=str(file_path),
+            )
             return result
 
         result["reloaded"].append(patch_key)
@@ -580,14 +717,141 @@ class XPatchPatchManager:
                 return callback
         return None
 
-    async def _emit_patch_event(self, event_name: str, *args: Any) -> None:
+    @staticmethod
+    def _normalize_event_name(event_name: str) -> str:
+        value = str(event_name or "").strip()
+        if value in {"*", "xpatch:*"}:
+            return "*"
+        if not value:
+            return "xpatch:*"
+        return value if value.startswith("xpatch:") else f"xpatch:{value}"
+
+    def _event_listeners(self) -> dict[str, list[Any]]:
+        state = object.__getattribute__(self.kernel, "__dict__")
+        listeners = state.get("_xpatch_event_listeners")
+        if not isinstance(listeners, dict):
+            listeners = {}
+            state["_xpatch_event_listeners"] = listeners
+        return listeners
+
+    def add_event_listener(self, event_name: str, callback: Any) -> Any:
+        """Register a callback for one xpatch event or ``xpatch:*``."""
+
+        if not callable(callback):
+            raise TypeError("xpatch event listener must be callable")
+        event_name = self._normalize_event_name(event_name)
+        listeners = self._event_listeners().setdefault(event_name, [])
+        if callback not in listeners:
+            listeners.append(callback)
+        return callback
+
+    def remove_event_listener(self, event_name: str, callback: Any) -> bool:
+        event_name = self._normalize_event_name(event_name)
+        listeners = self._event_listeners().get(event_name)
+        if not listeners or callback not in listeners:
+            return False
+        listeners.remove(callback)
+        return True
+
+    def clear_event_listeners(self, event_name: str | None = None) -> None:
+        listeners = self._event_listeners()
+        if event_name is None:
+            listeners.clear()
+            return
+        listeners.pop(self._normalize_event_name(event_name), None)
+
+    def _patch_event_payload(
+        self,
+        event_name: str,
+        patch_name: str | None,
+        target_name: str | None,
+        value: Any = None,
+        **extra: Any,
+    ) -> dict[str, Any]:
+        status = event_name.split(":", 1)[-1]
+        payload: dict[str, Any] = {
+            "event": event_name,
+            "status": status,
+            "patch": patch_name,
+            "target": target_name,
+        }
+        if value is not None:
+            payload["value"] = value
+            if status == "failed":
+                payload["error"] = str(value)
+            elif status == "pending":
+                payload["reason"] = str(value)
+            else:
+                payload["result"] = value
+        payload.update({key: item for key, item in extra.items() if item is not None})
+        return payload
+
+    def _call_event_listener(self, callback: Any, event_name: str, payload: dict[str, Any]) -> Any:
+        try:
+            signature = inspect.signature(callback)
+        except (TypeError, ValueError):
+            return callback(event_name, payload)
+
+        params = list(signature.parameters.values())
+        if any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in params):
+            return callback(event_name, payload)
+        positional = [
+            p
+            for p in params
+            if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        ]
+        if len(positional) >= 2:
+            return callback(event_name, payload)
+        if len(positional) == 1:
+            return callback(payload)
+
+        kwargs: dict[str, Any] = {}
+        for param in params:
+            if param.kind not in (inspect.Parameter.KEYWORD_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD):
+                continue
+            name = param.name.lower()
+            if name in {"event", "event_name", "name"}:
+                kwargs[param.name] = event_name
+            elif name == "payload":
+                kwargs[param.name] = payload
+            elif name in {"manager", "patch_manager"}:
+                kwargs[param.name] = self
+            elif name in {"kernel", "k"}:
+                kwargs[param.name] = self.kernel
+        return callback(**kwargs)
+
+    async def _notify_event_listeners(self, event_name: str, payload: dict[str, Any]) -> None:
+        listeners = self._event_listeners()
+        callbacks = list(listeners.get(event_name, ())) + list(listeners.get("*", ()))
+        for callback in callbacks:
+            try:
+                result = self._call_event_listener(callback, event_name, dict(payload))
+                if inspect.isawaitable(result):
+                    await result
+            except Exception as e:
+                self._log("debug", "[xpatch] listener for %s failed: %s", event_name, e)
+
+    async def _emit_patch_event(
+        self,
+        event_name: str,
+        patch_name: str | None = None,
+        target_name: str | None = None,
+        value: Any = None,
+        **extra: Any,
+    ) -> None:
         if not bool(object.__getattribute__(self.kernel, "__dict__").get("_xpatch_events_enabled", False)):
             return
+        event_name = self._normalize_event_name(event_name)
+        payload = self._patch_event_payload(event_name, patch_name, target_name, value, **extra)
+        await self._notify_event_listeners(event_name, payload)
+
         emit = getattr(self.kernel, "emit", None)
         if not callable(emit):
             return
         try:
-            result = emit(event_name, *args)
+            # Keep the original event contract for existing users:
+            # emit("xpatch:applied", patch_name, target_name, result)
+            result = emit(event_name, patch_name, target_name, value)
             if inspect.isawaitable(result):
                 await result
         except Exception as e:
@@ -983,6 +1247,7 @@ class XPatchKernel(KernelBase):
         self._xpatch_stealth_mode = False
         self._xpatch_safe_mode = self._detect_xpatch_safe_mode()
         self._xpatch_events_enabled = False
+        self._xpatch_event_listeners: dict[str, list[Any]] = {}
         self._xpatch_hot_reload_enabled = False
         self._xpatch_hot_reload_interval = 2.0
         self._xpatch_core_lib_client_patch_enabled = False
@@ -1389,6 +1654,82 @@ class XPatchKernel(KernelBase):
             text = text.replace(source, target)
         return text
 
+    def _resolve_xpatch_preboot_db_file(self) -> str:
+        db_file = getattr(self, "DB_FILE", None)
+        if isinstance(db_file, os.PathLike):
+            db_file = os.fspath(db_file)
+        if isinstance(db_file, str) and db_file.strip():
+            return db_file.strip()
+
+        config = getattr(self, "config", None)
+        if isinstance(config, dict):
+            config_db_file = config.get("db_file") or config.get("database_file")
+            if isinstance(config_db_file, os.PathLike):
+                config_db_file = os.fspath(config_db_file)
+            if isinstance(config_db_file, str) and config_db_file.strip():
+                return config_db_file.strip()
+
+        api_id = getattr(self, "API_ID", None)
+        api_hash = getattr(self, "API_HASH", None)
+        if api_id and api_hash:
+            try:
+                from utils.security import get_mcub_dir
+
+                return os.path.join(get_mcub_dir(api_id, api_hash), "userbot.db")
+            except Exception:
+                pass
+        return "userbot.db"
+
+    def _read_xpatch_preboot_db(self) -> dict[str, str]:
+        db_file = object.__getattribute__(self, "_resolve_xpatch_preboot_db_file")()
+        if not db_file or not os.path.exists(db_file):
+            return {}
+        keys = ["client_patch", *_CLIENT_PATCH_DB_KEYS.values()]
+        result: dict[str, str] = {}
+        try:
+            conn = sqlite3.connect(f"file:{db_file}?mode=ro", uri=True, timeout=1)
+            try:
+                rows = conn.execute(
+                    "SELECT key, value FROM module_data WHERE module = ? AND key IN (%s)"
+                    % ",".join("?" for _ in keys),
+                    (_XPATCH_MANAGER_MODULE, *keys),
+                ).fetchall()
+                result.update({str(key): str(value) for key, value in rows if value is not None})
+                raw_config = conn.execute(
+                    "SELECT value FROM module_data WHERE module = ? AND key = ?",
+                    ("module_configs", _XPATCH_MANAGER_MODULE),
+                ).fetchone()
+                if raw_config and raw_config[0]:
+                    try:
+                        config_data = json.loads(raw_config[0])
+                    except Exception:
+                        config_data = {}
+                    if isinstance(config_data, dict):
+                        for key in _CLIENT_PATCH_DB_KEYS.values():
+                            if key not in result and config_data.get(key):
+                                result[key] = str(config_data[key])
+            finally:
+                conn.close()
+        except Exception as exc:
+            logger = getattr(self, "logger", None)
+            log_method = getattr(logger, "debug", None)
+            if callable(log_method):
+                log_method("[xpatch] cannot read preboot Client Patch db: %s", exc)
+        return result
+
+    def _apply_core_lib_client_patch_from_preboot_db(self) -> None:
+        data = object.__getattribute__(self, "_read_xpatch_preboot_db")()
+        enabled_raw = str(data.get("client_patch", "") or "").strip().casefold()
+        enabled = enabled_raw in {"client patch: on", "on", "true", "1", "yes"}
+        if not enabled:
+            return
+        options = {
+            option_name: data[db_key]
+            for option_name, db_key in _CLIENT_PATCH_DB_KEYS.items()
+            if str(data.get(db_key, "") or "").strip()
+        }
+        object.__getattribute__(self, "patch_core_lib_client")(enabled=True, **options)
+
     def set_extera_proxy_all(self, enabled: bool) -> None:
         """Force raw kernel instead of ModuleKernelProxy for all user modules."""
 
@@ -1741,6 +2082,7 @@ class XPatchKernel(KernelBase):
     async def run(self) -> None:
         print('Start RUN')
         self._install_extera_proxy_hook()
+        self._apply_core_lib_client_patch_from_preboot_db()
         if not getattr(self, "_xpatch_stealth_mode", False):
             self.CORE_NAME = "XPatchKernel"
         if not self.xpatch_safe_mode_enabled():
@@ -1750,6 +2092,21 @@ class XPatchKernel(KernelBase):
 
     def set_xpatch_events_enabled(self, enabled: bool) -> None:
         object.__setattr__(self, "_xpatch_events_enabled", bool(enabled))
+
+    def add_xpatch_event_listener(self, event_name: str, callback: Any) -> Any:
+        """Subscribe ``callback`` to an ``xpatch:*`` lifecycle event."""
+
+        return self._xpatch_manager().add_event_listener(event_name, callback)
+
+    def remove_xpatch_event_listener(self, event_name: str, callback: Any) -> bool:
+        """Remove a previously registered xpatch lifecycle listener."""
+
+        return self._xpatch_manager().remove_event_listener(event_name, callback)
+
+    def clear_xpatch_event_listeners(self, event_name: str | None = None) -> None:
+        """Clear xpatch lifecycle listeners for one event or for all events."""
+
+        self._xpatch_manager().clear_event_listeners(event_name)
 
     def set_xpatch_hot_reload_enabled(
         self,

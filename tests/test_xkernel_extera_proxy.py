@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import sys
+import tempfile
 import types
 from pathlib import Path
 
@@ -108,6 +110,104 @@ def test_extera_proxy_root_bypasses_direct_client_aliases():
     kernel.set_extera_proxy_modules(["ClientSandboxAudit"])
     assert isinstance(runtime.ClientProxy(kernel.client, "ClientSandboxAudit"), ClientProxy)
     assert isinstance(kernel_proxy.get_module_client(kernel, "ClientSandboxAudit", False), ClientProxy)
+
+
+def test_xpatch_lifecycle_events_payload_and_legacy_emit():
+    Kernel, *_ = load_xkernel_with_proxy_stubs()
+
+    async def run():
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            patches_dir = root / "patches"
+            patches_dir.mkdir()
+
+            event_patch = patches_dir / "EventPatch.py"
+            event_patch.write_text(
+                "PATCH_NAME = 'EventPatch'\n"
+                "PATCH_TARGET = 'TargetMod'\n"
+                "async def apply_patch(kernel, target):\n"
+                "    target.applied = True\n"
+                "    return 'ok'\n"
+                "async def unapply_patch(kernel, target):\n"
+                "    target.applied = False\n",
+                encoding="utf-8",
+            )
+            pending_patch = patches_dir / "PendingPatch.py"
+            pending_patch.write_text(
+                "PATCH_NAME = 'PendingPatch'\n"
+                "PATCH_TARGET = 'MissingMod'\n"
+                "def apply_patch(kernel, target):\n"
+                "    return 'should-not-run'\n",
+                encoding="utf-8",
+            )
+            disabled_patch = patches_dir / "DisabledPatch.py"
+            disabled_patch.write_text(
+                "PATCH_NAME = 'DisabledPatch'\n"
+                "PATCH_TARGET = 'TargetMod'\n"
+                "def apply_patch(kernel, target):\n"
+                "    return 'disabled-should-not-run'\n",
+                encoding="utf-8",
+            )
+
+            kernel = Kernel()
+            kernel.patch_manager.patches_dir = str(patches_dir)
+            target = types.SimpleNamespace(applied=False)
+            kernel.loaded_modules["TargetMod"] = target
+
+            legacy_events = []
+            payload_events = []
+            applied_events = []
+
+            def legacy_emit(event_name, patch_name, target_name, value):
+                legacy_events.append((event_name, patch_name, target_name, value))
+
+            async def wildcard_listener(event_name, payload):
+                payload_events.append((event_name, payload))
+
+            def applied_listener(payload):
+                applied_events.append(payload)
+
+            kernel.emit = legacy_emit
+            kernel.set_xpatch_events_enabled(True)
+            kernel.add_xpatch_event_listener("xpatch:*", wildcard_listener)
+            kernel.add_xpatch_event_listener("applied", applied_listener)
+
+            disabled_key = kernel.patch_manager._patch_key(disabled_patch)
+            kernel.patch_manager.disabled_patches.add(disabled_key)
+
+            result = await kernel.patch_manager.apply_all()
+
+            assert target.applied is True
+            assert result["applied"] == [("EventPatch", "TargetMod")]
+            assert result["pending"] == [("PendingPatch", "MissingMod")]
+            assert result["disabled"] == [("DisabledPatch", "<disabled>")]
+
+            event_names = [event_name for event_name, _ in payload_events]
+            assert "xpatch:loaded" in event_names
+            assert "xpatch:applied" in event_names
+            assert "xpatch:pending" in event_names
+            assert "xpatch:disabled" in event_names
+
+            applied_payload = next(payload for event_name, payload in payload_events if event_name == "xpatch:applied")
+            assert applied_payload["patch"] == "EventPatch"
+            assert applied_payload["target"] == "TargetMod"
+            assert applied_payload["result"] == "ok"
+            assert applied_payload["patch_key"].startswith("_mcub_xpatch_EventPatch_")
+            assert applied_events == [applied_payload]
+            assert ("xpatch:applied", "EventPatch", "TargetMod", "ok") in legacy_events
+
+            await kernel.patch_manager.apply_all()
+            skipped_payload = next(payload for event_name, payload in payload_events if event_name == "xpatch:skipped")
+            assert skipped_payload["patch"] == "EventPatch"
+            assert skipped_payload["reason"] == "Patch is already applied"
+
+            event_key = kernel.patch_manager._patch_key(event_patch)
+            status = await kernel.patch_manager.unapply_patch(event_key, "TargetMod")
+            assert status == "unapplied"
+            assert target.applied is False
+            assert any(event_name == "xpatch:unapplied" for event_name, _ in payload_events)
+
+    asyncio.run(run())
 
 
 def test_extera_proxy_all_mode_treats_module_list_as_exclusions():

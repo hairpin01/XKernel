@@ -37,7 +37,1007 @@ class XKernelInstaller(ModuleBase):
     }
     dependencies = ["aiohttp"]
 
-    strings = {'name': 'null'}
+    strings = {'ru': {'name': 'XPatchKernelManager',
+            'state_on': 'ON',
+            'state_off': 'OFF',
+            'btn_back': 'Назад',
+            'btn_patches': 'Патчи',
+            'btn_details': 'Диагностика',
+            'btn_apply_all': 'Применить все',
+            'btn_failed_count': '{count} с ошибкой',
+            'btn_settings': 'Настройки',
+            'btn_check_update': 'Проверить обновление',
+            'btn_utils': 'Инструменты',
+            'btn_install_update': 'Установить / обновить',
+            'btn_repo': 'Repo',
+            'btn_live_logs': 'Live logs',
+            'btn_danger_zone': 'Опасная зона',
+            'btn_remove_xkernel': 'Удаление XKernel',
+            'btn_start_remove': 'Начать процесс удаления',
+            'btn_clear_params': 'Очистить параметры',
+            'btn_client_patch_toggle': 'Client Patch: {state}',
+            'btn_client_app_version': 'Версия приложения',
+            'btn_client_device_model': 'Модель устройства',
+            'btn_client_system_version': 'Версия системы',
+            'btn_client_lang_code': 'Язык приложения',
+            'btn_client_system_lang_code': 'Системный язык',
+            'btn_reload_patch': 'Перезагрузить патч',
+            'btn_enable_patch': 'Включить патч',
+            'btn_disable_patch': 'Отключить патч',
+            'btn_unapply_patch': 'Откатить применение',
+            'btn_retry_patch': 'Повторить',
+            'btn_experimental': 'Экспериментальные функции',
+            'main_title': 'XPatch Manager',
+            'main_mcub_version': 'Version (MCUB):',
+            'main_patch_stats': 'Применено: <b>{applied}</b>  Ожидает: <b>{pending}</b>  Ошибки: <b>{failed}</b>',
+            'main_flags': 'Stealth: <code>{stealth}</code>  Auto: <code>{auto_update}</code>  Notify: '
+                          '<code>{notifications}</code>',
+            'main_extera': '<b>ExteraProxy Inject:</b> <i>{status}</i>',
+            'main_core': 'Core:',
+            'main_xkernel_version': 'Version XPatchKernel:',
+            'main_inactive_warning': 'XPatchKernel не активен — патчи и некоторые функции недоступны',
+            'main_manager_update_warning': 'Надо обновить XPatch Manager из репозитория, иначе через UI нельзя будет '
+                                           'потрогать новые фишки.',
+            'manager_opening': 'Открываю менеджер...',
+            'manager_open_failed': 'Не удалось открыть менеджер',
+            'status_not_supported': 'Не поддерживается текущим ядром',
+            'status_disabled': 'Выключен',
+            'status_enabled_no_params': 'Включен без параметров',
+            'status_enabled_params': 'Включен, параметров: {count}',
+            'extera_forced_all_except': 'Принуждёный для всех, кроме {count} модуля(-лей)',
+            'extera_forced_all': 'Принуждёный для всех',
+            'extera_inactive': 'Не активен',
+            'extera_forced_selected': 'Принуждёный только для {count} модуля(-лей)',
+            'logs_empty': 'логи [xpatch] не найдены',
+            'logs_title': 'Live logs · [xpatch]',
+            'logs_desc': 'Показывает последние <b>{max_lines}</b> строк с <code>[xpatch]</code> из '
+                         '<code>logs/kernel.log</code>. Обновление: <b>{interval}</b> сек.',
+            'logs_lines_button': 'Строк: {current} → {next}',
+            'logs_interval_button': 'Обновление: {current}с → {next}с',
+            'logs_lines_answer': 'Live logs: {value} строк',
+            'logs_interval_answer': 'Live logs: обновление {value} сек',
+            'utils_title': 'XPatch Utils',
+            'utils_logs_desc': '<b>Live logs</b> — live-просмотр строк <code>[xpatch]</code> из '
+                               '<code>logs/kernel.log</code>. Можно выбрать лимит строк и интервал обновления.',
+            'utils_danger_desc': '<b>Опасная зона</b> — удаление ядра, бекапов, патчей и модуля-менеджера. Можно отдельно '
+                                 'выбрать default core и авто-рестарт.',
+            'remove_title': 'Удаление XKernel',
+            'remove_desc': 'Выбери, что удалить. Действие необратимо для выбранных файлов. Порядок: ядро → бэкапы → патчи '
+                           '→ default core → менеджер → restart.',
+            'remove_opt_core': 'Ядро',
+            'remove_opt_backups': 'Все бекапы',
+            'remove_opt_manager': 'Модуль-менеджер',
+            'remove_opt_patches': 'Все патчи',
+            'remove_opt_default': 'Default → standard',
+            'remove_opt_restart': 'Авто-рестарт',
+            'remove_answer_start': 'Удаляю XKernel...',
+            'remove_failed_title': 'Удаление XKernel сорвалось',
+            'remove_done_title': 'Удаление XKernel завершено',
+            'settings_title': 'XPatch настройки',
+            'settings_stealth_desc': 'VERSION без .XPatch, без VERSION_XKERNEL/ver, CORE_NAME=standard',
+            'settings_auto_desc': 'Если VERSION_XKERNEL стал выше — ставить сразу',
+            'settings_notify_desc': 'Бот пишет в лог-чат или в ЛС клиенту',
+            'settings_stealth': 'Stealth mode',
+            'settings_auto': 'Auto update ядра',
+            'settings_notify': 'Уведомления об обновлении',
+            'client_title': 'Client Patch',
+            'client_desc': 'Патчит <code>core.lib.base.client.TelegramClient</code> и меняет параметры клиента: название '
+                           'приложения, девайс и язык.',
+            'client_restart_warn': 'Изменения применятся после рестарта MCUB / пересоздания клиента.',
+            'client_status': 'Статус:',
+            'client_field_app_version': 'Версия приложения',
+            'client_field_device_model': 'Модель устройства',
+            'client_field_system_version': 'Версия системы',
+            'client_field_lang_code': 'Язык приложения',
+            'client_field_system_lang_code': 'Системный язык',
+            'client_cleared': 'Параметры Client Patch очищены',
+            'xpatch_inactive_alert': 'XPatchKernel не активен',
+            'patches_title': 'Патчи',
+            'patches_stats': 'Applied: <b>{applied}</b>  Pending: <b>{pending}</b>  Failed: <b>{failed}</b>  Disabled: '
+                             '<b>{disabled}</b>',
+            'patches_hint': 'Нажми на патч, чтобы открыть детали.',
+            'patches_empty': 'Патчи не найдены',
+            'btn_extera_proxy': 'ExteraProxy Inject',
+            'btn_client_patch': 'Client Patch',
+            'btn_patch_events': 'Patch events: {state}',
+            'btn_hot_reload': 'Hot reload: {state}',
+            'btn_extera_all': 'Для всех: {state}',
+            'btn_extera_root_custom': 'Root: ON → custom',
+            'btn_extera_scope': '{scope}: {state}',
+            'none': 'нет',
+            'no_access': 'Нет доступа',
+            'remove_core_deleted': '✅ Ядро удалено: <code>{path}</code>',
+            'remove_core_absent': 'ℹ️ Ядро уже отсутствует',
+            'remove_backups_deleted': '✅ Бекапы удалены: <b>{count}</b>',
+            'remove_patches_deleted': '✅ Патчи удалены: <code>{path}</code>',
+            'remove_patches_absent': 'ℹ️ Папка патчей уже отсутствует',
+            'remove_default_standard': '✅ Default core установлен: <code>standard</code>',
+            'remove_manager_requested': '✅ Запрошено удаление модуля-менеджера',
+            'remove_restart_requested': '✅ Запрошен рестарт MCUB',
+            'remove_nothing_selected': 'ℹ️ Ничего не выбрано',
+            'settings_toggle_stealth': 'Stealth: {state}',
+            'settings_toggle_auto': 'Auto update: {state}',
+            'settings_toggle_notify': 'Notify: {state}',
+            'extera_title': 'ExteraProxy Inject',
+            'extera_desc': 'Что делает: даёт выбранным модулям доступ к защищённым объектам XKernel: <b>kernel / client / '
+                           'event</b>. Нужно, если модуль явно требует защищённый объект, например session у client.',
+            'extera_do_not_touch': 'Если не знаешь зачем это нужно — <b>не трогай</b>.',
+            'extera_status_label': 'Статус:',
+            'extera_scopes_label': 'Scopes:',
+            'extera_modules_selected': 'Выбранные модули',
+            'extera_modules_excluded': 'Исключения',
+            'extera_trusted_warning': 'Включай только для известных и доверенных модулей. Не включай для неизвестных или '
+                                      'подозрительных модулей.',
+            'extera_unsupported_scopes': 'Текущее XKernel ядро не поддерживает ExteraProxy scopes',
+            'extera_unsupported': 'Текущее XKernel ядро не поддерживает ExteraProxy',
+            'extera_scope_answer': 'ExteraProxy {scope}: {state}',
+            'extera_all_on_answer': 'ExteraProxy для всех включён. Осторожно: только для доверенных модулей!',
+            'extera_all_off_answer': 'ExteraProxy для всех выключен',
+            'experimental_title': 'Экспериментальные функции XPatch',
+            'experimental_events_desc': 'emit xpatch:applied / xpatch:failed / xpatch:unapplied',
+            'experimental_hot_reload_title': 'Hot reload патчей',
+            'experimental_hot_reload_desc': 'следит за файлами patches/*.py и перезагружает изменённые',
+            'experimental_warning': 'Функции экспериментальные: включай только если понимаешь риски.',
+            'experimental_unavailable_title': 'Экспериментальные функции недоступны',
+            'experimental_unavailable_desc': 'Текущее ядро не поддерживает runtime-функции XKernel.',
+            'stealth_enabled': 'Stealth включён',
+            'stealth_disabled': 'Stealth выключен',
+            'auto_update_enabled': 'Автообновление ядра включено',
+            'auto_update_disabled': 'Автообновление ядра выключено',
+            'notifications_enabled': 'Уведомления включены',
+            'notifications_disabled': 'Уведомления выключены',
+            'client_patch_enabled': 'Client Patch включён',
+            'client_patch_disabled': 'Client Patch выключен',
+            'unsupported_current_kernel': 'Не поддерживается текущим ядром',
+            'btn_extera_add_module': 'Добавить модуль',
+            'btn_extera_remove_module': 'Убрать модуль',
+            'btn_extera_clear_list': 'Очистить список',
+            'stealth_unsupported': 'Текущее XKernel ядро не поддерживает stealth mode. Обнови XKernel и перезапусти MCUB.',
+            'client_patch_unsupported': 'Текущее XKernel ядро не поддерживает Client Patch',
+            'client_patch_updated': 'Client Patch обновлён',
+            'client_patch_clear_hint': 'Чтобы очистить поле, отправь <code>-</code> или <code>clear</code>.',
+            'client_patch_value_cleared': 'очищено',
+            'extera_name_required': 'Укажи имя модуля',
+            'extera_updated': 'ExteraProxy обновлён',
+            'extera_add_result': 'Модуль <code>{module}</code> добавлен',
+            'extera_remove_result': 'Модуль <code>{module}</code> убран',
+            'extera_clear_answer': 'Список ExteraProxy очищен',
+            'patch_events_enabled': 'Patch events включены',
+            'patch_events_disabled': 'Patch events выключены',
+            'hot_reload_enabled': 'Hot reload включён',
+            'hot_reload_disabled': 'Hot reload выключен',
+            'patch_detail_title': 'Детали патча',
+            'patch_status_label': 'Статус:',
+            'patch_label': 'Патч:',
+            'patch_target_label': 'Цель:',
+            'patch_file_label': 'Файл:',
+            'patch_key_label': 'Ключ:',
+            'patch_result_label': 'Результат',
+            'patch_pending_reason_label': 'Причина ожидания',
+            'patch_error_label': 'Ошибка',
+            'patch_traceback_label': 'Traceback',
+            'patch_min_version': 'Минимальная версия XKernel для этого патча: {version}',
+            'patch_version_ok': 'Патч совместим с текущей версией XKernel',
+            'patch_min_version_unknown': 'Минимальная версия XKernel для этого патча не указана',
+            'patch_reload_unsupported': 'Это XKernel ядро не поддерживает reload одного патча',
+            'patch_reload_failed': 'Reload не удался',
+            'patch_file_not_found': 'Файл патча не найден',
+            'patch_reloaded': 'Патч перезагружен',
+            'patch_unapply_result': 'Откат: {result}',
+            'patch_toggle_unsupported': 'Это XKernel ядро не поддерживает enable/disable патчей',
+            'patch_disabled_answer': 'Патч отключён',
+            'patch_enabled_answer': 'Патч включён',
+            'patch_retry_answer': 'Повторяю патч...',
+            'details_file_label': 'Файл:',
+            'details_size_label': 'Размер:',
+            'details_backups_label': 'Бэкапов:',
+            'details_not_found': 'XKernel не найден:',
+            'details_default_core': 'Default core:',
+            'details_not_set': 'не задан',
+            'details_title': 'XKernel · Диагностика',
+            'install_loading': 'Загружаю XKernel...',
+            'platform_label': 'Платформа:',
+            'install_done_title': 'XKernel установлен',
+            'install_default_prompt': 'Сделать XKernel ядром по умолчанию?',
+            'install_default_desc': 'Если выбрать да, MCUB будет стартовать с XKernel без ручного <code>--core '
+                                    'XKernel</code>.',
+            'btn_set_default': 'Установить по дефолту',
+            'btn_no_thanks': 'Нет, спасибо',
+            'install_error_title': 'Ошибка установки',
+            'install_finish_title': 'Готово',
+            'install_default_unchanged': 'не менял',
+            'restart_required': 'Нужен рестарт MCUB',
+            'btn_restart': 'Рестарт',
+            'install_default_set_answer': 'XKernel установлен по умолчанию',
+            'install_default_skip_answer': 'Default core не менял',
+            'update_checking': 'Проверяю XKernel...',
+            'update_check_failed_title': 'Update check failed',
+            'update_current_title': 'XKernel уже актуален',
+            'local_label': 'Local:',
+            'remote_label': 'Remote:',
+            'update_available_title': 'Доступно обновление XKernel',
+            'btn_update_now': 'Обновиться',
+            'update_loading': 'Обновляю XKernel...',
+            'update_failed_title': 'XKernel не обновлён',
+            'reopen_manager_hint': 'Открой менеджер заново:',
+            'update_done_title': 'XKernel обновлён',
+            'version_label': 'Version:',
+            'apply_all_loading': 'Применяю патчи...',
+            'apply_all_error_title': 'Ошибка apply_patches',
+            'apply_all_result_title': 'Apply all — результат',
+            'apply_applied_label': 'Applied',
+            'apply_pending_label': 'Pending',
+            'apply_failed_label': 'Failed',
+            'apply_skipped_label': 'Skipped',
+            'apply_restart_required': 'Нужен рестарт для применения патчей',
+            'rollback_no_backup': 'Backup не найден',
+            'rollback_confirm_title': 'Rollback — подтверждение',
+            'rollback_will_restore': 'Будет восстановлен:',
+            'rollback_restart_required': 'Нужен рестарт после отката',
+            'btn_rollback': 'Откатить',
+            'btn_cancel': 'Отмена',
+            'rollback_failed_title': 'Rollback не выполнен',
+            'rollback_done_title': 'Rollback выполнен',
+            'rollback_restored_label': 'Восстановлен:',
+            'restart_answer': 'Ребутаю MCUB...',
+            'cli_install_start': 'Начинаю ставить XPatchKernel',
+            'cli_install_done_title': 'XKernel установлен/обновлён',
+            'cli_install_failed_title': 'XKernel не установлен',
+            'cli_rollback_not_found': 'Backup для XKernel не найден',
+            'cli_rollback_done_title': 'XKernel rollback выполнен',
+            'restart_prompt': 'Рестарт MCUB?',
+            'btn_reboot': 'Reboot'},
+     'en': {'name': 'XPatchKernelManager',
+            'state_on': 'ON',
+            'state_off': 'OFF',
+            'btn_back': 'Back',
+            'btn_patches': 'Patches',
+            'btn_details': 'Diagnostics',
+            'btn_apply_all': 'Apply all',
+            'btn_failed_count': '{count} failed',
+            'btn_settings': 'Settings',
+            'btn_check_update': 'Check update',
+            'btn_utils': 'Tools',
+            'btn_install_update': 'Install / update',
+            'btn_repo': 'Repo',
+            'btn_live_logs': 'Live logs',
+            'btn_danger_zone': 'Danger zone',
+            'btn_remove_xkernel': 'Remove XKernel',
+            'btn_start_remove': 'Start removal',
+            'btn_clear_params': 'Clear parameters',
+            'btn_client_patch_toggle': 'Client Patch: {state}',
+            'btn_client_app_version': 'App version',
+            'btn_client_device_model': 'Device model',
+            'btn_client_system_version': 'System version',
+            'btn_client_lang_code': 'App language',
+            'btn_client_system_lang_code': 'System language',
+            'btn_reload_patch': 'Reload patch',
+            'btn_enable_patch': 'Enable patch',
+            'btn_disable_patch': 'Disable patch',
+            'btn_unapply_patch': 'Unapply',
+            'btn_retry_patch': 'Retry',
+            'btn_experimental': 'Experimental features',
+            'main_title': 'XPatch Manager',
+            'main_mcub_version': 'Version (MCUB):',
+            'main_patch_stats': 'Applied: <b>{applied}</b>  Pending: <b>{pending}</b>  Failed: <b>{failed}</b>',
+            'main_flags': 'Stealth: <code>{stealth}</code>  Auto: <code>{auto_update}</code>  Notify: '
+                          '<code>{notifications}</code>',
+            'main_extera': '<b>ExteraProxy Inject:</b> <i>{status}</i>',
+            'main_core': 'Core:',
+            'main_xkernel_version': 'XPatchKernel version:',
+            'main_inactive_warning': 'XPatchKernel is inactive — patches and some features are unavailable',
+            'main_manager_update_warning': 'Update XPatch Manager from the repository; otherwise the UI cannot expose new '
+                                           'features.',
+            'manager_opening': 'Opening manager...',
+            'manager_open_failed': 'Failed to open manager',
+            'status_not_supported': 'Not supported by current kernel',
+            'status_disabled': 'Disabled',
+            'status_enabled_no_params': 'Enabled without parameters',
+            'status_enabled_params': 'Enabled, parameters: {count}',
+            'extera_forced_all_except': 'Forced for all except {count} module(s)',
+            'extera_forced_all': 'Forced for all',
+            'extera_inactive': 'Inactive',
+            'extera_forced_selected': 'Forced only for {count} module(s)',
+            'logs_empty': 'no [xpatch] logs found',
+            'logs_title': 'Live logs · [xpatch]',
+            'logs_desc': 'Shows the last <b>{max_lines}</b> lines with <code>[xpatch]</code> from '
+                         '<code>logs/kernel.log</code>. Refresh: <b>{interval}</b>s.',
+            'logs_lines_button': 'Lines: {current} → {next}',
+            'logs_interval_button': 'Refresh: {current}s → {next}s',
+            'logs_lines_answer': 'Live logs: {value} lines',
+            'logs_interval_answer': 'Live logs: refresh {value}s',
+            'utils_title': 'XPatch Utils',
+            'utils_logs_desc': '<b>Live logs</b> — live view of <code>[xpatch]</code> lines from '
+                               '<code>logs/kernel.log</code>. You can choose line limit and refresh interval.',
+            'utils_danger_desc': '<b>Danger zone</b> — remove the kernel, backups, patches, and manager module. You can '
+                                 'also choose default core and auto-restart.',
+            'remove_title': 'Remove XKernel',
+            'remove_desc': 'Choose what to remove. This is irreversible for selected files. Order: kernel → backups → '
+                           'patches → default core → manager → restart.',
+            'remove_opt_core': 'Kernel',
+            'remove_opt_backups': 'All backups',
+            'remove_opt_manager': 'Manager module',
+            'remove_opt_patches': 'All patches',
+            'remove_opt_default': 'Default → standard',
+            'remove_opt_restart': 'Auto-restart',
+            'remove_answer_start': 'Removing XKernel...',
+            'remove_failed_title': 'XKernel removal failed',
+            'remove_done_title': 'XKernel removal finished',
+            'settings_title': 'XPatch settings',
+            'settings_stealth_desc': 'VERSION without .XPatch, no VERSION_XKERNEL/ver, CORE_NAME=standard',
+            'settings_auto_desc': 'Install immediately when VERSION_XKERNEL becomes newer',
+            'settings_notify_desc': 'Bot writes to log chat or client DM',
+            'settings_stealth': 'Stealth mode',
+            'settings_auto': 'Kernel auto-update',
+            'settings_notify': 'Update notifications',
+            'client_title': 'Client Patch',
+            'client_desc': 'Patches <code>core.lib.base.client.TelegramClient</code> and changes client parameters: app '
+                           'name, device and language.',
+            'client_restart_warn': 'Changes apply after MCUB restart / TelegramClient recreation.',
+            'client_status': 'Status:',
+            'client_field_app_version': 'App version',
+            'client_field_device_model': 'Device model',
+            'client_field_system_version': 'System version',
+            'client_field_lang_code': 'App language',
+            'client_field_system_lang_code': 'System language',
+            'client_cleared': 'Client Patch parameters cleared',
+            'xpatch_inactive_alert': 'XPatchKernel is inactive',
+            'patches_title': 'Patches',
+            'patches_stats': 'Applied: <b>{applied}</b>  Pending: <b>{pending}</b>  Failed: <b>{failed}</b>  Disabled: '
+                             '<b>{disabled}</b>',
+            'patches_hint': 'Tap a patch to open details.',
+            'patches_empty': 'No patches found',
+            'btn_extera_proxy': 'ExteraProxy Inject',
+            'btn_client_patch': 'Client Patch',
+            'btn_patch_events': 'Patch events: {state}',
+            'btn_hot_reload': 'Hot reload: {state}',
+            'btn_extera_all': 'For all: {state}',
+            'btn_extera_root_custom': 'Root: ON → custom',
+            'btn_extera_scope': '{scope}: {state}',
+            'none': 'none',
+            'no_access': 'No access',
+            'remove_core_deleted': '✅ Kernel removed: <code>{path}</code>',
+            'remove_core_absent': 'ℹ️ Kernel is already absent',
+            'remove_backups_deleted': '✅ Backups removed: <b>{count}</b>',
+            'remove_patches_deleted': '✅ Patches removed: <code>{path}</code>',
+            'remove_patches_absent': 'ℹ️ Patches folder is already absent',
+            'remove_default_standard': '✅ Default core set to <code>standard</code>',
+            'remove_manager_requested': '✅ Manager module removal requested',
+            'remove_restart_requested': '✅ MCUB restart requested',
+            'remove_nothing_selected': 'ℹ️ Nothing selected',
+            'settings_toggle_stealth': 'Stealth: {state}',
+            'settings_toggle_auto': 'Auto update: {state}',
+            'settings_toggle_notify': 'Notify: {state}',
+            'extera_title': 'ExteraProxy Inject',
+            'extera_desc': 'What it does: gives selected modules access to protected XKernel objects: <b>kernel / client / '
+                           'event</b>. Use it only when a module explicitly needs a protected object, for example client '
+                           'session.',
+            'extera_do_not_touch': 'If you do not know why you need this — <b>do not touch it</b>.',
+            'extera_status_label': 'Status:',
+            'extera_scopes_label': 'Scopes:',
+            'extera_modules_selected': 'Selected modules',
+            'extera_modules_excluded': 'Exceptions',
+            'extera_trusted_warning': 'Enable only for known and trusted modules. Do not enable it for unknown or '
+                                      'suspicious modules.',
+            'extera_unsupported_scopes': 'Current XKernel does not support ExteraProxy scopes',
+            'extera_unsupported': 'Current XKernel does not support ExteraProxy',
+            'extera_scope_answer': 'ExteraProxy {scope}: {state}',
+            'extera_all_on_answer': 'ExteraProxy enabled for all. Careful: trusted modules only!',
+            'extera_all_off_answer': 'ExteraProxy disabled for all',
+            'experimental_title': 'Experimental XPatch features',
+            'experimental_events_desc': 'emit xpatch:applied / xpatch:failed / xpatch:unapplied',
+            'experimental_hot_reload_title': 'Patch hot reload',
+            'experimental_hot_reload_desc': 'watches patches/*.py files and reloads changed patches',
+            'experimental_warning': 'These features are experimental: enable them only if you understand the risks.',
+            'experimental_unavailable_title': 'Experimental features unavailable',
+            'experimental_unavailable_desc': 'Current kernel does not support XKernel runtime features.',
+            'stealth_enabled': 'Stealth enabled',
+            'stealth_disabled': 'Stealth disabled',
+            'auto_update_enabled': 'Kernel auto-update enabled',
+            'auto_update_disabled': 'Kernel auto-update disabled',
+            'notifications_enabled': 'Notifications enabled',
+            'notifications_disabled': 'Notifications disabled',
+            'client_patch_enabled': 'Client Patch enabled',
+            'client_patch_disabled': 'Client Patch disabled',
+            'unsupported_current_kernel': 'Not supported by current kernel',
+            'btn_extera_add_module': 'Add module',
+            'btn_extera_remove_module': 'Remove module',
+            'btn_extera_clear_list': 'Clear list',
+            'stealth_unsupported': 'Current XKernel does not support stealth mode. Update XKernel and restart MCUB.',
+            'client_patch_unsupported': 'Current XKernel does not support Client Patch',
+            'client_patch_updated': 'Client Patch updated',
+            'client_patch_clear_hint': 'To clear the field, send <code>-</code> or <code>clear</code>.',
+            'client_patch_value_cleared': 'cleared',
+            'extera_name_required': 'Specify module name',
+            'extera_updated': 'ExteraProxy updated',
+            'extera_add_result': 'Module <code>{module}</code> added',
+            'extera_remove_result': 'Module <code>{module}</code> removed',
+            'extera_clear_answer': 'ExteraProxy list cleared',
+            'patch_events_enabled': 'Patch events enabled',
+            'patch_events_disabled': 'Patch events disabled',
+            'hot_reload_enabled': 'Hot reload enabled',
+            'hot_reload_disabled': 'Hot reload disabled',
+            'patch_detail_title': 'Patch detail',
+            'patch_status_label': 'Status:',
+            'patch_label': 'Patch:',
+            'patch_target_label': 'Target:',
+            'patch_file_label': 'File:',
+            'patch_key_label': 'Key:',
+            'patch_result_label': 'Result',
+            'patch_pending_reason_label': 'Pending reason',
+            'patch_error_label': 'Error',
+            'patch_traceback_label': 'Traceback',
+            'patch_min_version': 'Minimum XKernel version for this patch: {version}',
+            'patch_version_ok': 'Patch is compatible with current XKernel version',
+            'patch_min_version_unknown': 'Minimum XKernel version is not specified for this patch',
+            'patch_reload_unsupported': 'This XKernel does not support single patch reload',
+            'patch_reload_failed': 'Reload failed',
+            'patch_file_not_found': 'Patch file not found',
+            'patch_reloaded': 'Reloaded',
+            'patch_unapply_result': 'Unapply: {result}',
+            'patch_toggle_unsupported': 'This XKernel does not support patch enable/disable',
+            'patch_disabled_answer': 'Patch disabled',
+            'patch_enabled_answer': 'Patch enabled',
+            'patch_retry_answer': 'Retrying patch...',
+            'details_file_label': 'File:',
+            'details_size_label': 'Size:',
+            'details_backups_label': 'Backups:',
+            'details_not_found': 'XKernel not found:',
+            'details_default_core': 'Default core:',
+            'details_not_set': 'not set',
+            'details_title': 'XKernel · Diagnostics',
+            'install_loading': 'Downloading XKernel...',
+            'platform_label': 'Platform:',
+            'install_done_title': 'XKernel installed',
+            'install_default_prompt': 'Make XKernel the default core?',
+            'install_default_desc': 'If yes, MCUB will start with XKernel without manual <code>--core XKernel</code>.',
+            'btn_set_default': 'Set as default',
+            'btn_no_thanks': 'No, thanks',
+            'install_error_title': 'Install error',
+            'install_finish_title': 'Done',
+            'install_default_unchanged': 'unchanged',
+            'restart_required': 'MCUB restart required',
+            'btn_restart': 'Restart',
+            'install_default_set_answer': 'XKernel set as default',
+            'install_default_skip_answer': 'Default core unchanged',
+            'update_checking': 'Checking XKernel...',
+            'update_check_failed_title': 'Update check failed',
+            'update_current_title': 'XKernel is already up to date',
+            'local_label': 'Local:',
+            'remote_label': 'Remote:',
+            'update_available_title': 'XKernel update available',
+            'btn_update_now': 'Update',
+            'update_loading': 'Updating XKernel...',
+            'update_failed_title': 'XKernel was not updated',
+            'reopen_manager_hint': 'Open manager again:',
+            'update_done_title': 'XKernel updated',
+            'version_label': 'Version:',
+            'apply_all_loading': 'Applying patches...',
+            'apply_all_error_title': 'apply_patches error',
+            'apply_all_result_title': 'Apply all — result',
+            'apply_applied_label': 'Applied',
+            'apply_pending_label': 'Pending',
+            'apply_failed_label': 'Failed',
+            'apply_skipped_label': 'Skipped',
+            'apply_restart_required': 'Restart is required to apply patches',
+            'rollback_no_backup': 'Backup not found',
+            'rollback_confirm_title': 'Rollback — confirmation',
+            'rollback_will_restore': 'Will restore:',
+            'rollback_restart_required': 'Restart is required after rollback',
+            'btn_rollback': 'Rollback',
+            'btn_cancel': 'Cancel',
+            'rollback_failed_title': 'Rollback failed',
+            'rollback_done_title': 'Rollback completed',
+            'rollback_restored_label': 'Restored:',
+            'restart_answer': 'Restarting MCUB...',
+            'cli_install_start': 'Installing XPatchKernel',
+            'cli_install_done_title': 'XKernel installed/updated',
+            'cli_install_failed_title': 'XKernel was not installed',
+            'cli_rollback_not_found': 'XKernel backup not found',
+            'cli_rollback_done_title': 'XKernel rollback completed',
+            'restart_prompt': 'Restart MCUB?',
+            'btn_reboot': 'Reboot'},
+     'rofl': {'name': 'XPatchKernelManager',
+              'state_on': 'ON',
+              'state_off': 'OFF',
+              'btn_back': 'Назад',
+              'btn_patches': 'Патчи',
+              'btn_details': 'Чекнуть кишки',
+              'btn_apply_all': 'Применить все',
+              'btn_failed_count': '{count} с ошибкой',
+              'btn_settings': 'Настройки',
+              'btn_check_update': 'Проверить обновление',
+              'btn_utils': 'Штуки',
+              'btn_install_update': 'Установить / обновить',
+              'btn_repo': 'Repo',
+              'btn_live_logs': 'Live logs',
+              'btn_danger_zone': 'Не нажимать 💀',
+              'btn_remove_xkernel': 'Удаление XKernel',
+              'btn_start_remove': 'Начать процесс удаления',
+              'btn_clear_params': 'Очистить параметры',
+              'btn_client_patch_toggle': 'Client Patch: {state}',
+              'btn_client_app_version': 'Версия приложения',
+              'btn_client_device_model': 'Модель устройства',
+              'btn_client_system_version': 'Версия системы',
+              'btn_client_lang_code': 'Язык приложения',
+              'btn_client_system_lang_code': 'Системный язык',
+              'btn_reload_patch': 'Перезагрузить патч',
+              'btn_enable_patch': 'Включить патч',
+              'btn_disable_patch': 'Отключить патч',
+              'btn_unapply_patch': 'Откатить применение',
+              'btn_retry_patch': 'Повторить',
+              'btn_experimental': 'Экспериментальные функции',
+              'main_title': 'XPatch Manager',
+              'main_mcub_version': 'Version (MCUB):',
+              'main_patch_stats': 'Применено: <b>{applied}</b>  Ожидает: <b>{pending}</b>  Ошибки: <b>{failed}</b>',
+              'main_flags': 'Stealth: <code>{stealth}</code>  Auto: <code>{auto_update}</code>  Notify: '
+                            '<code>{notifications}</code>',
+              'main_extera': '<b>ExteraProxy Inject:</b> <i>{status}</i>',
+              'main_core': 'Core:',
+              'main_xkernel_version': 'Version XPatchKernel:',
+              'main_inactive_warning': 'XPatchKernel спит — патчи и часть магии недоступны',
+              'main_manager_update_warning': 'Менеджер староват: обнови из репы, а то новые приколы в UI не появятся.',
+              'manager_opening': 'Открываю менеджер...',
+              'manager_open_failed': 'Не удалось открыть менеджер',
+              'status_not_supported': 'Не поддерживается текущим ядром',
+              'status_disabled': 'Выключен',
+              'status_enabled_no_params': 'Включен без параметров',
+              'status_enabled_params': 'Включен, параметров: {count}',
+              'extera_forced_all_except': 'Принуждёный для всех, кроме {count} модуля(-лей)',
+              'extera_forced_all': 'Принуждёный для всех',
+              'extera_inactive': 'Не активен',
+              'extera_forced_selected': 'Принуждёный только для {count} модуля(-лей)',
+              'logs_empty': 'логи [xpatch] не найдены',
+              'logs_title': 'Live logs · [xpatch]',
+              'logs_desc': 'Показывает последние <b>{max_lines}</b> строк с <code>[xpatch]</code> из '
+                           '<code>logs/kernel.log</code>. Обновление: <b>{interval}</b> сек.',
+              'logs_lines_button': 'Строк: {current} → {next}',
+              'logs_interval_button': 'Обновление: {current}с → {next}с',
+              'logs_lines_answer': 'Live logs: {value} строк',
+              'logs_interval_answer': 'Live logs: обновление {value} сек',
+              'utils_title': 'XPatch Utils',
+              'utils_logs_desc': '<b>Live logs</b> — live-просмотр строк <code>[xpatch]</code> из '
+                                 '<code>logs/kernel.log</code>. Можно выбрать лимит строк и интервал обновления.',
+              'utils_danger_desc': '<b>Опасная зона</b> — тут можно снести ядро, бекапы, патчи и сам менеджер. Жми только '
+                                   'если уверен.',
+              'remove_title': 'Удаление XKernel',
+              'remove_desc': 'Выбери, что удалить. Действие необратимо для выбранных файлов. Порядок: ядро → бэкапы → '
+                             'патчи → default core → менеджер → restart.',
+              'remove_opt_core': 'Ядро',
+              'remove_opt_backups': 'Все бекапы',
+              'remove_opt_manager': 'Модуль-менеджер',
+              'remove_opt_patches': 'Все патчи',
+              'remove_opt_default': 'Default → standard',
+              'remove_opt_restart': 'Авто-рестарт',
+              'remove_answer_start': 'Удаляю XKernel...',
+              'remove_failed_title': 'Удаление XKernel сорвалось',
+              'remove_done_title': 'Удаление XKernel завершено',
+              'settings_title': 'XPatch настройки',
+              'settings_stealth_desc': 'VERSION без .XPatch, без VERSION_XKERNEL/ver, CORE_NAME=standard',
+              'settings_auto_desc': 'Если VERSION_XKERNEL стал выше — ставить сразу',
+              'settings_notify_desc': 'Бот пишет в лог-чат или в ЛС клиенту',
+              'settings_stealth': 'Stealth mode',
+              'settings_auto': 'Auto update ядра',
+              'settings_notify': 'Уведомления об обновлении',
+              'client_title': 'Client Patch',
+              'client_desc': 'Патчит <code>core.lib.base.client.TelegramClient</code> и меняет параметры клиента: название '
+                             'приложения, девайс и язык.',
+              'client_restart_warn': 'Чтобы магия Client Patch реально сработала — рестартни MCUB / пересоздай клиент.',
+              'client_status': 'Статус:',
+              'client_field_app_version': 'Версия приложения',
+              'client_field_device_model': 'Модель устройства',
+              'client_field_system_version': 'Версия системы',
+              'client_field_lang_code': 'Язык приложения',
+              'client_field_system_lang_code': 'Системный язык',
+              'client_cleared': 'Параметры Client Patch очищены',
+              'xpatch_inactive_alert': 'XPatchKernel не активен',
+              'patches_title': 'Патчи',
+              'patches_stats': 'Applied: <b>{applied}</b>  Pending: <b>{pending}</b>  Failed: <b>{failed}</b>  Disabled: '
+                               '<b>{disabled}</b>',
+              'patches_hint': 'Тыкни патч, чтобы посмотреть что с ним не так или всё ок.',
+              'patches_empty': 'Патчи не найдены',
+              'btn_extera_proxy': 'ExteraProxy Inject',
+              'btn_client_patch': 'Client Patch',
+              'btn_patch_events': 'Patch events: {state}',
+              'btn_hot_reload': 'Hot reload: {state}',
+              'btn_extera_all': 'Для всех: {state}',
+              'btn_extera_root_custom': 'Root: ON → custom',
+              'btn_extera_scope': '{scope}: {state}',
+              'none': 'пусто, как холодильник',
+              'no_access': 'Доступа нет, сорян',
+              'remove_core_deleted': '✅ Ядро удалено: <code>{path}</code>',
+              'remove_core_absent': 'ℹ️ Ядро уже отсутствует',
+              'remove_backups_deleted': '✅ Бекапы удалены: <b>{count}</b>',
+              'remove_patches_deleted': '✅ Патчи удалены: <code>{path}</code>',
+              'remove_patches_absent': 'ℹ️ Папка патчей уже отсутствует',
+              'remove_default_standard': '✅ Default core установлен: <code>standard</code>',
+              'remove_manager_requested': '✅ Запрошено удаление модуля-менеджера',
+              'remove_restart_requested': '✅ Запрошен рестарт MCUB',
+              'remove_nothing_selected': 'ℹ️ Ничего не выбрано',
+              'settings_toggle_stealth': 'Stealth: {state}',
+              'settings_toggle_auto': 'Auto update: {state}',
+              'settings_toggle_notify': 'Notify: {state}',
+              'extera_title': 'ExteraProxy Inject',
+              'extera_desc': 'Что делает: даёт выбранным модулям доступ к защищённым объектам XKernel: <b>kernel / client '
+                             '/ event</b>. Нужно, если модуль явно требует защищённый объект, например session у client.',
+              'extera_do_not_touch': 'Не понимаешь зачем — <b>не тыкай</b>.',
+              'extera_status_label': 'Статус:',
+              'extera_scopes_label': 'Scopes:',
+              'extera_modules_selected': 'Выбранные модули',
+              'extera_modules_excluded': 'Исключения',
+              'extera_trusted_warning': 'Включай только для известных и доверенных модулей. Не включай для неизвестных или '
+                                        'подозрительных модулей.',
+              'extera_unsupported_scopes': 'Текущее XKernel ядро не поддерживает ExteraProxy scopes',
+              'extera_unsupported': 'Текущее XKernel ядро не поддерживает ExteraProxy',
+              'extera_scope_answer': 'ExteraProxy {scope}: {state}',
+              'extera_all_on_answer': 'ExteraProxy для всех включён. Осторожно: только для доверенных модулей!',
+              'extera_all_off_answer': 'ExteraProxy для всех выключен',
+              'experimental_title': 'Экспериментальные функции XPatch',
+              'experimental_events_desc': 'emit xpatch:applied / xpatch:failed / xpatch:unapplied',
+              'experimental_hot_reload_title': 'Hot reload патчей',
+              'experimental_hot_reload_desc': 'следит за файлами patches/*.py и перезагружает изменённые',
+              'experimental_warning': 'Эксперименты: включай только если готов к приколам.',
+              'experimental_unavailable_title': 'Экспериментальные функции недоступны',
+              'experimental_unavailable_desc': 'Текущее ядро не поддерживает runtime-функции XKernel.',
+              'stealth_enabled': 'Stealth включён',
+              'stealth_disabled': 'Stealth выключен',
+              'auto_update_enabled': 'Автообновление ядра включено',
+              'auto_update_disabled': 'Автообновление ядра выключено',
+              'notifications_enabled': 'Уведомления включены',
+              'notifications_disabled': 'Уведомления выключены',
+              'client_patch_enabled': 'Client Patch включён',
+              'client_patch_disabled': 'Client Patch выключен',
+              'unsupported_current_kernel': 'Не поддерживается текущим ядром',
+              'btn_extera_add_module': 'Добавить модуль',
+              'btn_extera_remove_module': 'Убрать модуль',
+              'btn_extera_clear_list': 'Очистить список',
+              'stealth_unsupported': 'Текущее XKernel ядро не поддерживает stealth mode. Обнови XKernel и перезапусти '
+                                     'MCUB.',
+              'client_patch_unsupported': 'Текущее XKernel ядро не поддерживает Client Patch',
+              'client_patch_updated': 'Client Patch обновлён',
+              'client_patch_clear_hint': 'Чтобы очистить поле, отправь <code>-</code> или <code>clear</code>.',
+              'client_patch_value_cleared': 'снесено',
+              'extera_name_required': 'Дай имя модуля',
+              'extera_updated': 'ExteraProxy обновлён',
+              'extera_add_result': 'Модуль <code>{module}</code> добавлен',
+              'extera_remove_result': 'Модуль <code>{module}</code> убран',
+              'extera_clear_answer': 'Список ExteraProxy очищен',
+              'patch_events_enabled': 'Patch events включены',
+              'patch_events_disabled': 'Patch events выключены',
+              'hot_reload_enabled': 'Hot reload включён',
+              'hot_reload_disabled': 'Hot reload выключен',
+              'patch_detail_title': 'Детали патча',
+              'patch_status_label': 'Статус:',
+              'patch_label': 'Патч:',
+              'patch_target_label': 'Цель:',
+              'patch_file_label': 'Файл:',
+              'patch_key_label': 'Ключ:',
+              'patch_result_label': 'Результат',
+              'patch_pending_reason_label': 'Причина ожидания',
+              'patch_error_label': 'Ошибка',
+              'patch_traceback_label': 'Traceback',
+              'patch_min_version': 'Минимальная версия XKernel для этого патча: {version}',
+              'patch_version_ok': 'Патч совместим с текущей версией XKernel',
+              'patch_min_version_unknown': 'Минимальная версия XKernel для этого патча не указана',
+              'patch_reload_unsupported': 'Это XKernel ядро не поддерживает reload одного патча',
+              'patch_reload_failed': 'Reload не удался',
+              'patch_file_not_found': 'Файл патча не найден',
+              'patch_reloaded': 'Патч перезагружен',
+              'patch_unapply_result': 'Откат: {result}',
+              'patch_toggle_unsupported': 'Это XKernel ядро не поддерживает enable/disable патчей',
+              'patch_disabled_answer': 'Патч отключён',
+              'patch_enabled_answer': 'Патч включён',
+              'patch_retry_answer': 'Пробую ещё разок...',
+              'details_file_label': 'Файл:',
+              'details_size_label': 'Размер:',
+              'details_backups_label': 'Бэкапов:',
+              'details_not_found': 'XKernel не найден:',
+              'details_default_core': 'Default core:',
+              'details_not_set': 'не задан',
+              'details_title': 'XKernel · Чек кишок',
+              'install_loading': 'Загружаю XKernel...',
+              'platform_label': 'Платформа:',
+              'install_done_title': 'XKernel установлен',
+              'install_default_prompt': 'Сделать XKernel ядром по умолчанию?',
+              'install_default_desc': 'Если выбрать да, MCUB будет стартовать с XKernel без ручного <code>--core '
+                                      'XKernel</code>.',
+              'btn_set_default': 'Установить по дефолту',
+              'btn_no_thanks': 'Не, спасибо',
+              'install_error_title': 'Ошибка установки',
+              'install_finish_title': 'Готово, босс',
+              'install_default_unchanged': 'не менял',
+              'restart_required': 'Рестартни MCUB, а то магии не будет',
+              'btn_restart': 'Рестарт',
+              'install_default_set_answer': 'XKernel установлен по умолчанию',
+              'install_default_skip_answer': 'Default core не менял',
+              'update_checking': 'Проверяю XKernel...',
+              'update_check_failed_title': 'Update check failed',
+              'update_current_title': 'XKernel свежий, не душни',
+              'local_label': 'Local:',
+              'remote_label': 'Remote:',
+              'update_available_title': 'Доступно обновление XKernel',
+              'btn_update_now': 'Обновиться',
+              'update_loading': 'Обновляю XKernel...',
+              'update_failed_title': 'XKernel не обновлён',
+              'reopen_manager_hint': 'Открой менеджер заново:',
+              'update_done_title': 'XKernel обновлён',
+              'version_label': 'Version:',
+              'apply_all_loading': 'Применяю патчи...',
+              'apply_all_error_title': 'Ошибка apply_patches',
+              'apply_all_result_title': 'Apply all — результат',
+              'apply_applied_label': 'Applied',
+              'apply_pending_label': 'Pending',
+              'apply_failed_label': 'Failed',
+              'apply_skipped_label': 'Skipped',
+              'apply_restart_required': 'Нужен рестарт для применения патчей',
+              'rollback_no_backup': 'Бекапа нет, откатываться некуда',
+              'rollback_confirm_title': 'Rollback — подтверждение',
+              'rollback_will_restore': 'Будет восстановлен:',
+              'rollback_restart_required': 'Нужен рестарт после отката',
+              'btn_rollback': 'Откатить',
+              'btn_cancel': 'Отмена',
+              'rollback_failed_title': 'Rollback не выполнен',
+              'rollback_done_title': 'Rollback выполнен',
+              'rollback_restored_label': 'Восстановлен:',
+              'restart_answer': 'Ребутаю, держись...',
+              'cli_install_start': 'Начинаю ставить XPatchKernel',
+              'cli_install_done_title': 'XKernel установлен/обновлён',
+              'cli_install_failed_title': 'XKernel не установлен',
+              'cli_rollback_not_found': 'Backup для XKernel не найден',
+              'cli_rollback_done_title': 'XKernel rollback выполнен',
+              'restart_prompt': 'Рестартнуть MCUB?',
+              'btn_reboot': 'Reboot'},
+     'linux': {'name': 'XPatchKernelManager',
+               'state_on': 'ON',
+               'state_off': 'OFF',
+               'btn_back': 'Back',
+               'btn_patches': 'Patches',
+               'btn_details': 'Diagnostics',
+               'btn_apply_all': 'Apply all',
+               'btn_failed_count': '{count} failed',
+               'btn_settings': 'Settings',
+               'btn_check_update': 'Check update',
+               'btn_utils': 'Utilities',
+               'btn_install_update': 'Install / update',
+               'btn_repo': 'Repo',
+               'btn_live_logs': 'Live logs',
+               'btn_danger_zone': 'Danger zone',
+               'btn_remove_xkernel': 'Remove XKernel',
+               'btn_start_remove': 'Start removal',
+               'btn_clear_params': 'Clear parameters',
+               'btn_client_patch_toggle': 'Client Patch: {state}',
+               'btn_client_app_version': 'App version',
+               'btn_client_device_model': 'Device model',
+               'btn_client_system_version': 'System version',
+               'btn_client_lang_code': 'App language',
+               'btn_client_system_lang_code': 'System language',
+               'btn_reload_patch': 'Reload patch',
+               'btn_enable_patch': 'Enable patch',
+               'btn_disable_patch': 'Disable patch',
+               'btn_unapply_patch': 'Unapply',
+               'btn_retry_patch': 'Retry',
+               'btn_experimental': 'Experimental features',
+               'main_title': 'XPatch Manager',
+               'main_mcub_version': 'Version (MCUB):',
+               'main_patch_stats': 'Applied: <b>{applied}</b>  Pending: <b>{pending}</b>  Failed: <b>{failed}</b>',
+               'main_flags': 'Stealth: <code>{stealth}</code>  Auto: <code>{auto_update}</code>  Notify: '
+                             '<code>{notifications}</code>',
+               'main_extera': '<b>ExteraProxy Inject:</b> <i>{status}</i>',
+               'main_core': 'Core:',
+               'main_xkernel_version': 'XPatchKernel version:',
+               'main_inactive_warning': 'XPatchKernel service is not active — patches and some units are unavailable',
+               'main_manager_update_warning': 'XPatch Manager package is outdated. Pull a newer build from repository to '
+                                              'unlock new UI flags.',
+               'manager_opening': 'Opening manager...',
+               'manager_open_failed': 'Failed to open manager',
+               'status_not_supported': 'Not supported by current kernel',
+               'status_disabled': 'Disabled',
+               'status_enabled_no_params': 'Enabled without parameters',
+               'status_enabled_params': 'Enabled, parameters: {count}',
+               'extera_forced_all_except': 'Forced for all except {count} package(s)',
+               'extera_forced_all': 'Forced for all',
+               'extera_inactive': 'Inactive',
+               'extera_forced_selected': 'Forced only for {count} package(s)',
+               'logs_empty': 'no [xpatch] logs found',
+               'logs_title': 'Live logs · [xpatch]',
+               'logs_desc': 'Shows the last <b>{max_lines}</b> lines with <code>[xpatch]</code> from '
+                            '<code>logs/kernel.log</code>. Refresh: <b>{interval}</b>s.',
+               'logs_lines_button': 'Lines: {current} → {next}',
+               'logs_interval_button': 'Refresh: {current}s → {next}s',
+               'logs_lines_answer': 'Live logs: {value} lines',
+               'logs_interval_answer': 'Live logs: refresh {value}s',
+               'utils_title': 'XPatch Utils',
+               'utils_logs_desc': '<b>Live logs</b> — live view of <code>[xpatch]</code> lines from '
+                                  '<code>logs/kernel.log</code>. You can choose line limit and refresh interval.',
+               'utils_danger_desc': '<b>Danger zone</b> — destructive maintenance operations: remove kernel, backups, '
+                                    'patches and manager unit.',
+               'remove_title': 'Remove XKernel',
+               'remove_desc': 'Choose what to remove. This is irreversible for selected files. Order: kernel → backups → '
+                              'patches → default core → manager → restart.',
+               'remove_opt_core': 'Kernel',
+               'remove_opt_backups': 'All backups',
+               'remove_opt_manager': 'Manager package',
+               'remove_opt_patches': 'All patches',
+               'remove_opt_default': 'Default → standard',
+               'remove_opt_restart': 'Auto-restart',
+               'remove_answer_start': 'Removing XKernel...',
+               'remove_failed_title': 'XKernel removal failed',
+               'remove_done_title': 'XKernel removal finished',
+               'settings_title': 'XPatch settings',
+               'settings_stealth_desc': 'VERSION without .XPatch, no VERSION_XKERNEL/ver, CORE_NAME=standard',
+               'settings_auto_desc': 'Install immediately when VERSION_XKERNEL becomes newer',
+               'settings_notify_desc': 'Bot writes to log chat or client DM',
+               'settings_stealth': 'Stealth mode',
+               'settings_auto': 'Kernel auto-update',
+               'settings_notify': 'Update notifications',
+               'client_title': 'Client Patch',
+               'client_desc': 'Patches <code>core.lib.base.client.TelegramClient</code> and changes client parameters: app '
+                              'name, device and language.',
+               'client_restart_warn': 'Changes are applied after MCUB service restart / TelegramClient reinitialization.',
+               'client_status': 'Status:',
+               'client_field_app_version': 'App version',
+               'client_field_device_model': 'Device model',
+               'client_field_system_version': 'System version',
+               'client_field_lang_code': 'App language',
+               'client_field_system_lang_code': 'System language',
+               'client_cleared': 'Client Patch parameters cleared',
+               'xpatch_inactive_alert': 'XPatchKernel is inactive',
+               'patches_title': 'Patches',
+               'patches_stats': 'Applied: <b>{applied}</b>  Pending: <b>{pending}</b>  Failed: <b>{failed}</b>  Disabled: '
+                                '<b>{disabled}</b>',
+               'patches_hint': 'Select a patch unit to inspect its state.',
+               'patches_empty': 'No patches found',
+               'btn_extera_proxy': 'ExteraProxy Inject',
+               'btn_client_patch': 'Client Patch',
+               'btn_patch_events': 'Patch events: {state}',
+               'btn_hot_reload': 'Hot reload: {state}',
+               'btn_extera_all': 'For all: {state}',
+               'btn_extera_root_custom': 'Root: ON → custom',
+               'btn_extera_scope': '{scope}: {state}',
+               'none': 'none',
+               'no_access': 'No access',
+               'remove_core_deleted': '✅ Kernel removed: <code>{path}</code>',
+               'remove_core_absent': 'ℹ️ Kernel is already absent',
+               'remove_backups_deleted': '✅ Backups removed: <b>{count}</b>',
+               'remove_patches_deleted': '✅ Patches removed: <code>{path}</code>',
+               'remove_patches_absent': 'ℹ️ Patches folder is already absent',
+               'remove_default_standard': '✅ Default core set to <code>standard</code>',
+               'remove_manager_requested': '✅ Manager package removal requested',
+               'remove_restart_requested': '✅ MCUB restart requested',
+               'remove_nothing_selected': 'ℹ️ Nothing selected',
+               'settings_toggle_stealth': 'Stealth: {state}',
+               'settings_toggle_auto': 'Auto update: {state}',
+               'settings_toggle_notify': 'Notify: {state}',
+               'extera_title': 'ExteraProxy Inject',
+               'extera_desc': 'What it does: grants selected packages access to protected XKernel objects: <b>kernel / '
+                              'client / event</b>. Use it only when a package explicitly needs a protected object, for '
+                              'example client session.',
+               'extera_do_not_touch': 'If the purpose is unknown — <b>leave this switch disabled</b>.',
+               'extera_status_label': 'Status:',
+               'extera_scopes_label': 'Scopes:',
+               'extera_modules_selected': 'Selected packages',
+               'extera_modules_excluded': 'Package exceptions',
+               'extera_trusted_warning': 'Enable only for known and trusted packages. Do not enable it for unknown or '
+                                         'suspicious packages.',
+               'extera_unsupported_scopes': 'Current XKernel does not support ExteraProxy scopes',
+               'extera_unsupported': 'Current XKernel does not support ExteraProxy',
+               'extera_scope_answer': 'ExteraProxy {scope}: {state}',
+               'extera_all_on_answer': 'ExteraProxy enabled for all packages. Careful: trusted packages only!',
+               'extera_all_off_answer': 'ExteraProxy disabled for all',
+               'experimental_title': 'Experimental XPatch units',
+               'experimental_events_desc': 'emit xpatch:applied / xpatch:failed / xpatch:unapplied',
+               'experimental_hot_reload_title': 'Patch hot reload',
+               'experimental_hot_reload_desc': 'watches patches/*.py files and reloads changed patches',
+               'experimental_warning': 'Experimental units: enable only after reading the logs.',
+               'experimental_unavailable_title': 'Experimental features unavailable',
+               'experimental_unavailable_desc': 'Current kernel does not support XKernel runtime features.',
+               'stealth_enabled': 'Stealth enabled',
+               'stealth_disabled': 'Stealth disabled',
+               'auto_update_enabled': 'Kernel auto-update enabled',
+               'auto_update_disabled': 'Kernel auto-update disabled',
+               'notifications_enabled': 'Notifications enabled',
+               'notifications_disabled': 'Notifications disabled',
+               'client_patch_enabled': 'Client Patch enabled',
+               'client_patch_disabled': 'Client Patch disabled',
+               'unsupported_current_kernel': 'Not supported by current kernel',
+               'btn_extera_add_module': 'Add package',
+               'btn_extera_remove_module': 'Remove package',
+               'btn_extera_clear_list': 'Clear package list',
+               'stealth_unsupported': 'Current XKernel does not support stealth mode. Update XKernel and restart MCUB.',
+               'client_patch_unsupported': 'Current XKernel does not support Client Patch',
+               'client_patch_updated': 'Client Patch updated',
+               'client_patch_clear_hint': 'To clear the field, send <code>-</code> or <code>clear</code>.',
+               'client_patch_value_cleared': 'cleared',
+               'extera_name_required': 'Specify package name',
+               'extera_updated': 'ExteraProxy updated',
+               'extera_add_result': 'Package <code>{module}</code> added',
+               'extera_remove_result': 'Package <code>{module}</code> removed',
+               'extera_clear_answer': 'ExteraProxy package list cleared',
+               'patch_events_enabled': 'Patch events enabled',
+               'patch_events_disabled': 'Patch events disabled',
+               'hot_reload_enabled': 'Hot reload enabled',
+               'hot_reload_disabled': 'Hot reload disabled',
+               'patch_detail_title': 'Patch detail',
+               'patch_status_label': 'Status:',
+               'patch_label': 'Patch:',
+               'patch_target_label': 'Target:',
+               'patch_file_label': 'File:',
+               'patch_key_label': 'Key:',
+               'patch_result_label': 'Result',
+               'patch_pending_reason_label': 'Pending reason',
+               'patch_error_label': 'Error',
+               'patch_traceback_label': 'Traceback',
+               'patch_min_version': 'Minimum XKernel version for this patch: {version}',
+               'patch_version_ok': 'Patch is compatible with current XKernel version',
+               'patch_min_version_unknown': 'Minimum XKernel version is not specified for this patch',
+               'patch_reload_unsupported': 'This XKernel does not support single patch reload',
+               'patch_reload_failed': 'Reload failed',
+               'patch_file_not_found': 'Patch file not found',
+               'patch_reloaded': 'Reloaded',
+               'patch_unapply_result': 'Unapply: {result}',
+               'patch_toggle_unsupported': 'This XKernel does not support patch enable/disable',
+               'patch_disabled_answer': 'Patch disabled',
+               'patch_enabled_answer': 'Patch enabled',
+               'patch_retry_answer': 'Retrying patch...',
+               'details_file_label': 'File:',
+               'details_size_label': 'Size:',
+               'details_backups_label': 'Backups:',
+               'details_not_found': 'XKernel not found:',
+               'details_default_core': 'Default core:',
+               'details_not_set': 'not set',
+               'details_title': 'XKernel · Diagnostics unit',
+               'install_loading': 'Downloading XKernel...',
+               'platform_label': 'Platform:',
+               'install_done_title': 'XKernel installed',
+               'install_default_prompt': 'Set XKernel as default core package?',
+               'install_default_desc': 'If yes, MCUB will boot this core package without manual <code>--core '
+                                       'XKernel</code>.',
+               'btn_set_default': 'Set as default',
+               'btn_no_thanks': 'No, thanks',
+               'install_error_title': 'Install error',
+               'install_finish_title': 'Done',
+               'install_default_unchanged': 'unchanged',
+               'restart_required': 'MCUB service restart required',
+               'btn_restart': 'Restart',
+               'install_default_set_answer': 'XKernel set as default core package',
+               'install_default_skip_answer': 'Default core package unchanged',
+               'update_checking': 'Checking XKernel...',
+               'update_check_failed_title': 'Update check failed',
+               'update_current_title': 'XKernel is already up to date',
+               'local_label': 'Local:',
+               'remote_label': 'Remote:',
+               'update_available_title': 'XKernel update available',
+               'btn_update_now': 'Update',
+               'update_loading': 'Updating XKernel...',
+               'update_failed_title': 'XKernel was not updated',
+               'reopen_manager_hint': 'Open manager again:',
+               'update_done_title': 'XKernel updated',
+               'version_label': 'Version:',
+               'apply_all_loading': 'Applying patches...',
+               'apply_all_error_title': 'apply_patches error',
+               'apply_all_result_title': 'Apply all — result',
+               'apply_applied_label': 'Applied',
+               'apply_pending_label': 'Pending',
+               'apply_failed_label': 'Failed',
+               'apply_skipped_label': 'Skipped',
+               'apply_restart_required': 'Service restart is required to apply patches',
+               'rollback_no_backup': 'Backup not found',
+               'rollback_confirm_title': 'Rollback — confirmation',
+               'rollback_will_restore': 'Will restore:',
+               'rollback_restart_required': 'Service restart is required after rollback',
+               'btn_rollback': 'Rollback',
+               'btn_cancel': 'Cancel',
+               'rollback_failed_title': 'Rollback failed',
+               'rollback_done_title': 'Rollback completed',
+               'rollback_restored_label': 'Restored:',
+               'restart_answer': 'Restarting MCUB service...',
+               'cli_install_start': 'Installing XPatchKernel',
+               'cli_install_done_title': 'XKernel installed/updated',
+               'cli_install_failed_title': 'XKernel was not installed',
+               'cli_rollback_not_found': 'XKernel backup not found',
+               'cli_rollback_done_title': 'XKernel rollback completed',
+               'restart_prompt': 'Restart MCUB service?',
+               'btn_reboot': 'Reboot'}}
 
     config = ModuleConfig(
         ConfigValue(
@@ -322,8 +1322,7 @@ class XKernelInstaller(ModuleBase):
             return
 
         raise RuntimeError(
-            "Текущее XKernel ядро не поддерживает stealth mode. "
-            "Обнови XKernel и перезапусти MCUB."
+            self.strings("stealth_unsupported")
         )
 
     def _disable_runtime_stealth(self) -> None:
@@ -539,7 +1538,7 @@ class XKernelInstaller(ModuleBase):
             except Exception as exc:
                 self.log.debug("cannot load Client Patch status from db: %s", exc)
         self._client_patch_enabled_db = enabled
-        await self._save_client_patch_db_status()
+        await self._save_client_patch_db_state()
 
     async def _save_client_patch_db_status(self) -> None:
         db_set = getattr(self.kernel, "db_set", None)
@@ -553,27 +1552,51 @@ class XKernelInstaller(ModuleBase):
         except Exception as exc:
             self.log.debug("cannot save Client Patch status to db: %s", exc)
 
+    async def _save_client_patch_db_options(self) -> None:
+        db_set = getattr(self.kernel, "db_set", None)
+        if not callable(db_set):
+            return
+        mapping = {
+            "client_patch_app_version": "client_patch_app_version",
+            "client_patch_device_model": "client_patch_device_model",
+            "client_patch_system_version": "client_patch_system_version",
+            "client_patch_lang_code": "client_patch_lang_code",
+            "client_patch_system_lang_code": "client_patch_system_lang_code",
+        }
+        try:
+            for db_key, config_key in mapping.items():
+                value = str(self._cfg(config_key, "") or "").strip()
+                result = db_set(self.name, db_key, value)
+                if inspect.isawaitable(result):
+                    await result
+        except Exception as exc:
+            self.log.debug("cannot save Client Patch options to db: %s", exc)
+
+    async def _save_client_patch_db_state(self) -> None:
+        await self._save_client_patch_db_status()
+        await self._save_client_patch_db_options()
+
     def _client_patch_status_label(self) -> str:
         if not self._client_patch_supported():
-            return "Не поддерживается текущим ядром"
+            return self.strings("status_not_supported")
         if not self._is_client_patch_enabled():
-            return "Выключен"
+            return self.strings("status_disabled")
         count = len(self._client_patch_options_from_config())
         if not count:
-            return "Включен без параметров"
-        return f"Включен, параметров: {count}"
+            return self.strings("status_enabled_no_params")
+        return self.strings("status_enabled_params", count=count)
 
     def _extera_proxy_status_label(self) -> str:
         if self._get_pm() is None:
-            return "Не поддерживается текущим ядром"
+            return self.strings("status_not_supported")
         count = len(self._extera_modules_from_config())
         if bool(self._cfg("extera_proxy_all", False)):
             if count:
-                return f"Принуждёный для всех, кроме {count} модуля(-лей)"
-            return "Принуждёный для всех"
+                return self.strings("extera_forced_all_except", count=count)
+            return self.strings("extera_forced_all")
         if count == 0:
-            return "Не активен"
-        return f"Принуждёный только для {count} модуля(-лей)"
+            return self.strings("extera_inactive")
+        return self.strings("extera_forced_selected", count=count)
 
     def _clear_text(self, text) -> str:
         return  re.sub(r"<[^>]+>", "", text)
@@ -618,11 +1641,10 @@ class XKernelInstaller(ModuleBase):
         if lines:
             body = "\n".join(html.escape(line[-220:]) for line in lines)
         else:
-            body = "логи [xpatch] не найдены"
+            body = self.strings("logs_empty")
         text = (
-            f"{C['logs']} <b>Live logs · [xpatch]</b>\n"
-            f"<blockquote>Показывает последние <b>{max_lines}</b> строк с <code>[xpatch]</code> "
-            f"из <code>logs/kernel.log</code>. Обновление: <b>{interval}</b> сек.</blockquote>\n"
+            f"{C['logs']} <b>{self.strings('logs_title')}</b>\n"
+            f"<blockquote>{self.strings('logs_desc', max_lines=max_lines, interval=interval)}</blockquote>\n"
             f"<code>{html.escape(str(self._kernel_log_path()))}</code>\n\n"
             f"<pre>{body}</pre>"
         )
@@ -631,17 +1653,23 @@ class XKernelInstaller(ModuleBase):
         buttons = [
             [
                 self.Button.inline(
-                    f"Строк: {max_lines} → {next_lines}",
+                    self.strings("logs_lines_button", current=max_lines, next=next_lines),
                     self.on_cycle_live_logs_lines,
                     ttl=600,
                 ),
                 self.Button.inline(
-                    f"Обновление: {interval}с → {next_interval}с",
+                    self.strings("logs_interval_button", current=interval, next=next_interval),
                     self.on_cycle_live_logs_interval,
                     ttl=600,
                 ),
             ],
-            [self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_back_to_utils, ttl=600)],
+            [
+                self.Button.inline(
+                    f"{self._clear_text(C['back'])} {self.strings('btn_back')}",
+                    self.on_back_to_utils,
+                    ttl=600,
+                )
+            ],
         ]
         return text, buttons
 
@@ -713,7 +1741,7 @@ class XKernelInstaller(ModuleBase):
 
     def _extera_proxy_scopes_label(self) -> str:
         if self._get_pm() is None:
-            return "No access"
+            return self.strings("no_access")
         scopes = self._extera_scopes_from_config()
         if "root" in scopes:
             return "Root"
@@ -766,39 +1794,33 @@ class XKernelInstaller(ModuleBase):
         core_name = html.escape(str(self._kernel_attr("CORE_NAME", "unknown")))
         xkernel_ver = html.escape(self._display_xkernel_version())
         applied, pending, failed = self._patch_stats()
-        stealth = "on" if self._cfg("stealth_mode", False) else "off"
-        auto_update = "on" if self._cfg("auto_update_kernel", False) else "off"
-        notifications = "on" if self._cfg("update_notifications", True) else "off"
+        stealth = self.strings("state_on" if self._cfg("stealth_mode", False) else "state_off")
+        auto_update = self.strings("state_on" if self._cfg("auto_update_kernel", False) else "state_off")
+        notifications = self.strings("state_on" if self._cfg("update_notifications", True) else "state_off")
         extera_proxy = html.escape(self._extera_proxy_status_label())
 
         if is_xpatch:
             text = (
-                f"{C['settings']} <b>XPatch Manager</b>\n\n"
+                f"{C['settings']} <b>{self.strings('main_title')}</b>\n\n"
                 f"<blockquote>"
                 f"{C['true']} <b>XPatchKernel</b> <code>{xkernel_ver}</code>\n"
-                f"{C['info']} <em>Version (MCUB):</em> <code>{ver}</code>\n"
-                f"{C['menu']} Applied: <b>{applied}</b>  "
-                f"Pending: <b>{pending}</b>  "
-                f"Failed: <b>{failed}</b>"
+                f"{C['info']} <em>{self.strings('main_mcub_version')}</em> <code>{ver}</code>\n"
+                f"{C['menu']} {self.strings('main_patch_stats', applied=applied, pending=pending, failed=failed)}"
                 f"</blockquote>\n"
-                f"{C['lock']} Stealth: <code>{stealth}</code>  "
-                f"Auto: <code>{auto_update}</code>  "
-                f"Notify: <code>{notifications}</code>\n"
-                f"{C['injection']} <b>ExteraProxy Inject:</b> <i>{extera_proxy}</i>"
+                f"{C['lock']} {self.strings('main_flags', stealth=stealth, auto_update=auto_update, notifications=notifications)}\n"
+                f"{C['injection']} {self.strings('main_extera', status=extera_proxy)}"
             )
         else:
             text = (
-                f"{C['settings']} <b>XPatch Manager</b>\n\n"
-                f"{C['lock']} Core: <code>{core_name}</code>\n"
-                f"{C['info']} Version XPatchKernel: <code>{xkernel_ver}</code>\n\n"
-                f"<blockquote>{C['warning']} <i>XPatchKernel не активен — "
-                f"патчи и некоторые функции недоступны</i></blockquote>"
+                f"{C['settings']} <b>{self.strings('main_title')}</b>\n\n"
+                f"{C['lock']} {self.strings('main_core')} <code>{core_name}</code>\n"
+                f"{C['info']} {self.strings('main_xkernel_version')} <code>{xkernel_ver}</code>\n\n"
+                f"<blockquote>{C['warning']} <i>{self.strings('main_inactive_warning')}</i></blockquote>"
             )
 
         if self._manager_update_available():
             text += (
-                f"\n\n<blockquote>{C['warning']} <b>Надо обновить XPatch Manager из репозитория, "
-                f"иначе через UI нельзя будет потрогать новые фишки.</b></blockquote>"
+                f"\n\n<blockquote>{C['warning']} <b>{self.strings('main_manager_update_warning')}</b></blockquote>"
             )
 
         buttons: list[list] = []
@@ -807,20 +1829,20 @@ class XKernelInstaller(ModuleBase):
             buttons.append(
                 [
                     self.Button.inline(
-                        f"{self._clear_text(C['menu'])} Патчи", self.on_patches_menu, ttl=600
+                        f"{self._clear_text(C['menu'])} {self.strings('btn_patches')}", self.on_patches_menu, ttl=600
                     ),
                     self.Button.inline(
-                        f"{self._clear_text(C['info'])} Подробнее", self.on_details_menu, ttl=600
+                        f"{self._clear_text(C['info'])} {self.strings('btn_details')}", self.on_details_menu, ttl=600
                     ),
                 ]
             )
             apply_row: list = [
-                self.Button.inline(f"{self._clear_text(C['+'])} Apply all", self.on_apply_all, ttl=600),
+                self.Button.inline(f"{self._clear_text(C['+'])} {self.strings('btn_apply_all')}", self.on_apply_all, ttl=600),
             ]
             if failed:
                 apply_row.append(
                     self.Button.inline(
-                        f"{self._clear_text(C['off'])} {failed} failed", self.on_patches_menu, ttl=600
+                        f"{self._clear_text(C['off'])} {self.strings('btn_failed_count', count=failed)}", self.on_patches_menu, ttl=600
                     )
                 )
             buttons.append(apply_row)
@@ -828,18 +1850,18 @@ class XKernelInstaller(ModuleBase):
         buttons.append(
             [
                 self.Button.inline(
-                    f"{self._clear_text(C['settings'])} Настройки",
+                    f"{self._clear_text(C['settings'])} {self.strings('btn_settings')}",
                     self.on_settings_menu,
                     ttl=600,
                 ),
-                self.Button.inline(f"{self._clear_text(C['reload'])} Check update", self.on_check_update, ttl=300),
-                self.Button.inline(f"{self._clear_text(C['utils'])} Utils", self.on_utils_menu, ttl=600),
+                self.Button.inline(f"{self._clear_text(C['reload'])} {self.strings('btn_check_update')}", self.on_check_update, ttl=300),
+                self.Button.inline(f"{self._clear_text(C['utils'])} {self.strings('btn_utils')}", self.on_utils_menu, ttl=600),
             ]
         )
         buttons.append(
             [
                 self.Button.inline(
-                    f"{self._clear_text(C['install'])} Установить / Обновить",
+                    f"{self._clear_text(C['install'])} {self.strings('btn_install_update')}",
                     self.on_install_start,
                     ttl=600,
                 ),
@@ -847,7 +1869,7 @@ class XKernelInstaller(ModuleBase):
         )
         buttons.append(
             [
-                self.Button.url("🧳 Repo", self.X_KERNEL_REPO),
+                self.Button.url(f"🧳 {self.strings('btn_repo')}", self.X_KERNEL_REPO),
             ]
         )
 
@@ -860,11 +1882,11 @@ class XKernelInstaller(ModuleBase):
         doc_en="Open XKernel/patch manager",
     )
     async def cmd_manager(self, event: Any) -> None:
-        await self._edit(event, f"{self.C['loading']} Открываю менеджер...")
+        await self._edit(event, f"{self.C['loading']} {self.strings('manager_opening')}")
         text, buttons = self._build_main_page()
         ok, _ = await self.inline(event.chat_id, text, buttons=buttons, ttl=600)
         if not ok:
-            await self._edit(event, "🚫 Не удалось открыть менеджер")
+            await self._edit(event, f"🚫 {self.strings('manager_open_failed')}")
             return
         try:
             await event.delete()
@@ -880,18 +1902,14 @@ class XKernelInstaller(ModuleBase):
     def _build_utils_page(self) -> tuple[str, list]:
         C = self.C
         text = (
-            f"{C['utils']} <b>XPatch Utils</b>\n\n"
-            f"<blockquote>{C['logs']} <b>Live logs</b> — live-просмотр строк "
-            f"<code>[xpatch]</code> из <code>logs/kernel.log</code>. "
-            f"Можно выбрать лимит строк и интервал обновления.</blockquote>\n"
-            f"<blockquote>{C['warning']} <b>Удаление XKernel</b> — мастер удаления ядра, "
-            f"бекапов, патчей и модуля-менеджера. Можно отдельно выбрать, "
-            f"сбрасывать ли default core на <code>standard</code> и делать ли авто-рестарт.</blockquote>"
+            f"{C['utils']} <b>{self.strings('utils_title')}</b>\n\n"
+            f"<blockquote>{C['logs']} {self.strings('utils_logs_desc')}</blockquote>\n"
+            f"<blockquote>{C['warning']} {self.strings('utils_danger_desc')}</blockquote>"
         )
         buttons = [
-            [self.Button.inline(f"{self._clear_text(C['logs'])} Live logs", self.on_live_logs_menu, ttl=600)],
-            [self.Button.inline("🧨 Удаление XKernel", self.on_remove_xkernel_menu, ttl=600)],
-            [self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_back_to_main, ttl=600)],
+            [self.Button.inline(f"{self._clear_text(C['logs'])} {self.strings('btn_live_logs')}", self.on_live_logs_menu, ttl=600)],
+            [self.Button.inline(f"🧨 {self.strings('btn_remove_xkernel')}", self.on_remove_xkernel_menu, ttl=600)],
+            [self.Button.inline(f"{self._clear_text(C['back'])} {self.strings('btn_back')}", self.on_back_to_main, ttl=600)],
         ]
         return text, buttons
 
@@ -922,7 +1940,7 @@ class XKernelInstaller(ModuleBase):
         return options
 
     def _toggle_text(self, label: str, enabled: bool) -> str:
-        state = "ON" if enabled else "OFF"
+        state = self.strings("state_on" if enabled else "state_off")
         icon = self._clear_text(self.C.get("true", "✅") if enabled else self.C.get("off", "❌"))
         return f"{icon} {label}: {state}"
 
@@ -930,19 +1948,18 @@ class XKernelInstaller(ModuleBase):
         C = self.C
         options = self._xkernel_remove_options()
         text = (
-            f"{C['warning']} <b>Удаление XKernel</b>\n\n"
-            f"<blockquote>Выбери, что удалить. Действие необратимо для выбранных файлов. "
-            f"Порядок: ядро → бэкапы → патчи → default core → менеджер → restart.</blockquote>"
+            f"{C['warning']} <b>{self.strings('remove_title')}</b>\n\n"
+            f"<blockquote>{self.strings('remove_desc')}</blockquote>"
         )
         buttons = [
-            [self.Button.inline("🧨 Начать процесс удаления", self.on_remove_xkernel_start, ttl=300)],
-            [self.Button.inline(self._toggle_text("Ядро", options["core"]), self.on_toggle_remove_option, data="core", ttl=600)],
-            [self.Button.inline(self._toggle_text("Все бекапы", options["backups"]), self.on_toggle_remove_option, data="backups", ttl=600)],
-            [self.Button.inline(self._toggle_text("Модуль-менеджер", options["manager"]), self.on_toggle_remove_option, data="manager", ttl=600)],
-            [self.Button.inline(self._toggle_text("Все патчи", options["patches"]), self.on_toggle_remove_option, data="patches", ttl=600)],
-            [self.Button.inline(self._toggle_text("Default → standard", options["default_standard"]), self.on_toggle_remove_option, data="default_standard", ttl=600)],
-            [self.Button.inline(self._toggle_text("Авто-рестарт", options["restart"]), self.on_toggle_remove_option, data="restart", ttl=600)],
-            [self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_back_to_utils, ttl=600)],
+            [self.Button.inline(f"🧨 {self.strings('btn_start_remove')}", self.on_remove_xkernel_start, ttl=300)],
+            [self.Button.inline(self._toggle_text(self.strings("remove_opt_core"), options["core"]), self.on_toggle_remove_option, data="core", ttl=600)],
+            [self.Button.inline(self._toggle_text(self.strings("remove_opt_backups"), options["backups"]), self.on_toggle_remove_option, data="backups", ttl=600)],
+            [self.Button.inline(self._toggle_text(self.strings("remove_opt_manager"), options["manager"]), self.on_toggle_remove_option, data="manager", ttl=600)],
+            [self.Button.inline(self._toggle_text(self.strings("remove_opt_patches"), options["patches"]), self.on_toggle_remove_option, data="patches", ttl=600)],
+            [self.Button.inline(self._toggle_text(self.strings("remove_opt_default"), options["default_standard"]), self.on_toggle_remove_option, data="default_standard", ttl=600)],
+            [self.Button.inline(self._toggle_text(self.strings("remove_opt_restart"), options["restart"]), self.on_toggle_remove_option, data="restart", ttl=600)],
+            [self.Button.inline(f"{self._clear_text(C['back'])} {self.strings('btn_back')}", self.on_back_to_utils, ttl=600)],
         ]
         return text, buttons
 
@@ -975,58 +1992,58 @@ class XKernelInstaller(ModuleBase):
             target = self._xkernel_path()
             if target.exists():
                 target.unlink()
-                lines.append(f"✅ Ядро удалено: <code>{html.escape(str(target))}</code>")
+                lines.append(self.strings("remove_core_deleted", path=html.escape(str(target))))
             else:
-                lines.append("ℹ️ Ядро уже отсутствует")
+                lines.append(self.strings("remove_core_absent"))
 
         if options.get("backups", False):
             backups = self._backup_files()
             for backup in backups:
                 backup.unlink(missing_ok=True)
-            lines.append(f"✅ Бекапы удалены: <b>{len(backups)}</b>")
+            lines.append(self.strings("remove_backups_deleted", count=len(backups)))
 
         if options.get("patches", False):
             patches_dir = self._patches_dir_path()
             if patches_dir.exists():
                 shutil.rmtree(patches_dir)
-                lines.append(f"✅ Патчи удалены: <code>{html.escape(str(patches_dir))}</code>")
+                lines.append(self.strings("remove_patches_deleted", path=html.escape(str(patches_dir))))
             else:
-                lines.append("ℹ️ Папка патчей уже отсутствует")
+                lines.append(self.strings("remove_patches_absent"))
 
         if options.get("default_standard", False):
             self._set_default_core("standard")
-            lines.append("✅ Default core установлен: <code>standard</code>")
+            lines.append(self.strings("remove_default_standard"))
 
         if options.get("manager", False):
             await self.invoke("um", args=self.name, chat_id="me")
-            lines.append("✅ Запрошено удаление модуля-менеджера")
+            lines.append(self.strings("remove_manager_requested"))
 
         if options.get("restart", False):
             await self.invoke("restart", chat_id="me")
-            lines.append("✅ Запрошен рестарт MCUB")
+            lines.append(self.strings("remove_restart_requested"))
 
-        return lines or ["ℹ️ Ничего не выбрано"]
+        return lines or [self.strings("remove_nothing_selected")]
 
     @callback(ttl=300)
     async def on_remove_xkernel_start(self, call) -> None:
         options = dict(self._xkernel_remove_options())
-        await call.answer("Удаляю XKernel...", alert=False)
+        await call.answer(self.strings("remove_answer_start"), alert=False)
         try:
             lines = await self._execute_xkernel_removal(options)
         except Exception as exc:
             self.log.exception("XKernel removal failed")
             await call.edit(
-                f"{self.C['off']} <b>Удаление XKernel сорвалось</b>\n\n"
+                f"{self.C['off']} <b>{self.strings('remove_failed_title')}</b>\n\n"
                 f"<blockquote><code>{html.escape(str(exc))}</code></blockquote>",
-                buttons=[[self.Button.inline(f"{self._clear_text(self.C['back'])} Назад", self.on_remove_xkernel_menu, ttl=600)]],
+                buttons=[[self.Button.inline(f"{self._clear_text(self.C['back'])} {self.strings('btn_back')}", self.on_remove_xkernel_menu, ttl=600)]],
             )
             return
 
         await call.edit(
-            f"{self.C['true']} <b>Удаление XKernel завершено</b>\n\n<blockquote>"
+            f"{self.C['true']} <b>{self.strings('remove_done_title')}</b>\n\n<blockquote>"
             + "\n".join(lines)
             + "</blockquote>",
-            buttons=[[self.Button.inline(f"{self._clear_text(self.C['back'])} Назад", self.on_utils_menu, ttl=600)]],
+            buttons=[[self.Button.inline(f"{self._clear_text(self.C['back'])} {self.strings('btn_back')}", self.on_utils_menu, ttl=600)]],
         )
 
     @callback(ttl=600)
@@ -1055,14 +2072,14 @@ class XKernelInstaller(ModuleBase):
     async def _set_live_logs_max_lines(self, call: Any, value: int) -> None:
         self.config["live_logs_max_lines"] = str(value)
         await self._save_config()
-        await call.answer(f"Live logs: {value} строк", alert=False)
+        await call.answer(self.strings("logs_lines_answer", value=value), alert=False)
         self._live_logs_event = call
         await self._refresh_live_logs()
 
     async def _set_live_logs_refresh_interval(self, call: Any, value: int) -> None:
         self.config["live_logs_refresh_interval"] = str(value)
         await self._save_config()
-        await call.answer(f"Live logs: обновление {value} сек", alert=False)
+        await call.answer(self.strings("logs_interval_answer", value=value), alert=False)
         self._live_logs_event = call
         await self._refresh_live_logs()
 
@@ -1086,18 +2103,18 @@ class XKernelInstaller(ModuleBase):
         auto_update = bool(self._cfg("auto_update_kernel", False))
         notifications = bool(self._cfg("update_notifications", True))
         text = (
-            f"{C['settings']} <b>XPatch настройки</b>\n\n"
-            f"{self._bool_icon(stealth)} <b>Stealth mode</b>\n"
-            f"<blockquote><em>{C['бууу']} VERSION без .XPatch, без VERSION_XKERNEL/ver, CORE_NAME=standard</em></blockquote>\n"
-            f"{self._bool_icon(auto_update)} <b>Auto update ядра</b>\n"
-            f"<blockquote><em>{C['info']} Если VERSION_XKERNEL стал выше — ставить сразу</em></blockquote>\n"
-            f"{self._bool_icon(notifications)} <b>Уведомления об обновлении</b>\n"
-            f"<blockquote><em>{C['diskette']} Бот пишет в лог-чат или в ЛС клиенту</em></blockquote>"
+            f"{C['settings']} <b>{self.strings('settings_title')}</b>\n\n"
+            f"{self._bool_icon(stealth)} <b>{self.strings('settings_stealth')}</b>\n"
+            f"<blockquote><em>{C['бууу']} {self.strings('settings_stealth_desc')}</em></blockquote>\n"
+            f"{self._bool_icon(auto_update)} <b>{self.strings('settings_auto')}</b>\n"
+            f"<blockquote><em>{C['info']} {self.strings('settings_auto_desc')}</em></blockquote>\n"
+            f"{self._bool_icon(notifications)} <b>{self.strings('settings_notify')}</b>\n"
+            f"<blockquote><em>{C['diskette']} {self.strings('settings_notify_desc')}</em></blockquote>"
         )
         buttons = [
             [
                 self.Button.inline(
-                    f"Stealth: {'ON' if stealth else 'OFF'}",
+                    self.strings("settings_toggle_stealth", state=self.strings("state_on" if stealth else "state_off")),
                     self.on_toggle_stealth,
                     ttl=600,
                     style='danger' if not stealth else 'success',
@@ -1105,7 +2122,7 @@ class XKernelInstaller(ModuleBase):
             ],
             [
                 self.Button.inline(
-                    f"Auto update: {'ON' if auto_update else 'OFF'}",
+                    self.strings("settings_toggle_auto", state=self.strings("state_on" if auto_update else "state_off")),
                     self.on_toggle_auto_update,
                     ttl=600,
                     style='danger' if not auto_update else 'success',
@@ -1113,7 +2130,7 @@ class XKernelInstaller(ModuleBase):
             ],
             [
                 self.Button.inline(
-                    f"Notify: {'ON' if notifications else 'OFF'}",
+                    self.strings("settings_toggle_notify", state=self.strings("state_on" if notifications else "state_off")),
                     self.on_toggle_notifications,
                     ttl=600,
                     style='danger' if not notifications else 'success',
@@ -1121,29 +2138,13 @@ class XKernelInstaller(ModuleBase):
             ],
             [
                 self.Button.inline(
-                    f"{self._clear_text(C['injection'])} ExteraProxy Inject",
-                    self.on_extera_proxy_menu,
-                    ttl=600,
-                    style='primary',
-                )
-            ],
-            [
-                self.Button.inline(
-                    f"{C['phone']} Client Patch",
-                    self.on_client_patch_menu,
-                    ttl=600,
-                    style='primary' if self._client_patch_supported() else 'danger',
-                )
-            ],
-            [
-                self.Button.inline(
-                    f"{self._clear_text(C['magic'] if self._get_pm() is not None else C['warning'])} Экспериментальные функции",
+                    f"{self._clear_text(C['magic'] if self._get_pm() is not None else C['warning'])} {self.strings('btn_experimental')}",
                     self.on_experimental_settings_menu,
                     ttl=600,
                     style='primary' if self._get_pm() is not None else 'danger',
                 )
             ],
-            [self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_back_to_main, ttl=600)],
+            [self.Button.inline(f"{self._clear_text(C['back'])} {self.strings('btn_back')}", self.on_back_to_main, ttl=600)],
         ]
         return text, buttons
 
@@ -1160,33 +2161,32 @@ class XKernelInstaller(ModuleBase):
         supported = self._get_pm() is not None
         all_enabled = bool(self._cfg("extera_proxy_all", False))
         modules = self._extera_modules_from_config()
-        modules_text = ", ".join(html.escape(item) for item in modules) or "нет"
+        modules_text = ", ".join(html.escape(item) for item in modules) or self.strings("none")
         scopes = self._extera_scopes_from_config()
         root_enabled = "root" in scopes
-        scopes_text = self._extera_proxy_scopes_label() if supported else "No access"
-        modules_label = "Исключения" if all_enabled else "Выбранные модули"
+        scopes_text = self._extera_proxy_scopes_label() if supported else self.strings("no_access")
+        modules_label = self.strings("extera_modules_excluded" if all_enabled else "extera_modules_selected")
         status = html.escape(
             self._extera_proxy_status_label()
             if supported
-            else "Не поддерживается текущим ядром"
+            else self.strings("status_not_supported")
         )
         status_icon = C["moon"] if supported else C["warning"]
         text = (
-            f"{C['injection']} <b>ExteraProxy Inject</b>\n"
-            f"<blockquote>{C['info']} Что это? Можно сказать патчит ядро так, что оно <b>даёт Root модулю. Доступ к ядру/клиенту или событию</b>, нужно только если модуль требует защищённый объект (например, session у client)</blockquote>\n"
-            f"<blockquote>{C['warning']} Если вы не знаете зачем это вам - <b>не трогайте</b></blockquote>\n"
-            f"{status_icon} Статус: <b>{status}</b>\n"
-            f"{C['command']} <b>Scopes:</b> <code>{html.escape(scopes_text)}</code>\n"
+            f"{C['injection']} <b>{self.strings('extera_title')}</b>\n"
+            f"<blockquote>{C['info']} {self.strings('extera_desc')}</blockquote>\n"
+            f"<blockquote>{C['warning']} {self.strings('extera_do_not_touch')}</blockquote>\n"
+            f"{status_icon} {self.strings('extera_status_label')} <b>{status}</b>\n"
+            f"{C['command']} <b>{self.strings('extera_scopes_label')}</b> <code>{html.escape(scopes_text)}</code>\n"
             f"{C['info']} {modules_label}: <code>{modules_text}</code>\n"
-            f"<blockquote expandable>{C['warning']} <b>Включай только для известных и доверенных модулей. "
-            f"Не включай для неизвестных или подозрительных модулей.</b></blockquote>"
+            f"<blockquote expandable>{C['warning']} <b>{self.strings('extera_trusted_warning')}</b></blockquote>"
         )
         if not supported:
-            return text, [[self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_settings_menu, ttl=600)]]
+            return text, [[self.Button.inline(f"{self._clear_text(C['back'])} {self.strings('btn_back')}", self.on_experimental_settings_menu, ttl=600)]]
         buttons = [
             [
                 self.Button.inline(
-                    f"Для всех: {'ON' if all_enabled else 'OFF'}",
+                    self.strings("btn_extera_all", state=self.strings("state_on" if all_enabled else "state_off")),
                     self.on_toggle_extera_proxy_all,
                     ttl=600,
                     style='danger' if not all_enabled else "success",
@@ -1195,7 +2195,7 @@ class XKernelInstaller(ModuleBase):
             (
                 [
                     self.Button.inline(
-                        "Root: ON → custom",
+                        self.strings("btn_extera_root_custom"),
                         self.on_toggle_extera_scope_root,
                         ttl=600,
                         style='success'
@@ -1204,19 +2204,19 @@ class XKernelInstaller(ModuleBase):
                 if root_enabled
                 else [
                     self.Button.inline(
-                        f"Kernel: {'ON' if 'kernel' in scopes else 'OFF'}",
+                        self.strings("btn_extera_scope", scope="Kernel", state=self.strings("state_on" if "kernel" in scopes else "state_off")),
                         self.on_toggle_extera_scope_kernel,
                         ttl=600,
                         style='danger' if not 'kernel' in scopes else 'success',
                     ),
                     self.Button.inline(
-                        f"Client: {'ON' if 'client' in scopes else 'OFF'}",
+                        self.strings("btn_extera_scope", scope="Client", state=self.strings("state_on" if "client" in scopes else "state_off")),
                         self.on_toggle_extera_scope_client,
                         ttl=600,
                         style='danger' if not 'client' in scopes else 'success',
                     ),
                     self.Button.inline(
-                        f"Event: {'ON' if 'event' in scopes else 'OFF'}",
+                        self.strings("btn_extera_scope", scope="Event", state=self.strings("state_on" if "event" in scopes else "state_off")),
                         self.on_toggle_extera_scope_event,
                         ttl=600,
                         style='danger' if not 'event' in scopes else 'success'
@@ -1225,14 +2225,14 @@ class XKernelInstaller(ModuleBase):
             ),
             [
                 self.Button.input(
-                    f"{self._clear_text(C['+'])} Добавить модуль",
+                    f"{self._clear_text(C['+'])} {self.strings('btn_extera_add_module')}",
                     self.on_extera_proxy_add_input,
                     placeholder="ModuleName",
                     ttl=600,
                     style='success'
                 ),
                 self.Button.input(
-                    "➖ Убрать модуль",
+                    f"➖ {self.strings('btn_extera_remove_module')}",
                     self.on_extera_proxy_remove_input,
                     placeholder="ModuleName",
                     ttl=600,
@@ -1241,15 +2241,15 @@ class XKernelInstaller(ModuleBase):
             ],
             [
                 self.Button.inline(
-                    "🧹 Очистить список",
+                    f"🧹 {self.strings('btn_extera_clear_list')}",
                     self.on_clear_extera_proxy_modules,
                     ttl=600,
                 )
             ],
             [
                 self.Button.inline(
-                    f"{self._clear_text(C['back'])} Назад",
-                    self.on_settings_menu,
+                    f"{self._clear_text(C['back'])} {self.strings('btn_back')}",
+                    self.on_experimental_settings_menu,
                     ttl=600,
                 )
             ],
@@ -1286,23 +2286,26 @@ class XKernelInstaller(ModuleBase):
             return f"{C['info']} <b>{label}:</b> <code>{html.escape(value)}</code>"
 
         text = (
-            f"{C['phone']} <b>Client Patch</b>\n"
-            f"<blockquote>{C['info']} Патчит <code>core.lib.base.client.TelegramClient</code> и меняет параметры клиента: название/девайс/язык.</blockquote>\n"
-            f"<blockquote>{C['warning']} Работает на создание нового TelegramClient. Если клиент уже создан — нужен рестарт MCUB/пересоздание клиента.</blockquote>\n"
-            f"{self._bool_icon(enabled and supported)} Статус: <b>{status}</b>\n"
-            f"{value_line('app_version', 'app_version')}\n"
-            f"{value_line('device_model', 'device_model')}\n"
-            f"{value_line('system_version', 'system_version')}\n"
-            f"{value_line('lang_code', 'lang_code')}\n"
-            f"{value_line('system_lang_code', 'system_lang_code')}"
+            f"{C['phone']} <b>{self.strings('client_title')}</b>\n"
+            f"<blockquote>{C['info']} {self.strings('client_desc')}</blockquote>\n"
+            f"<blockquote>{C['warning']} {self.strings('client_restart_warn')}</blockquote>\n"
+            f"{self._bool_icon(enabled and supported)} {self.strings('client_status')} <b>{status}</b>\n"
+            f"{value_line(self.strings('client_field_app_version'), 'app_version')}\n"
+            f"{value_line(self.strings('client_field_device_model'), 'device_model')}\n"
+            f"{value_line(self.strings('client_field_system_version'), 'system_version')}\n"
+            f"{value_line(self.strings('client_field_lang_code'), 'lang_code')}\n"
+            f"{value_line(self.strings('client_field_system_lang_code'), 'system_lang_code')}"
         )
         if not supported:
-            return text, [[self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_settings_menu, ttl=600)]]
+            return text, [[self.Button.inline(f"{self._clear_text(C['back'])} {self.strings('btn_back')}", self.on_experimental_settings_menu, ttl=600)]]
 
         buttons = [
             [
                 self.Button.inline(
-                    f"Client Patch: {'ON' if enabled else 'OFF'}",
+                    self.strings(
+                        "btn_client_patch_toggle",
+                        state=self.strings("state_on" if enabled else "state_off"),
+                    ),
                     self.on_toggle_client_patch,
                     ttl=600,
                     style='success' if enabled else 'danger',
@@ -1310,13 +2313,13 @@ class XKernelInstaller(ModuleBase):
             ],
             [
                 self.Button.input(
-                    "📝 app_version",
+                    f"📝 {self.strings('btn_client_app_version')}",
                     self.on_client_patch_app_version_input,
                     placeholder="XClient 1.0",
                     ttl=600,
                 ),
                 self.Button.input(
-                    f"{C['phone']} device_model",
+                    f"{self._clear_text(C['phone'])} {self.strings('btn_client_device_model')}",
                     self.on_client_patch_device_model_input,
                     placeholder="XPhone",
                     ttl=600,
@@ -1324,13 +2327,13 @@ class XKernelInstaller(ModuleBase):
             ],
             [
                 self.Button.input(
-                    "💿 system_version",
+                    f"💿 {self.strings('btn_client_system_version')}",
                     self.on_client_patch_system_version_input,
                     placeholder="XOS 1",
                     ttl=600,
                 ),
                 self.Button.input(
-                    "🌐 lang_code",
+                    f"🌐 {self.strings('btn_client_lang_code')}",
                     self.on_client_patch_lang_code_input,
                     placeholder="en",
                     ttl=600,
@@ -1338,7 +2341,7 @@ class XKernelInstaller(ModuleBase):
             ],
             [
                 self.Button.input(
-                    "🌍 system_lang_code",
+                    f"🌍 {self.strings('btn_client_system_lang_code')}",
                     self.on_client_patch_system_lang_code_input,
                     placeholder="en-US",
                     ttl=600,
@@ -1346,12 +2349,12 @@ class XKernelInstaller(ModuleBase):
             ],
             [
                 self.Button.inline(
-                    "🧹 Очистить параметры",
+                    f"🧹 {self.strings('btn_clear_params')}",
                     self.on_clear_client_patch_options,
                     ttl=600,
                 )
             ],
-            [self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_settings_menu, ttl=600)],
+            [self.Button.inline(f"{self._clear_text(C['back'])} {self.strings('btn_back')}", self.on_experimental_settings_menu, ttl=600)],
         ]
         return text, buttons
 
@@ -1378,17 +2381,20 @@ class XKernelInstaller(ModuleBase):
         patch_events = bool(self._cfg("experimental_patch_events", False))
         hot_reload = bool(self._cfg("experimental_patch_hot_reload", False))
         text = (
-            f"{C['magic']} <b>Экспериментальные функции XPatch</b>\n\n"
+            f"{C['magic']} <b>{self.strings('experimental_title')}</b>\n\n"
             f"{self._bool_icon(patch_events)} <b>Patch events</b>\n"
-            f"<blockquote><em>{C['injection']} emit xpatch:applied / xpatch:failed / xpatch:unapplied</em></blockquote>\n"
-            f"{self._bool_icon(hot_reload)} <b>Hot reload патчей</b>\n"
-            f"<blockquote><em>{C['reload']} следит за файлами patches/*.py и перезагружает изменённые</em></blockquote>\n"
-            f"<blockquote>{C['warning']} <i>Функции экспериментальные: включай только если понимаешь риски.</i></blockquote>"
+            f"<blockquote><em>{C['injection']} {self.strings('experimental_events_desc')}</em></blockquote>\n"
+            f"{self._bool_icon(hot_reload)} <b>{self.strings('experimental_hot_reload_title')}</b>\n"
+            f"<blockquote><em>{C['reload']} {self.strings('experimental_hot_reload_desc')}</em></blockquote>\n"
+            f"<blockquote>{C['warning']} <i>{self.strings('experimental_warning')}</i></blockquote>"
         )
         buttons = [
             [
                 self.Button.inline(
-                    f"Patch events: {'ON' if patch_events else 'OFF'}",
+                    self.strings(
+                        "btn_patch_events",
+                        state=self.strings("state_on" if patch_events else "state_off"),
+                    ),
                     self.on_toggle_patch_events,
                     ttl=600,
                     style='danger' if not patch_events else 'success',
@@ -1396,7 +2402,10 @@ class XKernelInstaller(ModuleBase):
             ],
             [
                 self.Button.inline(
-                    f"Hot reload: {'ON' if hot_reload else 'OFF'}",
+                    self.strings(
+                        "btn_hot_reload",
+                        state=self.strings("state_on" if hot_reload else "state_off"),
+                    ),
                     self.on_toggle_patch_hot_reload,
                     ttl=600,
                     style='danger' if not hot_reload else 'success',
@@ -1404,7 +2413,23 @@ class XKernelInstaller(ModuleBase):
             ],
             [
                 self.Button.inline(
-                    f"{self._clear_text(C['back'])} Назад",
+                    f"{self._clear_text(C['injection'])} {self.strings('btn_extera_proxy')}",
+                    self.on_extera_proxy_menu,
+                    ttl=600,
+                    style='primary',
+                )
+            ],
+            [
+                self.Button.inline(
+                    f"{self._clear_text(C['phone'])} {self.strings('btn_client_patch')}",
+                    self.on_client_patch_menu,
+                    ttl=600,
+                    style='primary' if self._client_patch_supported() else 'danger',
+                )
+            ],
+            [
+                self.Button.inline(
+                    f"{self._clear_text(C['back'])} {self.strings('btn_back')}",
                     self.on_settings_menu,
                     ttl=600,
                 )
@@ -1415,11 +2440,11 @@ class XKernelInstaller(ModuleBase):
     @callback(ttl=600)
     async def on_experimental_settings_menu(self, call) -> None:
         if self._get_pm() is None:
-            await call.answer("Не поддерживается текущим ядром", alert=True)
+            await call.answer(self.strings("unsupported_current_kernel"), alert=True)
             await call.edit(
-                f"{self.C['warning']} <b>Экспериментальные функции недоступны</b>\n\n"
-                f"<blockquote>Текущее ядро не поддерживает runtime-функции XKernel.</blockquote>",
-                buttons=[[self.Button.inline(f"{self._clear_text(self.C['back'])} Назад", self.on_settings_menu, ttl=600)]],
+                f"{self.C['warning']} <b>{self.strings('experimental_unavailable_title')}</b>\n\n"
+                f"<blockquote>{self.strings('experimental_unavailable_desc')}</blockquote>",
+                buttons=[[self.Button.inline(f"{self._clear_text(self.C['back'])} {self.strings('btn_back')}", self.on_settings_menu, ttl=600)]],
             )
             return
         text, buttons = self._build_experimental_settings_page()
@@ -1440,12 +2465,12 @@ class XKernelInstaller(ModuleBase):
                 await call.edit(text, buttons=buttons)
                 return
             await self._save_config()
-            await call.answer("Stealth включён", alert=False)
+            await call.answer(self.strings("stealth_enabled"), alert=False)
         else:
             self.config["stealth_mode"] = False
             self._disable_runtime_stealth()
             await self._save_config()
-            await call.answer("Stealth выключен", alert=False)
+            await call.answer(self.strings("stealth_disabled"), alert=False)
         text, buttons = self._build_settings_page()
         await call.edit(text, buttons=buttons)
 
@@ -1455,7 +2480,10 @@ class XKernelInstaller(ModuleBase):
         self.config["auto_update_kernel"] = new_value
         await self._save_config()
         self._ensure_update_task()
-        await call.answer(f"Auto update: {'ON' if new_value else 'OFF'}", alert=False)
+        await call.answer(
+            self.strings("auto_update_enabled" if new_value else "auto_update_disabled"),
+            alert=False,
+        )
         text, buttons = self._build_settings_page()
         await call.edit(text, buttons=buttons)
 
@@ -1465,7 +2493,10 @@ class XKernelInstaller(ModuleBase):
         self.config["update_notifications"] = new_value
         await self._save_config()
         self._ensure_update_task()
-        await call.answer(f"Уведомления: {'ON' if new_value else 'OFF'}", alert=False)
+        await call.answer(
+            self.strings("notifications_enabled" if new_value else "notifications_disabled"),
+            alert=False,
+        )
         text, buttons = self._build_settings_page()
         await call.edit(text, buttons=buttons)
 
@@ -1474,13 +2505,16 @@ class XKernelInstaller(ModuleBase):
         self._client_patch_event = call
         new_value = not self._is_client_patch_enabled()
         if new_value and not self._set_runtime_client_patch(True):
-            await call.answer("Текущее XKernel ядро не поддерживает Client Patch", alert=True)
+            await call.answer(self.strings("client_patch_unsupported"), alert=True)
             return
         if not new_value:
             self._clear_runtime_client_patch()
         self._client_patch_enabled_db = new_value
-        await self._save_client_patch_db_status()
-        await call.answer(f"Client Patch: {'ON' if new_value else 'OFF'}", alert=False)
+        await self._save_client_patch_db_state()
+        await call.answer(
+            self.strings("client_patch_enabled" if new_value else "client_patch_disabled"),
+            alert=False,
+        )
         text, buttons = self._build_client_patch_page()
         await call.edit(text, buttons=buttons)
 
@@ -1496,16 +2530,17 @@ class XKernelInstaller(ModuleBase):
             value = ""
         self.config[config_key] = value
         if self._is_client_patch_enabled() and not self._set_runtime_client_patch(True):
-            await self._edit(event, "🚫 Текущее XKernel ядро не поддерживает Client Patch")
+            await self._edit(event, f"🚫 {self.strings('client_patch_unsupported')}")
             return
         await self._save_config()
+        await self._save_client_patch_db_state()
         await self._refresh_client_patch_event()
-        display = html.escape(value or "очищено")
+        display = html.escape(value or self.strings("client_patch_value_cleared"))
         await self._edit(
             event,
-            f"{self.C['true']} <b>Client Patch обновлён</b>\n"
+            f"{self.C['true']} <b>{self.strings('client_patch_updated')}</b>\n"
             f"{html.escape(label)}: <code>{display}</code>\n\n"
-            f"<blockquote><em>Чтобы очистить поле, отправь <code>-</code> или <code>clear</code>.</em></blockquote>",
+            f"<blockquote><em>{self.strings('client_patch_clear_hint')}</em></blockquote>",
         )
 
     async def on_client_patch_app_version_input(
@@ -1567,7 +2602,8 @@ class XKernelInstaller(ModuleBase):
         if self._is_client_patch_enabled():
             self._set_runtime_client_patch(True)
         await self._save_config()
-        await call.answer("Параметры Client Patch очищены", alert=False)
+        await self._save_client_patch_db_state()
+        await call.answer(self.strings("client_cleared"), alert=False)
         text, buttons = self._build_client_patch_page()
         await call.edit(text, buttons=buttons)
 
@@ -1586,10 +2622,17 @@ class XKernelInstaller(ModuleBase):
         self._save_extera_scopes_to_config(scopes)
         scopes = self._extera_scopes_from_config()
         if not self._set_runtime_extera_proxy_scopes(scopes):
-            await call.answer("Текущее XKernel ядро не поддерживает ExteraProxy scopes", alert=True)
+            await call.answer(self.strings("extera_unsupported_scopes"), alert=True)
             return
         await self._save_config()
-        await call.answer(f"ExteraProxy {scope}: {'ON' if scope in scopes else 'OFF'}", alert=False)
+        await call.answer(
+            self.strings(
+                "extera_scope_answer",
+                scope=scope,
+                state=self.strings("state_on" if scope in scopes else "state_off"),
+            ),
+            alert=False,
+        )
         text, buttons = self._build_extera_proxy_page()
         await call.edit(text, buttons=buttons)
 
@@ -1614,15 +2657,14 @@ class XKernelInstaller(ModuleBase):
         self._extera_proxy_event = call
         new_value = not bool(self._cfg("extera_proxy_all", False))
         if new_value and not self._set_runtime_extera_proxy_all(True):
-            await call.answer("Текущее XKernel ядро не поддерживает ExteraProxy", alert=True)
+            await call.answer(self.strings("extera_unsupported"), alert=True)
             return
         if not new_value:
             self._set_runtime_extera_proxy_all(False)
         self.config["extera_proxy_all"] = new_value
         await self._save_config()
         await call.answer(
-            "ExteraProxy для всех включён. Осторожно: только для доверенных модулей!"
-            if new_value else "ExteraProxy для всех выключен",
+            self.strings("extera_all_on_answer" if new_value else "extera_all_off_answer"),
             alert=new_value,
         )
         text, buttons = self._build_extera_proxy_page()
@@ -1636,22 +2678,22 @@ class XKernelInstaller(ModuleBase):
     ) -> None:
         module_name = str(text or "").strip()
         if not module_name:
-            await self._edit(event, "🚫 Укажи имя модуля")
+            await self._edit(event, f"🚫 {self.strings('extera_name_required')}")
             return
         modules = self._extera_modules_from_config()
         if module_name.casefold() not in {item.casefold() for item in modules}:
             modules.append(module_name)
         self._save_extera_modules_to_config(modules)
         if not self._set_runtime_extera_proxy_modules(modules):
-            await self._edit(event, "🚫 Текущее XKernel ядро не поддерживает ExteraProxy")
+            await self._edit(event, f"🚫 {self.strings('extera_unsupported')}")
             return
         await self._save_config()
         await self._refresh_extera_proxy_event()
         await self._edit(
             event,
-            f"{self.C['warning']} <b>ExteraProxy добавлен</b>\n"
-            f"Модуль: <code>{html.escape(module_name)}</code>\n\n"
-            f"<blockquote><em>Отключение core-proxy опасно для неизвестных/подозрительных модулей.</em></blockquote>",
+            f"{self.C['warning']} <b>{self.strings('extera_updated')}</b>\n"
+            f"{self.strings('extera_add_result', module=html.escape(module_name))}\n\n"
+            f"<blockquote><em>{self.strings('extera_trusted_warning')}</em></blockquote>",
         )
 
     async def on_extera_proxy_remove_input(
@@ -1672,7 +2714,7 @@ class XKernelInstaller(ModuleBase):
         await self._refresh_extera_proxy_event()
         await self._edit(
             event,
-            f"{self.C['true']} ExteraProxy удалён для <code>{html.escape(module_name or 'unknown')}</code>",
+            f"{self.C['true']} {self.strings('extera_remove_result', module=html.escape(module_name or 'unknown'))}",
         )
 
     @callback(ttl=600)
@@ -1681,7 +2723,7 @@ class XKernelInstaller(ModuleBase):
         self._save_extera_modules_to_config([])
         self._set_runtime_extera_proxy_modules([])
         await self._save_config()
-        await call.answer("Список ExteraProxy очищен", alert=False)
+        await call.answer(self.strings("extera_clear_answer"), alert=False)
         text, buttons = self._build_extera_proxy_page()
         await call.edit(text, buttons=buttons)
 
@@ -1689,13 +2731,16 @@ class XKernelInstaller(ModuleBase):
     async def on_toggle_patch_events(self, call) -> None:
         new_value = not bool(self._cfg("experimental_patch_events", False))
         if new_value and not self._set_runtime_patch_events(True):
-            await call.answer("Текущее XKernel ядро не поддерживает patch events", alert=True)
+            await call.answer(self.strings("unsupported_current_kernel"), alert=True)
             return
         if not new_value:
             self._set_runtime_patch_events(False)
         self.config["experimental_patch_events"] = new_value
         await self._save_config()
-        await call.answer(f"Patch events: {'ON' if new_value else 'OFF'}", alert=False)
+        await call.answer(
+            self.strings("patch_events_enabled" if new_value else "patch_events_disabled"),
+            alert=False,
+        )
         text, buttons = self._build_experimental_settings_page()
         await call.edit(text, buttons=buttons)
 
@@ -1703,13 +2748,16 @@ class XKernelInstaller(ModuleBase):
     async def on_toggle_patch_hot_reload(self, call) -> None:
         new_value = not bool(self._cfg("experimental_patch_hot_reload", False))
         if new_value and not self._set_runtime_hot_reload(True):
-            await call.answer("Текущее XKernel ядро не поддерживает hot reload", alert=True)
+            await call.answer(self.strings("unsupported_current_kernel"), alert=True)
             return
         if not new_value:
             self._set_runtime_hot_reload(False)
         self.config["experimental_patch_hot_reload"] = new_value
         await self._save_config()
-        await call.answer(f"Hot reload: {'ON' if new_value else 'OFF'}", alert=False)
+        await call.answer(
+            self.strings("hot_reload_enabled" if new_value else "hot_reload_disabled"),
+            alert=False,
+        )
         text, buttons = self._build_experimental_settings_page()
         await call.edit(text, buttons=buttons)
 
@@ -1859,48 +2907,48 @@ class XKernelInstaller(ModuleBase):
         version_ok = bool(info.get("version_ok", True))
         required_xkernel = str(info.get("required_xkernel") or "")
         lines = [
-            f"{self.C['menu']} <b>Patch detail</b>",
+            f"{self.C['menu']} <b>{self.strings('patch_detail_title')}</b>",
             "",
-            f"{self._patch_status_icon(str(info['status']))} Status: <b>{html.escape(str(info['status']))}</b>",
-            f"<blockquote expandable>Patch: <code>{html.escape(str(info['name']))}</code>",
-            f"Target: <code>{html.escape(str(info['target']))}</code>",
-            f"File: <code>{html.escape(str(info['file']))}</code>",
-            f"Key: <code>{html.escape(str(info['patch_key']))}</code></blockquote>",
+            f"{self._patch_status_icon(str(info['status']))} {self.strings('patch_status_label')} <b>{html.escape(str(info['status']))}</b>",
+            f"<blockquote expandable>{self.strings('patch_label')} <code>{html.escape(str(info['name']))}</code>",
+            f"{self.strings('patch_target_label')} <code>{html.escape(str(info['target']))}</code>",
+            f"{self.strings('patch_file_label')} <code>{html.escape(str(info['file']))}</code>",
+            f"{self.strings('patch_key_label')} <code>{html.escape(str(info['patch_key']))}</code></blockquote>",
         ]
         if result:
             lines += [
                 "",
-                f"<blockquote expandable>{self.C['result']} <b>Result</b>\n<code>{html.escape(result)}</code></blockquote>",
+                f"<blockquote expandable>{self.C['result']} <b>{self.strings('patch_result_label')}</b>\n<code>{html.escape(result)}</code></blockquote>",
             ]
         if pending_reason:
             lines += [
                 "",
-                f"<blockquote expandable>{self.C['pending']} <b>Pending reason</b>\n<code>{html.escape(pending_reason)}</code></blockquote>",
+                f"<blockquote expandable>{self.C['pending']} <b>{self.strings('patch_pending_reason_label')}</b>\n<code>{html.escape(pending_reason)}</code></blockquote>",
             ]
         if error:
             lines += [
                 "",
-                f"<blockquote expandable>{self.C['off']} <b>Error</b>\n{html.escape(error)}</blockquote>",
+                f"<blockquote expandable>{self.C['off']} <b>{self.strings('patch_error_label')}</b>\n{html.escape(error)}</blockquote>",
             ]
         if full_traceback:
             lines += [
                 "",
-                f"<blockquote expandable>{self.C['logs']} <b>Traceback</b>\n<code>{html.escape(full_traceback)}</code></blockquote>",
+                f"<blockquote expandable>{self.C['logs']} <b>{self.strings('patch_traceback_label')}</b>\n<code>{html.escape(full_traceback)}</code></blockquote>",
             ]
         if version_known and not version_ok:
             lines += [
                 "",
-                f"<blockquote>{self.C['warning']} <b>Минимальная версия XKernel для этого патча: {html.escape(required_xkernel)}</b></blockquote>",
+                f"<blockquote>{self.C['warning']} <b>{self.strings('patch_min_version', version=html.escape(required_xkernel))}</b></blockquote>",
             ]
         elif version_known:
             lines += [
                 "",
-                f"<blockquote>{self.C['on']} <b>Патч совместим с текущей версией XKernel</b></blockquote>",
+                f"<blockquote>{self.C['on']} <b>{self.strings('patch_version_ok')}</b></blockquote>",
             ]
         else:
             lines += [
                 "",
-                f"<blockquote>{self.C['warning']} <b>Минимальная версия XKernel для этого патча не указана</b></blockquote>",
+                f"<blockquote>{self.C['warning']} <b>{self.strings('patch_min_version_unknown')}</b></blockquote>",
             ]
         return "\n".join(lines)
 
@@ -1909,7 +2957,7 @@ class XKernelInstaller(ModuleBase):
         C = self.C
         pm = self._get_pm()
         if pm is None:
-            await call.answer("XPatchKernel не активен", alert=True)
+            await call.answer(self.strings("xpatch_inactive_alert"), alert=True)
             return
 
         applied = len(pm.applied_patches)
@@ -1917,12 +2965,9 @@ class XKernelInstaller(ModuleBase):
         failed = len(pm.failed_patches)
         disabled = len(getattr(pm, "disabled_patches", set()) or set())
         text = (
-            f"{C['menu']} <b>Патчи</b>\n\n"
-            f"{C['true']} Applied: <b>{applied}</b>  "
-            f"{C['pending']} Pending: <b>{pending}</b>  "
-            f"{C['off']} Failed: <b>{failed}</b>  "
-            f"{C['warning']} Disabled: <b>{disabled}</b>\n"
-            f"<blockquote>Нажми на патч, чтобы открыть детали.</blockquote>"
+            f"{C['menu']} <b>{self.strings('patches_title')}</b>\n\n"
+            f"{C['true']} {self.strings('patches_stats', applied=applied, pending=pending, failed=failed, disabled=disabled)}\n"
+            f"<blockquote>{self.strings('patches_hint')}</blockquote>"
         )
 
         buttons: list[list] = []
@@ -1935,79 +2980,79 @@ class XKernelInstaller(ModuleBase):
             buttons.append([self.Button.inline(label, self.on_patch_detail, data=entry, ttl=600)])
 
         if not buttons:
-            text += "\n\n<i>Патчи не найдены</i>"
-        buttons.append([self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_back_to_main, ttl=600)])
+            text += f"\n\n<i>{self.strings('patches_empty')}</i>"
+        buttons.append([self.Button.inline(f"{self._clear_text(C['back'])} {self.strings('btn_back')}", self.on_back_to_main, ttl=600)])
         await call.edit(text, buttons=buttons)
 
     @callback(ttl=600)
     async def on_patch_detail(self, call, data: Any = None) -> None:
         pm = self._get_pm()
         if pm is None:
-            await call.answer("XPatchKernel не активен", alert=True)
+            await call.answer(self.strings("xpatch_inactive_alert"), alert=True)
             return
         info = self._patch_detail_info(pm, data)
         buttons: list[list] = []
-        buttons.append([self.Button.inline("🔁 Reload patch", self.on_patch_reload, data=data, ttl=600)])
+        buttons.append([self.Button.inline(f"🔁 {self.strings('btn_reload_patch')}", self.on_patch_reload, data=data, ttl=600)])
         if info["disabled"]:
-            buttons.append([self.Button.inline("✅ Enable patch", self.on_patch_enable, data=data, ttl=600)])
+            buttons.append([self.Button.inline(f"✅ {self.strings('btn_enable_patch')}", self.on_patch_enable, data=data, ttl=600)])
         else:
-            buttons.append([self.Button.inline("🚫 Disable patch", self.on_patch_disable, data=data, ttl=600)])
+            buttons.append([self.Button.inline(f"🚫 {self.strings('btn_disable_patch')}", self.on_patch_disable, data=data, ttl=600)])
         if info["status"] == "applied" and info.get("has_unapply"):
-            buttons.append([self.Button.inline("↩️ Unapply", self.on_patch_unapply, data=data, ttl=600)])
+            buttons.append([self.Button.inline(f"↩️ {self.strings('btn_unapply_patch')}", self.on_patch_unapply, data=data, ttl=600)])
         if info["status"] == "failed" and str(info["target"]) not in {"<load>", "<missing-target>"}:
-            buttons.append([self.Button.inline("🔁 Retry", self.on_patch_retry, data=data, ttl=600)])
-        buttons.append([self.Button.inline(f"{self._clear_text(self.C['back'])} Назад", self.on_patches_menu, ttl=600)])
+            buttons.append([self.Button.inline(f"🔁 {self.strings('btn_retry_patch')}", self.on_patch_retry, data=data, ttl=600)])
+        buttons.append([self.Button.inline(f"{self._clear_text(self.C['back'])} {self.strings('btn_back')}", self.on_patches_menu, ttl=600)])
         await call.edit(self._patch_detail_text(info), buttons=buttons)
 
     @callback(ttl=600)
     async def on_patch_reload(self, call, data: Any = None) -> None:
         pm = self._get_pm()
         if pm is None:
-            await call.answer("XPatchKernel не активен", alert=True)
+            await call.answer(self.strings("xpatch_inactive_alert"), alert=True)
             return
         patch_key = str((data or {}).get("patch_key", ""))
         reload_patch_key = getattr(pm, "reload_patch_key", None)
         if not callable(reload_patch_key):
-            await call.answer("Это XKernel ядро не поддерживает reload одного патча", alert=True)
+            await call.answer(self.strings("patch_reload_unsupported"), alert=True)
             return
         result = await reload_patch_key(patch_key)
         if result.get("failed"):
-            await call.answer("Reload failed", alert=True)
+            await call.answer(self.strings("patch_reload_failed"), alert=True)
         elif result.get("missing"):
-            await call.answer("Patch file not found", alert=True)
+            await call.answer(self.strings("patch_file_not_found"), alert=True)
         else:
-            await call.answer("Reloaded", alert=False)
+            await call.answer(self.strings("patch_reloaded"), alert=False)
         await self.on_patch_detail(call, data)
 
     @callback(ttl=600)
     async def on_patch_unapply(self, call, data: Any = None) -> None:
         pm = self._get_pm()
         if pm is None:
-            await call.answer("XPatchKernel не активен", alert=True)
+            await call.answer(self.strings("xpatch_inactive_alert"), alert=True)
             return
         patch_key = str((data or {}).get("patch_key", ""))
         target = str((data or {}).get("target", ""))
         result = await pm.unapply_patch(patch_key, target)
-        await call.answer(f"Unapply: {result}", alert=result == "failed")
+        await call.answer(self.strings("patch_unapply_result", result=result), alert=result == "failed")
         await self.on_patch_detail(call, data)
 
     async def _set_patch_disabled_from_detail(self, call, data: Any, disabled: bool) -> None:
         pm = self._get_pm()
         if pm is None:
-            await call.answer("XPatchKernel не активен", alert=True)
+            await call.answer(self.strings("xpatch_inactive_alert"), alert=True)
             return
         patch_key = str((data or {}).get("patch_key", ""))
         setter = getattr(pm, "set_patch_disabled", None)
         if not callable(setter):
-            await call.answer("Это XKernel ядро не поддерживает enable/disable патчей", alert=True)
+            await call.answer(self.strings("patch_toggle_unsupported"), alert=True)
             return
         setter(patch_key, disabled)
         if disabled:
             await pm.unapply_patch_key(patch_key)
-            await call.answer("Patch disabled", alert=False)
+            await call.answer(self.strings("patch_disabled_answer"), alert=False)
         else:
             await pm.apply_all(force=True)
-            await call.answer("Patch enabled", alert=False)
+            await call.answer(self.strings("patch_enabled_answer"), alert=False)
         await self.on_patch_detail(call, data)
 
     @callback(ttl=600)
@@ -2022,11 +3067,11 @@ class XKernelInstaller(ModuleBase):
     async def on_patch_retry(self, call, data: Any = None) -> None:
         pm = self._get_pm()
         if pm is None:
-            await call.answer("XPatchKernel не активен", alert=True)
+            await call.answer(self.strings("xpatch_inactive_alert"), alert=True)
             return
         info = self._patch_detail_info(pm, data)
         target = str(info.get("target") or "")
-        await call.answer("Retry patch...", alert=False)
+        await call.answer(self.strings("patch_retry_answer"), alert=False)
         try:
             if target in {"<load>", "<missing-target>", ""}:
                 await pm.apply_all()
@@ -2053,15 +3098,15 @@ class XKernelInstaller(ModuleBase):
             content = target_path.read_text(encoding="utf-8")
             sha = self._sha256(content)
             lines += [
-                f"{C['file']} Файл: <code>{html.escape(str(target_path))}</code>",
+                f"{C['file']} {self.strings('details_file_label')} <code>{html.escape(str(target_path))}</code>",
                 f"{C['lock']} SHA256: <code>{sha[:16]}…</code>",
-                f"{C['dir']} Размер: <code>{size_kb:.1f} KB</code>",
-                f"{C['diskette']} Бэкапов: <code>{len(backups)}</code>",
+                f"{C['dir']} {self.strings('details_size_label')} <code>{size_kb:.1f} KB</code>",
+                f"{C['diskette']} {self.strings('details_backups_label')} <code>{len(backups)}</code>",
                 "",
             ]
         else:
             lines += [
-                f"{C['warning']} XKernel не найден:",
+                f"{C['warning']} {self.strings('details_not_found')}",
                 f"<code>{html.escape(str(target_path))}</code>",
                 "",
             ]
@@ -2078,14 +3123,14 @@ class XKernelInstaller(ModuleBase):
             f"{C['menu']} Version: <code>{ver}</code>",
             f"{C['info']} Version XPatchKernel: <code>{xkernel_ver}</code>",
             f"{C['file']} Patches dir: <code>{patches_dir}</code>",
-            f"{C['lock']} Default core: <code>{html.escape(default_core or 'не задан')}</code>",
+            f"{C['lock']} {self.strings('details_default_core')} <code>{html.escape(default_core or self.strings('details_not_set'))}</code>",
             f"{C['pc']} Platform: <code>{html.escape(get_platform_name())}</code>",
         ]
 
-        text = f"{C['info']} <b>XKernel · Подробно</b>\n\n<blockquote>" + "\n".join(lines) + "</blockquote>"
+        text = f"{C['info']} <b>{self.strings('details_title')}</b>\n\n<blockquote>" + "\n".join(lines) + "</blockquote>"
         buttons = [
             [
-                self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_back_to_main, ttl=600),
+                self.Button.inline(f"{self._clear_text(C['back'])} {self.strings('btn_back')}", self.on_back_to_main, ttl=600),
                 self.Button.inline("⏪ Rollback", self.on_rollback_confirm, ttl=300),
             ],
         ]
@@ -2095,8 +3140,8 @@ class XKernelInstaller(ModuleBase):
     async def on_install_start(self, call) -> None:
         C = self.C
         await call.edit(
-            f"{C['install']} <b>Загружаю XKernel...</b>\n"
-            f"{C['moon']} Платформа: <code>{html.escape(get_platform_name())}</code>",
+            f"{C['install']} <b>{self.strings('install_loading')}</b>\n"
+            f"{C['moon']} {self.strings('platform_label')} <code>{html.escape(get_platform_name())}</code>",
         )
         try:
             source = await self._download_xkernel()
@@ -2108,23 +3153,23 @@ class XKernelInstaller(ModuleBase):
             sha = self._sha256(source)
 
             text = (
-                f"{C['true']} <b>XKernel установлен</b>\n\n"
+                f"{C['true']} <b>{self.strings('install_done_title')}</b>\n\n"
                 f"<blockquote>"
-                f"{C['file']} Файл: <code>{html.escape(str(target_path))}</code>\n"
+                f"{C['file']} {self.strings('details_file_label')} <code>{html.escape(str(target_path))}</code>\n"
                 f"{C['lock']} SHA: <code>{sha[:16]}…</code>"
                 f"</blockquote>\n"
-                f"{C['warning']} <b>Сделать XKernel ядром по умолчанию?</b>\n"
-                f"<blockquote>Если выбрать да, MCUB будет стартовать с XKernel без ручного <code>--core XKernel</code>.</blockquote>"
+                f"{C['warning']} <b>{self.strings('install_default_prompt')}</b>\n"
+                f"<blockquote>{self.strings('install_default_desc')}</blockquote>"
             )
             buttons = [
                 [
                     self.Button.inline(
-                        "✅ Установить по дефолту",
+                        f"✅ {self.strings('btn_set_default')}",
                         self.on_install_set_default,
                         ttl=300,
                     ),
                     self.Button.inline(
-                        "Нет, спасибо",
+                        self.strings("btn_no_thanks"),
                         self.on_install_skip_default,
                         ttl=300,
                     ),
@@ -2132,11 +3177,11 @@ class XKernelInstaller(ModuleBase):
             ]
         except Exception as exc:
             self.log.exception("XKernel inline install failed")
-            text = f"🚫 <b>Ошибка установки</b>\n" f"<pre>{html.escape(str(exc))}</pre>"
+            text = f"🚫 <b>{self.strings('install_error_title')}</b>\n" f"<pre>{html.escape(str(exc))}</pre>"
             buttons = [
                 [
                     self.Button.inline(
-                        f"{self._clear_text(C['back'])} Назад", self.on_back_to_main, ttl=600
+                        f"{self._clear_text(C['back'])} {self.strings('btn_back')}", self.on_back_to_main, ttl=600
                     )
                 ],
             ]
@@ -2144,19 +3189,19 @@ class XKernelInstaller(ModuleBase):
 
     def _install_finish_page(self, default_changed: bool) -> tuple[str, list]:
         C = self.C
-        default_text = "XKernel" if default_changed else "не менял"
+        default_text = "XKernel" if default_changed else self.strings("install_default_unchanged")
         text = (
-            f"{C['true']} <b>Готово</b>\n\n"
+            f"{C['true']} <b>{self.strings('install_finish_title')}</b>\n\n"
             f"<blockquote>{C['lock']} Default core: <code>{html.escape(default_text)}</code></blockquote>\n"
-            f"{C['warning']} <i>Нужен рестарт MCUB</i>"
+            f"{C['warning']} <i>{self.strings('restart_required')}</i>"
         )
         buttons = [
             [
                 self.Button.inline(
-                    f"{self._clear_text(C['reboot'])} Рестарт", self.on_restart, ttl=120
+                    f"{self._clear_text(C['reboot'])} {self.strings('btn_restart')}", self.on_restart, ttl=120
                 ),
                 self.Button.inline(
-                    f"{self._clear_text(C['back'])} Назад", self.on_back_to_main, ttl=600
+                    f"{self._clear_text(C['back'])} {self.strings('btn_back')}", self.on_back_to_main, ttl=600
                 ),
             ],
         ]
@@ -2165,50 +3210,50 @@ class XKernelInstaller(ModuleBase):
     @callback(ttl=300)
     async def on_install_set_default(self, call) -> None:
         self._set_default_core("XKernel")
-        await call.answer("XKernel установлен по умолчанию", alert=False)
+        await call.answer(self.strings("install_default_set_answer"), alert=False)
         text, buttons = self._install_finish_page(default_changed=True)
         await call.edit(text, buttons=buttons)
 
     @callback(ttl=300)
     async def on_install_skip_default(self, call) -> None:
-        await call.answer("Default core не менял", alert=False)
+        await call.answer(self.strings("install_default_skip_answer"), alert=False)
         text, buttons = self._install_finish_page(default_changed=False)
         await call.edit(text, buttons=buttons)
 
     @callback(ttl=300)
     async def on_check_update(self, call) -> None:
-        await call.answer("Проверяю XKernel...", alert=False)
+        await call.answer(self.strings("update_checking"), alert=False)
         try:
             update = await self._get_kernel_update_info()
         except Exception as exc:
             self.log.exception("XKernel update check failed")
             await call.edit(
-                f"🚫 <b>Update check failed</b>\n<pre>{html.escape(str(exc))}</pre>",
-                buttons=[[self.Button.inline(f"{self._clear_text(self.C['back'])} Назад", self.on_back_to_main, ttl=600)]],
+                f"🚫 <b>{self.strings('update_check_failed_title')}</b>\n<pre>{html.escape(str(exc))}</pre>",
+                buttons=[[self.Button.inline(f"{self._clear_text(self.C['back'])} {self.strings('btn_back')}", self.on_back_to_main, ttl=600)]],
             )
             return
 
         if not update["available"]:
             await call.edit(
-                f"{self.C['true']} <b>XKernel уже актуален</b>\n\n"
+                f"{self.C['true']} <b>{self.strings('update_current_title')}</b>\n\n"
                 f"<blockquote>"
-                f"Local: <code>{self._format_version(update['local_version'])}</code>\n"
-                f"Remote: <code>{self._format_version(update['remote_version'])}</code>"
+                f"{self.strings('local_label')} <code>{self._format_version(update['local_version'])}</code>\n"
+                f"{self.strings('remote_label')} <code>{self._format_version(update['remote_version'])}</code>"
                 f"</blockquote>",
-                buttons=[[self.Button.inline(f"{self._clear_text(self.C['back'])} Назад", self.on_back_to_main, ttl=600)]],
+                buttons=[[self.Button.inline(f"{self._clear_text(self.C['back'])} {self.strings('btn_back')}", self.on_back_to_main, ttl=600)]],
             )
             return
 
         await call.edit(
-            f"{self.C['reload']} <b>Доступно обновление XKernel</b>\n\n"
+            f"{self.C['reload']} <b>{self.strings('update_available_title')}</b>\n\n"
             f"<blockquote>"
-            f"Local: <code>{self._format_version(update['local_version'])}</code>\n"
-            f"Remote: <code>{self._format_version(update['remote_version'])}</code>"
+            f"{self.strings('local_label')} <code>{self._format_version(update['local_version'])}</code>\n"
+            f"{self.strings('remote_label')} <code>{self._format_version(update['remote_version'])}</code>"
             f"</blockquote>",
             buttons=[
                 [
-                    self.Button.inline("⬆️ Обновиться", self.on_update_now, ttl=300),
-                    self.Button.inline(f"{self._clear_text(self.C['back'])} Назад", self.on_back_to_main, ttl=600),
+                    self.Button.inline(f"⬆️ {self.strings('btn_update_now')}", self.on_update_now, ttl=300),
+                    self.Button.inline(f"{self._clear_text(self.C['back'])} {self.strings('btn_back')}", self.on_back_to_main, ttl=600),
                 ]
             ],
         )
@@ -2216,28 +3261,28 @@ class XKernelInstaller(ModuleBase):
     @callback(ttl=300)
     async def on_update_now(self, call) -> None:
         C = self.C
-        await call.edit(f"{C['loading']} <b>Обновляю XKernel...</b>")
+        await call.edit(f"{C['loading']} <b>{self.strings('update_loading')}</b>")
         try:
             target_path, sha, remote_version = await self._install_latest_xkernel()
             await self._remember_notified_version(remote_version)
         except Exception as exc:
             self.log.exception("XKernel update install failed")
             await call.edit(
-                f"🚫 <b>XKernel не обновлён</b>\n"
+                f"🚫 <b>{self.strings('update_failed_title')}</b>\n"
                 f"<pre>{html.escape(str(exc))}</pre>\n\n"
-                f"Открой менеджер заново: <code>.xm</code>",
+                f"{self.strings('reopen_manager_hint')} <code>.xm</code>",
             )
             return
 
         await call.edit(
-            f"{C['true']} <b>XKernel обновлён</b>\n\n"
+            f"{C['true']} <b>{self.strings('update_done_title')}</b>\n\n"
             f"<blockquote>"
-            f"Version: <code>{self._format_version(remote_version)}</code>\n"
-            f"{C['file']} Файл: <code>{html.escape(str(target_path))}</code>\n"
+            f"{self.strings('version_label')} <code>{self._format_version(remote_version)}</code>\n"
+            f"{C['file']} {self.strings('details_file_label')} <code>{html.escape(str(target_path))}</code>\n"
             f"{C['lock']} SHA: <code>{sha[:16]}…</code>"
             f"</blockquote>\n"
-            f"{C['warning']} <i>Нужен рестарт MCUB</i>\n"
-            f"<em>Открой менеджер заново:</em> <code>.xm</code>",
+            f"{C['warning']} <i>{self.strings('restart_required')}</i>\n"
+            f"<em>{self.strings('reopen_manager_hint')}</em> <code>.xm</code>",
         )
 
     @callback(ttl=600)
@@ -2245,22 +3290,22 @@ class XKernelInstaller(ModuleBase):
         C = self.C
         pm = self._get_pm()
         if pm is None:
-            await call.answer("XPatchKernel не активен", alert=True)
+            await call.answer(self.strings("xpatch_inactive_alert"), alert=True)
             return
 
         await call.edit(
-            f"{C['loading']} <b>Применяю патчи...</b>",
+            f"{C['loading']} <b>{self.strings('apply_all_loading')}</b>",
         )
         try:
             result = await pm.apply_all()
         except Exception as exc:
             self.log.exception("apply_patches failed")
             await call.edit(
-                f"🚫 <b>Ошибка apply_patches</b>\n<pre>{html.escape(str(exc))}</pre>",
+                f"🚫 <b>{self.strings('apply_all_error_title')}</b>\n<pre>{html.escape(str(exc))}</pre>",
                 buttons=[
                     [
                         self.Button.inline(
-                            f"{self._clear_text(C['back'])} Назад", self.on_back_to_main, ttl=600
+                            f"{self._clear_text(C['back'])} {self.strings('btn_back')}", self.on_back_to_main, ttl=600
                         )
                     ]
                 ],
@@ -2272,41 +3317,41 @@ class XKernelInstaller(ModuleBase):
         failed = result.get("failed", [])
         skipped = result.get("skipped", [])
 
-        lines: list[str] = [f"{C['settings']} <b>Apply all — результат</b>\n"]
+        lines: list[str] = [f"{C['settings']} <b>{self.strings('apply_all_result_title')}</b>\n"]
         if applied:
-            lines.append(f"{C['true']} Applied ({len(applied)}):")
+            lines.append(f"{C['true']} {self.strings('apply_applied_label')} ({len(applied)}):")
             for name, tgt in applied:
                 lines.append(
                     f"  <code>{html.escape(name)}</code> → <i>{html.escape(tgt)}</i>"
                 )
         if pending:
-            lines.append(f"\n{C['pending']} Pending ({len(pending)}):")
+            lines.append(f"\n{C['pending']} {self.strings('apply_pending_label')} ({len(pending)}):")
             for name, tgt in pending:
                 lines.append(
                     f"  <code>{html.escape(name)}</code> → <i>{html.escape(tgt)}</i>"
                 )
         if failed:
-            lines.append(f"\n{C['off']} Failed ({len(failed)}):")
+            lines.append(f"\n{C['off']} {self.strings('apply_failed_label')} ({len(failed)}):")
             for name, tgt in failed:
                 lines.append(
                     f"  <code>{html.escape(name)}</code> → <i>{html.escape(tgt)}</i>"
                 )
         if skipped:
-            lines.append(f"\n⏭ Skipped: {len(skipped)}")
+            lines.append(f"\n⏭ {self.strings('apply_skipped_label')}: {len(skipped)}")
 
         needs_restart = bool(applied)
         if needs_restart:
-            lines.append(f"\n{C['warning']} <i>Нужен рестарт для применения патчей</i>")
+            lines.append(f"\n{C['warning']} <i>{self.strings('apply_restart_required')}</i>")
 
         text = "<blockquote expandable>" + "\n".join(lines) + "</blockquote>"
         back_btn = self.Button.inline(
-            f"{self._clear_text(C['back'])} Назад", self.on_back_to_main, ttl=600
+            f"{self._clear_text(C['back'])} {self.strings('btn_back')}", self.on_back_to_main, ttl=600
         )
         buttons = (
             [
                 [
                     self.Button.inline(
-                        f"{self._clear_text(C['reboot'])} Рестарт", self.on_restart, ttl=120
+                        f"{self._clear_text(C['reboot'])} {self.strings('btn_restart')}", self.on_restart, ttl=120
                     ),
                     back_btn,
                 ]
@@ -2321,21 +3366,21 @@ class XKernelInstaller(ModuleBase):
         C = self.C
         backups = self._backup_files()
         if not backups:
-            await call.answer("Backup не найден", alert=True)
+            await call.answer(self.strings("rollback_no_backup"), alert=True)
             return
 
         latest = backups[-1]
         text = (
-            f"⏪ <b>Rollback — подтверждение</b>\n\n"
-            f"Будет восстановлен:\n"
+            f"⏪ <b>{self.strings('rollback_confirm_title')}</b>\n\n"
+            f"{self.strings('rollback_will_restore')}\n"
             f"<blockquote><code>{html.escape(str(latest))}</code></blockquote>\n"
-            f"{C['warning']} <i>Нужен рестарт после отката</i>"
+            f"{C['warning']} <i>{self.strings('rollback_restart_required')}</i>"
         )
         buttons = [
             [
-                self.Button.inline(f"{self._clear_text(self.C['true'])} Откатить", self.on_rollback_do, ttl=120),
+                self.Button.inline(f"{self._clear_text(self.C['true'])} {self.strings('btn_rollback')}", self.on_rollback_do, ttl=120),
                 self.Button.inline(
-                    f"{self._clear_text(C['back'])} Отмена", self.on_details_menu, ttl=300
+                    f"{self._clear_text(C['back'])} {self.strings('btn_cancel')}", self.on_details_menu, ttl=300
                 ),
             ],
         ]
@@ -2346,7 +3391,7 @@ class XKernelInstaller(ModuleBase):
         C = self.C
         backups = self._backup_files()
         if not backups:
-            await call.answer("Backup не найден", alert=True)
+            await call.answer(self.strings("rollback_no_backup"), alert=True)
             return
 
         latest_backup = backups[-1]
@@ -2360,11 +3405,11 @@ class XKernelInstaller(ModuleBase):
         except Exception as exc:
             self.log.exception("Rollback do failed")
             await call.edit(
-                f"🚫 <b>Rollback не выполнен</b>\n<pre>{html.escape(str(exc))}</pre>",
+                f"🚫 <b>{self.strings('rollback_failed_title')}</b>\n<pre>{html.escape(str(exc))}</pre>",
                 buttons=[
                     [
                         self.Button.inline(
-                            f"{self._clear_text(C['back'])} Назад", self.on_back_to_main, ttl=600
+                            f"{self._clear_text(C['back'])} {self.strings('btn_back')}", self.on_back_to_main, ttl=600
                         )
                     ]
                 ],
@@ -2372,21 +3417,21 @@ class XKernelInstaller(ModuleBase):
             return
 
         text = (
-            f"{C['true']} <b>Rollback выполнен</b>\n\n"
-            f"<blockquote>Восстановлен: <code>{html.escape(str(latest_backup))}</code></blockquote>\n"
-            f"{C['warning']} <i>Нужен рестарт MCUB</i>"
+            f"{C['true']} <b>{self.strings('rollback_done_title')}</b>\n\n"
+            f"<blockquote>{self.strings('rollback_restored_label')} <code>{html.escape(str(latest_backup))}</code></blockquote>\n"
+            f"{C['warning']} <i>{self.strings('restart_required')}</i>"
         )
         buttons = [
             [
-                self.Button.inline(f"{self._clear_text(C['reboot'])} Рестарт", self.on_restart, ttl=120),
-                self.Button.inline(f"{self._clear_text(C['back'])} Назад", self.on_back_to_main, ttl=600),
+                self.Button.inline(f"{self._clear_text(C['reboot'])} {self.strings('btn_restart')}", self.on_restart, ttl=120),
+                self.Button.inline(f"{self._clear_text(C['back'])} {self.strings('btn_back')}", self.on_back_to_main, ttl=600),
             ],
         ]
         await call.edit(text, buttons=buttons)
 
     @callback(ttl=120)
     async def on_restart(self, call) -> None:
-        await call.answer("Ребутаю MCUB...", alert=False)
+        await call.answer(self.strings("restart_answer"), alert=False)
         await self.invoke("restart", chat_id="me")
 
     @command(
@@ -2402,8 +3447,8 @@ class XKernelInstaller(ModuleBase):
 
         await self._edit(
             event,
-            f"{C['install']} <b>Начинаю ставить XPatchKernel</b>\n"
-            f"{C['moon']} Платформа: <code>{html.escape(get_platform_name())}</code>",
+            f"{C['install']} <b>{self.strings('cli_install_start')}</b>\n"
+            f"{C['moon']} {self.strings('platform_label')} <code>{html.escape(get_platform_name())}</code>",
         )
         await asyncio.sleep(1)
 
@@ -2423,14 +3468,14 @@ class XKernelInstaller(ModuleBase):
 
             await self._edit(
                 event,
-                f"{C['true']} <b>XKernel установлен/обновлён</b>\n\n"
+                f"{C['true']} <b>{self.strings('cli_install_done_title')}</b>\n\n"
                 f"<blockquote>"
-                f"{C['file']} Файл: <code>{html.escape(str(target_path))}</code>\n"
+                f"{C['file']} {self.strings('details_file_label')} <code>{html.escape(str(target_path))}</code>\n"
                 f"{C['lock']} SHA: <code>{sha[:16]}…</code>\n"
                 f"{C['diskette']} Default core: "
-                f"<code>{'XKernel' if default_changed else 'не менял'}</code>"
+                f"<code>{'XKernel' if default_changed else self.strings('install_default_unchanged')}</code>"
                 f"</blockquote>\n"
-                f"{C['warning']} <i>Нужен рестарт MCUB</i>",
+                f"{C['warning']} <i>{self.strings('restart_required')}</i>",
             )
             await self._show_restart_prompt(event)
 
@@ -2438,7 +3483,7 @@ class XKernelInstaller(ModuleBase):
             self.log.exception("XKernel install failed")
             await self._edit(
                 event,
-                f"🚫 <b>XKernel не установлен</b>\n<pre>{html.escape(str(exc))}</pre>",
+                f"🚫 <b>{self.strings('cli_install_failed_title')}</b>\n<pre>{html.escape(str(exc))}</pre>",
             )
 
     @command(
@@ -2451,7 +3496,7 @@ class XKernelInstaller(ModuleBase):
         C = self.C
         backups = self._backup_files()
         if not backups:
-            await self._edit(event, f"{C['warning']} <b>Backup для XKernel не найден</b>")
+            await self._edit(event, f"{C['warning']} <b>{self.strings('cli_rollback_not_found')}</b>")
             return
 
         latest_backup = backups[-1]
@@ -2466,15 +3511,15 @@ class XKernelInstaller(ModuleBase):
             self.log.exception("XKernel rollback failed")
             await self._edit(
                 event,
-                f"🚫 <b>Rollback не выполнен</b>\n<code>{html.escape(str(exc))}</code>",
+                f"🚫 <b>{self.strings('rollback_failed_title')}</b>\n<code>{html.escape(str(exc))}</code>",
             )
             return
 
         await self._edit(
             event,
-            f"{C['true']} <b>XKernel rollback выполнен</b>\n\n"
-            f"<blockquote>Восстановлен: <code>{html.escape(str(latest_backup))}</code></blockquote>\n"
-            f"{C['warning']} <i>Ребутни MCUB</i>",
+            f"{C['true']} <b>{self.strings('cli_rollback_done_title')}</b>\n\n"
+            f"<blockquote>{self.strings('rollback_restored_label')} <code>{html.escape(str(latest_backup))}</code></blockquote>\n"
+            f"{C['warning']} <i>{self.strings('restart_required')}</i>",
         )
         await self._show_restart_prompt(event)
 
@@ -2482,9 +3527,9 @@ class XKernelInstaller(ModuleBase):
         C = self.C
         await self.inline(
             event.chat_id,
-            "Рестарт MCUB?",
+            self.strings("restart_prompt"),
             buttons=[
-                [self.Button.inline(f"{self._clear_text(C['reboot'])} Reboot", self.on_restart, ttl=120)]
+                [self.Button.inline(f"{self._clear_text(C['reboot'])} {self.strings('btn_reboot')}", self.on_restart, ttl=120)]
             ],
         )
 
