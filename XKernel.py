@@ -16,8 +16,10 @@ from typing import Any
 try:
     from core.lib.utils.exceptions import CallInsecure
 except Exception:  # pragma: no cover - lets docs/tools import this file outside MCUB
+
     class CallInsecure(RuntimeError):
         pass
+
 
 from .standard import Kernel as KernelBase
 
@@ -239,7 +241,9 @@ class XPatchPatchManager:
             if not targets:
                 target = "<missing-target>"
                 result["failed"].append((patch_name, target))
-                self.failed_patches[(patch_key, target)] = "Patch target is not declared"
+                self.failed_patches[(patch_key, target)] = (
+                    "Patch target is not declared"
+                )
                 self._log(
                     "warning",
                     "[xpatch] patch %s has no PATCH_TARGET/PATCH_TARGETS",
@@ -310,15 +314,39 @@ class XPatchPatchManager:
         version_error = self._patch_version_error(patch_module)
         if version_error:
             self.failed_patches[applied_key] = version_error
-            self._log("warning", "[xpatch] patch %s incompatible: %s", patch_name, version_error)
-            await self._emit_patch_event("xpatch:failed", patch_name, target_name, version_error, patch_key=patch_key, target_norm=target_norm)
+            self._log(
+                "warning",
+                "[xpatch] patch %s incompatible: %s",
+                patch_name,
+                version_error,
+            )
+            await self._emit_patch_event(
+                "xpatch:failed",
+                patch_name,
+                target_name,
+                version_error,
+                patch_key=patch_key,
+                target_norm=target_norm,
+            )
             return "failed"
 
         dependency_error = self._patch_dependency_error(patch_module)
         if dependency_error:
             self._remember_pending(patch_key, target_name, dependency_error)
-            self._log("debug", "[xpatch] patch %s is pending: %s", patch_name, dependency_error)
-            await self._emit_patch_event("xpatch:pending", patch_name, target_name, dependency_error, patch_key=patch_key, target_norm=target_norm)
+            self._log(
+                "debug",
+                "[xpatch] patch %s is pending: %s",
+                patch_name,
+                dependency_error,
+            )
+            await self._emit_patch_event(
+                "xpatch:pending",
+                patch_name,
+                target_name,
+                dependency_error,
+                patch_key=patch_key,
+                target_norm=target_norm,
+            )
             return "pending"
 
         condition_status = await self._patch_condition_status(patch_module)
@@ -326,11 +354,25 @@ class XPatchPatchManager:
             status, reason = condition_status
             if status == "failed":
                 self.failed_patches[applied_key] = reason
-                await self._emit_patch_event("xpatch:failed", patch_name, target_name, reason, patch_key=patch_key, target_norm=target_norm)
+                await self._emit_patch_event(
+                    "xpatch:failed",
+                    patch_name,
+                    target_name,
+                    reason,
+                    patch_key=patch_key,
+                    target_norm=target_norm,
+                )
                 return "failed"
             self._remember_pending(patch_key, target_name, reason)
             self._log("debug", "[xpatch] patch %s is pending: %s", patch_name, reason)
-            await self._emit_patch_event("xpatch:pending", patch_name, target_name, reason, patch_key=patch_key, target_norm=target_norm)
+            await self._emit_patch_event(
+                "xpatch:pending",
+                patch_name,
+                target_name,
+                reason,
+                patch_key=patch_key,
+                target_norm=target_norm,
+            )
             return "pending"
 
         target = self.lookup_target(target_name)
@@ -342,7 +384,14 @@ class XPatchPatchManager:
                 patch_name,
                 target_name,
             )
-            await self._emit_patch_event("xpatch:pending", patch_name, target_name, "Target is not loaded", patch_key=patch_key, target_norm=target_norm)
+            await self._emit_patch_event(
+                "xpatch:pending",
+                patch_name,
+                target_name,
+                "Target is not loaded",
+                patch_key=patch_key,
+                target_norm=target_norm,
+            )
             return "pending"
 
         apply_callback = self._apply_callback(patch_module)
@@ -354,7 +403,14 @@ class XPatchPatchManager:
                 "[xpatch] patch %s has no apply_patch/patch/apply callback",
                 patch_name,
             )
-            await self._emit_patch_event("xpatch:failed", patch_name, target_name, error, patch_key=patch_key, target_norm=target_norm)
+            await self._emit_patch_event(
+                "xpatch:failed",
+                patch_name,
+                target_name,
+                error,
+                patch_key=patch_key,
+                target_norm=target_norm,
+            )
             return "failed"
 
         try:
@@ -372,7 +428,14 @@ class XPatchPatchManager:
                 target_name,
                 e,
             )
-            await self._emit_patch_event("xpatch:failed", patch_name, target_name, error, patch_key=patch_key, target_norm=target_norm)
+            await self._emit_patch_event(
+                "xpatch:failed",
+                patch_name,
+                target_name,
+                error,
+                patch_key=patch_key,
+                target_norm=target_norm,
+            )
             return "failed"
 
         self.applied_patches[applied_key] = {
@@ -388,7 +451,14 @@ class XPatchPatchManager:
             patch_name,
             target_name,
         )
-        await self._emit_patch_event("xpatch:applied", patch_name, target_name, patch_result, patch_key=patch_key, target_norm=target_norm)
+        await self._emit_patch_event(
+            "xpatch:applied",
+            patch_name,
+            target_name,
+            patch_result,
+            patch_key=patch_key,
+            target_norm=target_norm,
+        )
         return "applied"
 
     async def unapply_patch(self, patch_key: str, target_name: str) -> str:
@@ -399,7 +469,11 @@ class XPatchPatchManager:
         info = self.applied_patches.get(applied_key)
         patch_module = self.loaded_patches.get(patch_key)
         if info is None or patch_module is None:
-            patch_name = self._patch_display_name(patch_module, patch_key) if patch_module else patch_key
+            patch_name = (
+                self._patch_display_name(patch_module, patch_key)
+                if patch_module
+                else patch_key
+            )
             await self._emit_patch_event(
                 "xpatch:skipped",
                 patch_name,
@@ -442,17 +516,39 @@ class XPatchPatchManager:
         except Exception as e:
             self.failed_patches[applied_key] = str(e)
             self.failed_tracebacks[applied_key] = traceback.format_exc()
-            self._log("error", "[xpatch] patch %s failed to unapply from %s: %s", patch_name, target_name, e)
-            await self._emit_patch_event("xpatch:failed", patch_name, target_name, str(e), patch_key=patch_key, target_norm=target_norm)
+            self._log(
+                "error",
+                "[xpatch] patch %s failed to unapply from %s: %s",
+                patch_name,
+                target_name,
+                e,
+            )
+            await self._emit_patch_event(
+                "xpatch:failed",
+                patch_name,
+                target_name,
+                str(e),
+                patch_key=patch_key,
+                target_norm=target_norm,
+            )
             return "failed"
 
         self.applied_patches.pop(applied_key, None)
         self.failed_patches.pop(applied_key, None)
         self.failed_tracebacks.pop(applied_key, None)
-        await self._emit_patch_event("xpatch:unapplied", patch_name, target_name, None, patch_key=patch_key, target_norm=target_norm)
+        await self._emit_patch_event(
+            "xpatch:unapplied",
+            patch_name,
+            target_name,
+            None,
+            patch_key=patch_key,
+            target_norm=target_norm,
+        )
         return "unapplied"
 
-    async def unapply_patch_key(self, patch_key: str) -> dict[str, list[tuple[str, str]]]:
+    async def unapply_patch_key(
+        self, patch_key: str
+    ) -> dict[str, list[tuple[str, str]]]:
         """Unapply all targets for one loaded patch key."""
 
         result: dict[str, list[tuple[str, str]]] = {
@@ -462,7 +558,11 @@ class XPatchPatchManager:
             "skipped": [],
         }
         patch_module = self.loaded_patches.get(patch_key)
-        patch_name = self._patch_display_name(patch_module, patch_key) if patch_module else patch_key
+        patch_name = (
+            self._patch_display_name(patch_module, patch_key)
+            if patch_module
+            else patch_key
+        )
         targets = [target for key, target in self.applied_patches if key == patch_key]
         if not targets:
             result["skipped"].append((patch_name, "<none>"))
@@ -482,7 +582,12 @@ class XPatchPatchManager:
     async def reload_changed_patches(self) -> dict[str, list[str]]:
         """Hot-reload changed patch files and re-apply available targets."""
 
-        result: dict[str, list[str]] = {"reloaded": [], "loaded": [], "removed": [], "failed": []}
+        result: dict[str, list[str]] = {
+            "reloaded": [],
+            "loaded": [],
+            "removed": [],
+            "failed": [],
+        }
         files = {self._patch_key(path): path for path in self._iter_patch_files()}
 
         for stale_key in set(self.loaded_patches) - set(files):
@@ -503,7 +608,9 @@ class XPatchPatchManager:
             else:
                 result["loaded"].append(patch_key)
             try:
-                self.loaded_patches[patch_key] = self._load_patch_module(file_path, patch_key)
+                self.loaded_patches[patch_key] = self._load_patch_module(
+                    file_path, patch_key
+                )
                 patch_module = self.loaded_patches[patch_key]
                 await self._emit_patch_event(
                     "xpatch:loaded",
@@ -551,7 +658,9 @@ class XPatchPatchManager:
         await self.unapply_patch_key(patch_key)
         self._forget_patch(patch_key)
         try:
-            self.loaded_patches[patch_key] = self._load_patch_module(Path(file_path), patch_key)
+            self.loaded_patches[patch_key] = self._load_patch_module(
+                Path(file_path), patch_key
+            )
             patch_module = self.loaded_patches[patch_key]
             await self._emit_patch_event(
                 "xpatch:loaded",
@@ -625,7 +734,9 @@ class XPatchPatchManager:
                 return self.kernel
             return None
 
-        for name, instance in (getattr(self.kernel, "_class_module_instances", {}) or {}).items():
+        for name, instance in (
+            getattr(self.kernel, "_class_module_instances", {}) or {}
+        ).items():
             if needle in self._names_for_object(name, instance):
                 return instance
 
@@ -634,7 +745,9 @@ class XPatchPatchManager:
             for name, module in collection.items():
                 target = getattr(module, "_class_instance", None) or module
                 names = self._names_for_object(name, target)
-                names.update(self._names_for_object(getattr(module, "__name__", ""), module))
+                names.update(
+                    self._names_for_object(getattr(module, "__name__", ""), module)
+                )
                 if needle in names:
                     return target
 
@@ -652,7 +765,10 @@ class XPatchPatchManager:
 
     def _load_patch_module(self, file_path: Path, patch_key: str) -> ModuleType:
         state = self._file_state(file_path)
-        if self._patch_states.get(patch_key) == state and patch_key in self.loaded_patches:
+        if (
+            self._patch_states.get(patch_key) == state
+            and patch_key in self.loaded_patches
+        ):
             return self.loaded_patches[patch_key]
 
         # Patch source changed or was not loaded yet: re-import it and allow a
@@ -786,7 +902,9 @@ class XPatchPatchManager:
         payload.update({key: item for key, item in extra.items() if item is not None})
         return payload
 
-    def _call_event_listener(self, callback: Any, event_name: str, payload: dict[str, Any]) -> Any:
+    def _call_event_listener(
+        self, callback: Any, event_name: str, payload: dict[str, Any]
+    ) -> Any:
         try:
             signature = inspect.signature(callback)
         except (TypeError, ValueError):
@@ -798,7 +916,11 @@ class XPatchPatchManager:
         positional = [
             p
             for p in params
-            if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+            if p.kind
+            in (
+                inspect.Parameter.POSITIONAL_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            )
         ]
         if len(positional) >= 2:
             return callback(event_name, payload)
@@ -807,7 +929,10 @@ class XPatchPatchManager:
 
         kwargs: dict[str, Any] = {}
         for param in params:
-            if param.kind not in (inspect.Parameter.KEYWORD_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD):
+            if param.kind not in (
+                inspect.Parameter.KEYWORD_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            ):
                 continue
             name = param.name.lower()
             if name in {"event", "event_name", "name"}:
@@ -820,7 +945,9 @@ class XPatchPatchManager:
                 kwargs[param.name] = self.kernel
         return callback(**kwargs)
 
-    async def _notify_event_listeners(self, event_name: str, payload: dict[str, Any]) -> None:
+    async def _notify_event_listeners(
+        self, event_name: str, payload: dict[str, Any]
+    ) -> None:
         listeners = self._event_listeners()
         callbacks = list(listeners.get(event_name, ())) + list(listeners.get("*", ()))
         for callback in callbacks:
@@ -839,10 +966,16 @@ class XPatchPatchManager:
         value: Any = None,
         **extra: Any,
     ) -> None:
-        if not bool(object.__getattribute__(self.kernel, "__dict__").get("_xpatch_events_enabled", False)):
+        if not bool(
+            object.__getattribute__(self.kernel, "__dict__").get(
+                "_xpatch_events_enabled", False
+            )
+        ):
             return
         event_name = self._normalize_event_name(event_name)
-        payload = self._patch_event_payload(event_name, patch_name, target_name, value, **extra)
+        payload = self._patch_event_payload(
+            event_name, patch_name, target_name, value, **extra
+        )
         await self._notify_event_listeners(event_name, payload)
 
         emit = getattr(self.kernel, "emit", None)
@@ -880,7 +1013,9 @@ class XPatchPatchManager:
             return "Waiting for patch dependencies: " + ", ".join(missing)
         return None
 
-    def _patch_required_xkernel(self, patch_module: ModuleType) -> tuple[int, ...] | None:
+    def _patch_required_xkernel(
+        self, patch_module: ModuleType
+    ) -> tuple[int, ...] | None:
         value = getattr(patch_module, "PATCH_REQUIRES_XKERNEL", None)
         if value is None:
             return None
@@ -898,7 +1033,9 @@ class XPatchPatchManager:
             )
         return None
 
-    async def _patch_condition_status(self, patch_module: ModuleType) -> tuple[str, str] | None:
+    async def _patch_condition_status(
+        self, patch_module: ModuleType
+    ) -> tuple[str, str] | None:
         condition = None
         for attr_name in _PATCH_CONDITION_ATTRS:
             if hasattr(patch_module, attr_name):
@@ -930,7 +1067,11 @@ class XPatchPatchManager:
         positional = [
             p
             for p in params
-            if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+            if p.kind
+            in (
+                inspect.Parameter.POSITIONAL_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            )
         ]
         if len(positional) >= 2:
             return condition(self.kernel, self)
@@ -941,7 +1082,10 @@ class XPatchPatchManager:
             return condition(self.kernel)
         kwargs: dict[str, Any] = {}
         for param in params:
-            if param.kind not in (inspect.Parameter.KEYWORD_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD):
+            if param.kind not in (
+                inspect.Parameter.KEYWORD_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            ):
                 continue
             name = param.name.lower()
             if name in {"kernel", "k"}:
@@ -952,13 +1096,17 @@ class XPatchPatchManager:
 
     def _current_xkernel_version(self) -> tuple[int, ...]:
         state = object.__getattribute__(self.kernel, "__dict__")
-        version = state.get("_xpatch_kernel_version", state.get("VERSION_XKERNEL", (0, 0, 0)))
+        version = state.get(
+            "_xpatch_kernel_version", state.get("VERSION_XKERNEL", (0, 0, 0))
+        )
         return self._coerce_version_tuple(version) or (0, 0, 0)
 
     @staticmethod
     def _version_less(current: tuple[int, ...], required: tuple[int, ...]) -> bool:
         size = max(len(current), len(required))
-        return current + (0,) * (size - len(current)) < required + (0,) * (size - len(required))
+        return current + (0,) * (size - len(current)) < required + (0,) * (
+            size - len(required)
+        )
 
     @staticmethod
     def _format_version(version: tuple[int, ...]) -> str:
@@ -967,7 +1115,9 @@ class XPatchPatchManager:
     @staticmethod
     def _coerce_version_tuple(value: Any) -> tuple[int, ...] | None:
         if isinstance(value, str):
-            parts = [part for part in value.replace(",", ".").split(".") if part.strip()]
+            parts = [
+                part for part in value.replace(",", ".").split(".") if part.strip()
+            ]
         elif isinstance(value, (list, tuple)):
             parts = list(value)
         else:
@@ -1034,7 +1184,9 @@ class XPatchPatchManager:
             return aliases
 
         aliases.update(self._names_for_object(target_name, target))
-        for name, instance in (getattr(self.kernel, "_class_module_instances", {}) or {}).items():
+        for name, instance in (
+            getattr(self.kernel, "_class_module_instances", {}) or {}
+        ).items():
             if instance is target:
                 aliases.update(self._names_for_object(name, instance))
 
@@ -1107,7 +1259,9 @@ class XPatchPatchManager:
         path = self._disabled_state_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"disabled": sorted(self.disabled_patches)}
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
     def is_patch_disabled(self, patch_key: str) -> bool:
         return str(patch_key) in self.disabled_patches
@@ -1198,7 +1352,9 @@ class XPatchPatchManager:
             getattr(
                 patch_module,
                 "PATCH_NAME",
-                getattr(patch_module, "name", getattr(patch_module, "__name__", fallback)),
+                getattr(
+                    patch_module, "name", getattr(patch_module, "__name__", fallback)
+                ),
             )
         )
 
@@ -1237,7 +1393,9 @@ class XPatchKernel(KernelBase):
     def xpatch_safe_mode_enabled(self) -> bool:
         """Return True when patch application is disabled for recovery boot."""
 
-        return bool(object.__getattribute__(self, "__dict__").get("_xpatch_safe_mode", False))
+        return bool(
+            object.__getattribute__(self, "__dict__").get("_xpatch_safe_mode", False)
+        )
 
     def __init__(self) -> None:
         super().__init__()
@@ -1292,7 +1450,9 @@ class XPatchKernel(KernelBase):
     ) -> dict[str, list[tuple[str, str]]]:
         """Public helper for manually applying XPatch patches."""
 
-        return await self._xpatch_manager().apply_all(target_name=target_name, force=force)
+        return await self._xpatch_manager().apply_all(
+            target_name=target_name, force=force
+        )
 
     async def apply_patches_for_module(
         self,
@@ -1455,7 +1615,9 @@ class XPatchKernel(KernelBase):
         """Return current ``core.web`` patch state."""
 
         return {
-            "enabled": bool(object.__getattribute__(self, "_xpatch_core_web_patch_enabled")),
+            "enabled": bool(
+                object.__getattribute__(self, "_xpatch_core_web_patch_enabled")
+            ),
             "options": dict(object.__getattribute__(self, "_xpatch_core_web_options")),
             "hook_installed": bool(
                 object.__getattribute__(self, "_xpatch_core_web_hook_installed")
@@ -1476,19 +1638,27 @@ class XPatchKernel(KernelBase):
         if current is None:
             return
 
-        original = object.__getattribute__(self, "_xpatch_core_lib_original_telegram_client")
+        original = object.__getattribute__(
+            self, "_xpatch_core_lib_original_telegram_client"
+        )
         if original is None:
             original = getattr(current, "__xkernel_original__", current)
-            object.__setattr__(self, "_xpatch_core_lib_original_telegram_client", original)
+            object.__setattr__(
+                self, "_xpatch_core_lib_original_telegram_client", original
+            )
 
-        enabled = bool(object.__getattribute__(self, "_xpatch_core_lib_client_patch_enabled"))
+        enabled = bool(
+            object.__getattribute__(self, "_xpatch_core_lib_client_patch_enabled")
+        )
         if not enabled:
             if getattr(current, "__xkernel_core_lib_client_patch__", False):
                 setattr(client_module, "TelegramClient", original)
             object.__setattr__(self, "_xpatch_core_lib_client_hook_installed", False)
             return
 
-        patched = object.__getattribute__(self, "_make_core_lib_telegram_client")(original)
+        patched = object.__getattribute__(self, "_make_core_lib_telegram_client")(
+            original
+        )
         setattr(client_module, "TelegramClient", patched)
         object.__setattr__(self, "_xpatch_core_lib_client_hook_installed", True)
 
@@ -1500,7 +1670,9 @@ class XPatchKernel(KernelBase):
                 )
             return original(*args, **kwargs)
 
-        xkernel_telegram_client.__name__ = getattr(original, "__name__", "TelegramClient")
+        xkernel_telegram_client.__name__ = getattr(
+            original, "__name__", "TelegramClient"
+        )
         xkernel_telegram_client.__qualname__ = getattr(
             original, "__qualname__", xkernel_telegram_client.__name__
         )
@@ -1585,7 +1757,9 @@ class XPatchKernel(KernelBase):
             return
 
         async def xkernel_branding(_request: Any) -> Any:
-            return web.json_response(object.__getattribute__(self, "core_web_patch_status")())
+            return web.json_response(
+                object.__getattribute__(self, "core_web_patch_status")()
+            )
 
         try:
             app.router.add_get("/api/xkernel/branding", xkernel_branding)
@@ -1605,7 +1779,12 @@ class XPatchKernel(KernelBase):
         async def xkernel_branding_middleware(request: Any, handler: Any) -> Any:
             response = await handler(request)
             content_type = str(getattr(response, "content_type", "") or "")
-            if content_type not in {"text/html", "text/css", "application/javascript", "text/javascript"}:
+            if content_type not in {
+                "text/html",
+                "text/css",
+                "application/javascript",
+                "text/javascript",
+            }:
                 return response
 
             text = None
@@ -1615,13 +1794,17 @@ class XPatchKernel(KernelBase):
                 body = getattr(response, "body", None)
                 if body is not None:
                     try:
-                        text = body.decode(getattr(response, "charset", None) or "utf-8")
+                        text = body.decode(
+                            getattr(response, "charset", None) or "utf-8"
+                        )
                     except Exception:
                         text = None
             if not text:
                 return response
 
-            rewritten = object.__getattribute__(self, "_apply_core_web_replacements")(text)
+            rewritten = object.__getattribute__(self, "_apply_core_web_replacements")(
+                text
+            )
             if rewritten == text:
                 return response
 
@@ -1650,7 +1833,9 @@ class XPatchKernel(KernelBase):
     def _apply_core_web_replacements(self, text: str) -> str:
         options = object.__getattribute__(self, "_xpatch_core_web_options")
         replacements = dict(options.get("replacements") or {})
-        for source, target in sorted(replacements.items(), key=lambda item: len(item[0]), reverse=True):
+        for source, target in sorted(
+            replacements.items(), key=lambda item: len(item[0]), reverse=True
+        ):
             text = text.replace(source, target)
         return text
 
@@ -1694,7 +1879,9 @@ class XPatchKernel(KernelBase):
                     % ",".join("?" for _ in keys),
                     (_XPATCH_MANAGER_MODULE, *keys),
                 ).fetchall()
-                result.update({str(key): str(value) for key, value in rows if value is not None})
+                result.update(
+                    {str(key): str(value) for key, value in rows if value is not None}
+                )
                 raw_config = conn.execute(
                     "SELECT value FROM module_data WHERE module = ? AND key = ?",
                     ("module_configs", _XPATCH_MANAGER_MODULE),
@@ -1753,8 +1940,7 @@ class XPatchKernel(KernelBase):
         """Choose which proxies ExteraProxy disables: kernel, client, event."""
 
         normalized = {
-            str(item).strip().casefold()
-            for item in self._coerce_extera_modules(scopes)
+            str(item).strip().casefold() for item in self._coerce_extera_modules(scopes)
         }
         allowed = {"kernel", "client", "event", "root"}
         normalized = {item for item in normalized if item in allowed}
@@ -1793,7 +1979,9 @@ class XPatchKernel(KernelBase):
             "all": bool(object.__getattribute__(self, "_xpatch_extera_proxy_all")),
             "modules": modules,
             "count": len(modules),
-            "scopes": sorted(object.__getattribute__(self, "_xpatch_extera_proxy_scopes")),
+            "scopes": sorted(
+                object.__getattribute__(self, "_xpatch_extera_proxy_scopes")
+            ),
             "hook_installed": bool(
                 object.__getattribute__(self, "_xpatch_extera_proxy_hook_installed")
             ),
@@ -1884,10 +2072,14 @@ class XPatchKernel(KernelBase):
         current = getattr(kernel_proxy_module, "ClientProxy", None)
         if current is None:
             return
-        original = object.__getattribute__(self, "_xpatch_extera_original_client_proxy_class")
+        original = object.__getattribute__(
+            self, "_xpatch_extera_original_client_proxy_class"
+        )
         if original is None:
             original = getattr(current, "__xpatch_extera_original__", current)
-            object.__setattr__(self, "_xpatch_extera_original_client_proxy_class", original)
+            object.__setattr__(
+                self, "_xpatch_extera_original_client_proxy_class", original
+            )
         if getattr(current, "__xpatch_extera_kernel_id__", None) == id(self):
             return
         wrapper = self._make_extera_client_proxy(original)
@@ -1901,9 +2093,15 @@ class XPatchKernel(KernelBase):
         import sys
 
         replacements = {
-            "get_module_kernel": getattr(kernel_proxy_module, "get_module_kernel", None),
-            "get_module_client": getattr(kernel_proxy_module, "get_module_client", None),
-            "wrap_event_for_module": getattr(kernel_proxy_module, "wrap_event_for_module", None),
+            "get_module_kernel": getattr(
+                kernel_proxy_module, "get_module_kernel", None
+            ),
+            "get_module_client": getattr(
+                kernel_proxy_module, "get_module_client", None
+            ),
+            "wrap_event_for_module": getattr(
+                kernel_proxy_module, "wrap_event_for_module", None
+            ),
             "ClientProxy": getattr(kernel_proxy_module, "ClientProxy", None),
         }
         originals = {
@@ -1930,12 +2128,22 @@ class XPatchKernel(KernelBase):
     def _make_extera_get_module_kernel(self, original: Any) -> Any:
         kernel_self = self
 
-        def get_module_kernel_with_extera(kernel: Any, module_name: str, is_system: bool) -> Any:
+        def get_module_kernel_with_extera(
+            kernel: Any, module_name: str, is_system: bool
+        ) -> Any:
             if is_system:
                 return original(kernel, module_name, is_system)
-            should_bypass = object.__getattribute__(kernel_self, "_extera_proxy_should_bypass")
-            scope_enabled = object.__getattribute__(kernel_self, "_extera_proxy_scope_enabled")
-            if kernel is kernel_self and scope_enabled("kernel") and should_bypass(module_name):
+            should_bypass = object.__getattribute__(
+                kernel_self, "_extera_proxy_should_bypass"
+            )
+            scope_enabled = object.__getattribute__(
+                kernel_self, "_extera_proxy_scope_enabled"
+            )
+            if (
+                kernel is kernel_self
+                and scope_enabled("kernel")
+                and should_bypass(module_name)
+            ):
                 return kernel
             return original(kernel, module_name, is_system)
 
@@ -1951,13 +2159,17 @@ class XPatchKernel(KernelBase):
             "_xpatch_extera_original_client_proxy_class",
         )
         for module_names, target in self._iter_extera_loaded_module_targets():
-            bypass = client_scope and self._extera_proxy_should_bypass_names(module_names)
+            bypass = client_scope and self._extera_proxy_should_bypass_names(
+                module_names
+            )
             display_name = sorted(module_names)[0] if module_names else "<unknown>"
             replacement = raw_client
             if not bypass:
                 if original_client_proxy is None:
                     continue
-                replacement = original_client_proxy(raw_client, module_name=display_name)
+                replacement = original_client_proxy(
+                    raw_client, module_name=display_name
+                )
             for attr_name in ("client", "_client"):
                 if not hasattr(target, attr_name):
                     continue
@@ -1992,10 +2204,14 @@ class XPatchKernel(KernelBase):
         for name, module in (getattr(self, "loaded_modules", {}) or {}).items():
             add(name, module)
             add(name, getattr(module, "_class_instance", None))
-        for name, instance in (getattr(self, "_class_module_instances", {}) or {}).items():
+        for name, instance in (
+            getattr(self, "_class_module_instances", {}) or {}
+        ).items():
             add(name, instance)
         for target_id, aliases in target_aliases.items():
-            items.append(({item for item in aliases if item}, target_objects[target_id]))
+            items.append(
+                ({item for item in aliases if item}, target_objects[target_id])
+            )
         return items
 
     def _extera_names_for_target(self, name: Any, target: Any) -> set[str]:
@@ -2011,10 +2227,18 @@ class XPatchKernel(KernelBase):
         kernel_self = self
 
         def ClientProxy_with_extera(client: Any, module_name: str) -> Any:
-            should_bypass = object.__getattribute__(kernel_self, "_extera_proxy_should_bypass")
-            scope_enabled = object.__getattribute__(kernel_self, "_extera_proxy_scope_enabled")
+            should_bypass = object.__getattribute__(
+                kernel_self, "_extera_proxy_should_bypass"
+            )
+            scope_enabled = object.__getattribute__(
+                kernel_self, "_extera_proxy_scope_enabled"
+            )
             kernel_client = getattr(kernel_self, "client", None)
-            if client is kernel_client and scope_enabled("client") and should_bypass(module_name):
+            if (
+                client is kernel_client
+                and scope_enabled("client")
+                and should_bypass(module_name)
+            ):
                 return client
             return original(client, module_name)
 
@@ -2023,12 +2247,22 @@ class XPatchKernel(KernelBase):
     def _make_extera_get_module_client(self, original: Any) -> Any:
         kernel_self = self
 
-        def get_module_client_with_extera(kernel: Any, module_name: str, is_system: bool) -> Any:
+        def get_module_client_with_extera(
+            kernel: Any, module_name: str, is_system: bool
+        ) -> Any:
             if is_system:
                 return original(kernel, module_name, is_system)
-            should_bypass = object.__getattribute__(kernel_self, "_extera_proxy_should_bypass")
-            scope_enabled = object.__getattribute__(kernel_self, "_extera_proxy_scope_enabled")
-            if kernel is kernel_self and scope_enabled("client") and should_bypass(module_name):
+            should_bypass = object.__getattribute__(
+                kernel_self, "_extera_proxy_should_bypass"
+            )
+            scope_enabled = object.__getattribute__(
+                kernel_self, "_extera_proxy_scope_enabled"
+            )
+            if (
+                kernel is kernel_self
+                and scope_enabled("client")
+                and should_bypass(module_name)
+            ):
                 return kernel.client
             return original(kernel, module_name, is_system)
 
@@ -2037,10 +2271,20 @@ class XPatchKernel(KernelBase):
     def _make_extera_wrap_event_for_module(self, original: Any) -> Any:
         kernel_self = self
 
-        def wrap_event_for_module_with_extera(event: Any, module_name: str, kernel: Any) -> Any:
-            should_bypass = object.__getattribute__(kernel_self, "_extera_proxy_should_bypass")
-            scope_enabled = object.__getattribute__(kernel_self, "_extera_proxy_scope_enabled")
-            if kernel is kernel_self and scope_enabled("event") and should_bypass(module_name):
+        def wrap_event_for_module_with_extera(
+            event: Any, module_name: str, kernel: Any
+        ) -> Any:
+            should_bypass = object.__getattribute__(
+                kernel_self, "_extera_proxy_should_bypass"
+            )
+            scope_enabled = object.__getattribute__(
+                kernel_self, "_extera_proxy_scope_enabled"
+            )
+            if (
+                kernel is kernel_self
+                and scope_enabled("event")
+                and should_bypass(module_name)
+            ):
                 return event
             return original(event, module_name, kernel)
 
@@ -2080,14 +2324,18 @@ class XPatchKernel(KernelBase):
         return str(value).strip().casefold() if value is not None else ""
 
     async def run(self) -> None:
-        print('Start RUN')
+        print("Start RUN")
         self._install_extera_proxy_hook()
         self._apply_core_lib_client_patch_from_preboot_db()
         if not getattr(self, "_xpatch_stealth_mode", False):
             self.CORE_NAME = "XPatchKernel"
         if not self.xpatch_safe_mode_enabled():
-            await self._xpatch_manager().apply_for_target(_MAGIC_PRE_LOAD_TARGET, force=True)
-            await self._xpatch_manager().apply_for_target(_MAGIC_KERNEL_TARGET, force=True)
+            await self._xpatch_manager().apply_for_target(
+                _MAGIC_PRE_LOAD_TARGET, force=True
+            )
+            await self._xpatch_manager().apply_for_target(
+                _MAGIC_KERNEL_TARGET, force=True
+            )
         await super().run()
 
     def set_xpatch_events_enabled(self, enabled: bool) -> None:
@@ -2116,7 +2364,9 @@ class XPatchKernel(KernelBase):
     ) -> None:
         object.__setattr__(self, "_xpatch_hot_reload_enabled", bool(enabled))
         if interval is not None:
-            object.__setattr__(self, "_xpatch_hot_reload_interval", max(float(interval), 0.5))
+            object.__setattr__(
+                self, "_xpatch_hot_reload_interval", max(float(interval), 0.5)
+            )
         if enabled:
             self._start_xpatch_hot_reload()
         else:
@@ -2140,7 +2390,9 @@ class XPatchKernel(KernelBase):
 
     async def _watch_xpatch_files(self) -> None:
         while bool(object.__getattribute__(self, "_xpatch_hot_reload_enabled")):
-            interval = float(object.__getattribute__(self, "_xpatch_hot_reload_interval"))
+            interval = float(
+                object.__getattribute__(self, "_xpatch_hot_reload_interval")
+            )
             await asyncio.sleep(interval)
             try:
                 await self._xpatch_manager().reload_changed_patches()
@@ -2160,12 +2412,16 @@ class XPatchKernel(KernelBase):
         load_module_from_file = getattr(loader, "load_module_from_file", None)
         if callable(load_module_from_file):
 
-            async def load_module_from_file_with_patches(*args: Any, **kwargs: Any) -> Any:
+            async def load_module_from_file_with_patches(
+                *args: Any, **kwargs: Any
+            ) -> Any:
                 result = await load_module_from_file(*args, **kwargs)
                 if self._xpatch_load_result_ok(result):
                     target_hint = self._xpatch_target_hint(args, kwargs)
                     if target_hint:
-                        await self._xpatch_manager().apply_for_target(target_hint, force=True)
+                        await self._xpatch_manager().apply_for_target(
+                            target_hint, force=True
+                        )
                     await self._xpatch_manager().apply_all()
                 return result
 
@@ -2174,7 +2430,9 @@ class XPatchKernel(KernelBase):
         load_system_modules = getattr(loader, "load_system_modules", None)
         if callable(load_system_modules):
 
-            async def load_system_modules_with_patches(*args: Any, **kwargs: Any) -> Any:
+            async def load_system_modules_with_patches(
+                *args: Any, **kwargs: Any
+            ) -> Any:
                 result = await load_system_modules(*args, **kwargs)
                 await self._xpatch_manager().apply_all()
                 return result
@@ -2235,7 +2493,9 @@ class XPatchKernel(KernelBase):
         return bool(result)
 
     @staticmethod
-    def _xpatch_target_hint(args: tuple[Any, ...], kwargs: dict[str, Any]) -> str | None:
+    def _xpatch_target_hint(
+        args: tuple[Any, ...], kwargs: dict[str, Any]
+    ) -> str | None:
         module_name = kwargs.get("module_name")
         if module_name is None and len(args) > 1:
             module_name = args[1]
