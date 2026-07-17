@@ -175,6 +175,7 @@ def make_manager(tmp_root: Path):
         "magic": "🪄",
         "install": "📦",
         "file": "📁",
+        "dir": "📂",
         "lock": "🔒",
         "reboot": "🔄",
         "settings": "⚙️",
@@ -706,6 +707,95 @@ def test_experimental_menu_is_blocked_without_xkernel_runtime():
             await manager.on_experimental_settings_menu(call)
             assert call.answers == [("Не поддерживается текущим ядром", True)]
             assert "Экспериментальные функции недоступны" in call.edits[-1][0]
+
+        asyncio.run(run())
+
+
+def test_extera_proxy_extra_features_open_mcmac_settings():
+    with tempfile.TemporaryDirectory() as td:
+        manager = make_manager(Path(td))
+        manager.config.data.update(
+            {
+                "extera_proxy_all": False,
+                "extera_proxy_modules": "",
+                "extera_proxy_scopes": "kernel",
+                "mcmac_enabled": False,
+                "mcmac_mode": "permissive",
+            }
+        )
+        manager._get_pm = lambda: object()
+
+        class FakeKernel:
+            def __init__(self):
+                self.enabled = False
+                self.mode = "permissive"
+                self.refreshed = False
+                self.contexts = {}
+
+            def mcmac_status(self):
+                return {
+                    "available": True,
+                    "enabled": self.enabled,
+                    "mode": self.mode,
+                    "path": "/tmp/core/lib/custom/XKernel",
+                    "error": "",
+                    "contexts": self.contexts,
+                }
+
+            def set_mcmac_enabled(self, enabled):
+                self.enabled = bool(enabled)
+                return True
+
+            def set_mcmac_mode(self, mode):
+                self.mode = str(mode)
+                return True
+
+            def set_mcmac_module_type(self, module_name, security_type):
+                self.contexts[str(module_name)] = str(security_type)
+                return True
+
+            async def refresh_mcmac_runtime(self):
+                self.refreshed = True
+                return True
+
+        fake_kernel = FakeKernel()
+        manager._kernel_object = lambda: fake_kernel
+
+        _, buttons = manager._build_extera_proxy_page()
+        assert "Дополнительные возможности" in str(buttons)
+
+        async def run():
+            call = Call()
+            await manager.on_mcmac_settings_menu(call)
+            text, buttons = call.edits[-1]
+            assert "<b>MCMAC</b>" in text
+            assert "permissive" in text
+            assert "<b>system</b>" in text
+            assert "<b>trusted</b>" in text
+            assert "<b>standard</b>" in text
+            assert "<b>untrusted</b>" in text
+            assert "<b>quarantine</b>" in text
+            assert "Полный доступ" in text
+            assert "subprocess запрещён" in text
+            assert "обычные локальные модули" in text
+            assert "remote/сомнительные модули" in text
+            assert "Download" not in text
+            assert "on_toggle_mcmac_enabled" in str(buttons)
+
+            await manager.on_toggle_mcmac_enabled(call)
+            assert fake_kernel.enabled is True
+            assert manager.config["mcmac_enabled"] is True
+
+            await manager.on_toggle_mcmac_mode(call)
+            assert fake_kernel.mode == "enforcing"
+            assert manager.config["mcmac_mode"] == "enforcing"
+
+            await manager.on_refresh_mcmac_runtime(call)
+            assert fake_kernel.refreshed is True
+
+            input_event = Call()
+            await manager.on_mcmac_module_type_input(input_event, "UnsafeMod:quarantine")
+            assert fake_kernel.contexts["UnsafeMod"] == "quarantine"
 
         asyncio.run(run())
 

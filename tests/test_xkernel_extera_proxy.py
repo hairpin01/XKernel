@@ -518,3 +518,74 @@ def test_hot_reload_can_disable_patch_on_first_load_failure():
             assert patch_key in kernel.patch_manager.disabled_patches
 
     asyncio.run(run())
+
+
+def test_mcmac_runtime_libs_bootstrap_and_status():
+    Kernel, *_ = load_xkernel_with_proxy_stubs()
+
+    async def run():
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td) / "core" / "lib" / "custom" / "XKernel"
+            source_dir = ROOT / "lib" / "custom" / "XKernel"
+            kernel = Kernel()
+            kernel._mcmac_runtime_dir = lambda: target
+
+            async def download(file_name):
+                return (source_dir / file_name).read_text(encoding="utf-8")
+
+            kernel._download_mcmac_file = download
+
+            assert await kernel._ensure_mcmac_runtime_libs()
+            assert (target / "mac_hooks.py").exists()
+            assert await kernel._install_mcmac_hooks()
+
+            status = kernel.mcmac_status()
+            assert status["available"] is True
+            assert status["mode"] == "permissive"
+
+            kernel.set_mcmac_enabled(True)
+            kernel.set_mcmac_mode("enforcing")
+            status = kernel.mcmac_status()
+            assert status["enabled"] is True
+            assert status["mode"] == "enforcing"
+
+    asyncio.run(run())
+
+
+def test_mcmac_patches_imported_proxy_aliases_and_context():
+    Kernel, kernel_proxy, _, base, user_loader, *_ = load_xkernel_with_proxy_stubs()
+
+    async def run():
+        with tempfile.TemporaryDirectory() as td:
+            for name in list(sys.modules):
+                if name == "_xkernel_mcmac_runtime" or name.startswith(
+                    "_xkernel_mcmac_runtime."
+                ):
+                    sys.modules.pop(name, None)
+
+            target = Path(td) / "core" / "lib" / "custom" / "XKernel"
+            source_dir = ROOT / "lib" / "custom" / "XKernel"
+            kernel = Kernel()
+            kernel._mcmac_runtime_dir = lambda: target
+
+            async def download(file_name):
+                return (source_dir / file_name).read_text(encoding="utf-8")
+
+            kernel._download_mcmac_file = download
+
+            assert await kernel._install_mcmac_hooks()
+
+            assert getattr(
+                kernel_proxy.get_module_client, "__xpatch_mcmac_original__", None
+            ) is not None
+            assert getattr(base.get_module_client, "__xpatch_mcmac_original__", None) is not None
+            assert getattr(user_loader.get_module_kernel, "__xpatch_mcmac_original__", None) is not None
+
+            proxied_client = base.get_module_client(kernel, "UnsafeMod", False)
+            assert type(proxied_client).__name__ == "_MacClientProxy"
+
+            assert kernel.set_mcmac_module_type("UnsafeMod", "quarantine") is True
+            assert kernel.mcmac_module_type("UnsafeMod") == "quarantine"
+            assert kernel.mcmac_status()["contexts"]["UnsafeMod"] == "quarantine"
+
+    asyncio.run(run())
