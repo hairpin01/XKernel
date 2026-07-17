@@ -8,7 +8,9 @@ class MacContext:
         self._types: dict[str, str] = {}
 
     def set_type(self, module_name: str, security_type: str | SecurityType) -> None:
-        self._types[str(module_name)] = str(getattr(security_type, "value", security_type))
+        self._types[str(module_name)] = str(
+            getattr(security_type, "value", security_type)
+        )
 
     def clear_type(self, module_name: str) -> bool:
         return self._types.pop(str(module_name), None) is not None

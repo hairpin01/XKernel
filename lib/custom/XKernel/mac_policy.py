@@ -14,18 +14,90 @@ class PolicyStore:
         return [
             PolicyRule(SecurityType.SYSTEM.value, "*", "*", "*", Effect.ALLOW.value),
             PolicyRule(SecurityType.QUARANTINE.value, "*", "*", "*", Effect.DENY.value),
-            PolicyRule(SecurityType.TRUSTED.value, ObjectClass.SUBPROCESS.value, "*", "*", Effect.DENY.value),
-            PolicyRule(SecurityType.STANDARD.value, ObjectClass.TG_ADMIN.value, "*", "*", Effect.DENY.value),
-            PolicyRule(SecurityType.STANDARD.value, ObjectClass.TG_ACCOUNT.value, "*", "*", Effect.DENY.value),
-            PolicyRule(SecurityType.STANDARD.value, ObjectClass.SUBPROCESS.value, "*", "*", Effect.DENY.value),
-            PolicyRule(SecurityType.UNTRUSTED.value, ObjectClass.TG_DELETE.value, "*", "*", Effect.DENY.value),
-            PolicyRule(SecurityType.UNTRUSTED.value, ObjectClass.TG_ADMIN.value, "*", "*", Effect.DENY.value),
-            PolicyRule(SecurityType.UNTRUSTED.value, ObjectClass.TG_ACCOUNT.value, "*", "*", Effect.DENY.value),
-            PolicyRule(SecurityType.UNTRUSTED.value, ObjectClass.SUBPROCESS.value, "*", "*", Effect.DENY.value),
-            PolicyRule(SecurityType.UNTRUSTED.value, ObjectClass.NETWORK.value, "*", "*", Effect.DENY.value),
-            PolicyRule(SecurityType.UNTRUSTED.value, ObjectClass.CONFIG_DB.value, "write", "*", Effect.DENY.value),
-            PolicyRule(SecurityType.UNTRUSTED.value, ObjectClass.KERNEL_ATTR.value, "write", "*", Effect.DENY.value),
-            PolicyRule(SecurityType.UNTRUSTED.value, ObjectClass.MODULE_LOAD.value, "*", "*", Effect.DENY.value),
+            PolicyRule(
+                SecurityType.TRUSTED.value,
+                ObjectClass.SUBPROCESS.value,
+                "*",
+                "*",
+                Effect.DENY.value,
+            ),
+            PolicyRule(
+                SecurityType.STANDARD.value,
+                ObjectClass.TG_ADMIN.value,
+                "*",
+                "*",
+                Effect.DENY.value,
+            ),
+            PolicyRule(
+                SecurityType.STANDARD.value,
+                ObjectClass.TG_ACCOUNT.value,
+                "*",
+                "*",
+                Effect.DENY.value,
+            ),
+            PolicyRule(
+                SecurityType.STANDARD.value,
+                ObjectClass.SUBPROCESS.value,
+                "*",
+                "*",
+                Effect.DENY.value,
+            ),
+            PolicyRule(
+                SecurityType.UNTRUSTED.value,
+                ObjectClass.TG_DELETE.value,
+                "*",
+                "*",
+                Effect.DENY.value,
+            ),
+            PolicyRule(
+                SecurityType.UNTRUSTED.value,
+                ObjectClass.TG_ADMIN.value,
+                "*",
+                "*",
+                Effect.DENY.value,
+            ),
+            PolicyRule(
+                SecurityType.UNTRUSTED.value,
+                ObjectClass.TG_ACCOUNT.value,
+                "*",
+                "*",
+                Effect.DENY.value,
+            ),
+            PolicyRule(
+                SecurityType.UNTRUSTED.value,
+                ObjectClass.SUBPROCESS.value,
+                "*",
+                "*",
+                Effect.DENY.value,
+            ),
+            PolicyRule(
+                SecurityType.UNTRUSTED.value,
+                ObjectClass.NETWORK.value,
+                "*",
+                "*",
+                Effect.DENY.value,
+            ),
+            PolicyRule(
+                SecurityType.UNTRUSTED.value,
+                ObjectClass.CONFIG_DB.value,
+                "write",
+                "*",
+                Effect.DENY.value,
+            ),
+            PolicyRule(
+                SecurityType.UNTRUSTED.value,
+                ObjectClass.KERNEL_ATTR.value,
+                "write",
+                "*",
+                Effect.DENY.value,
+            ),
+            PolicyRule(
+                SecurityType.UNTRUSTED.value,
+                ObjectClass.MODULE_LOAD.value,
+                "*",
+                "*",
+                Effect.DENY.value,
+            ),
             PolicyRule("*", "*", "*", "*", Effect.ALLOW.value),
         ]
 
@@ -33,7 +105,9 @@ class PolicyStore:
     def _match(value: str, pattern: str) -> bool:
         return pattern == "*" or fnmatchcase(value, pattern)
 
-    def match(self, subject: str, obj_class: str, action: str, obj_name: str) -> PolicyRule | None:
+    def match(
+        self, subject: str, obj_class: str, action: str, obj_name: str
+    ) -> PolicyRule | None:
         for rule in self.rules:
             if not self._match(subject, rule.subject):
                 continue

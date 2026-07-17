@@ -39,7 +39,9 @@ class MacEnforcer:
         self.policy = PolicyStore()
         self.audit: list[AuditRecord] = []
 
-    def configure(self, *, enabled: bool | None = None, mode: str | None = None) -> None:
+    def configure(
+        self, *, enabled: bool | None = None, mode: str | None = None
+    ) -> None:
         if enabled is not None:
             self.enabled = bool(enabled)
         if mode:
@@ -70,22 +72,37 @@ class MacEnforcer:
         except Exception:
             pass
 
-    def check_access(self, module_name: str, obj_class: str, action: str, obj_name: str = "*") -> bool:
+    def check_access(
+        self, module_name: str, obj_class: str, action: str, obj_name: str = "*"
+    ) -> bool:
         if not self.enabled:
             return True
         subject = self.context.get_type(module_name)
         rule = self.policy.match(subject, str(obj_class), str(action), str(obj_name))
         denied = rule is not None and rule.effect == Effect.DENY.value
         if denied:
-            record = AuditRecord("denied", module_name, str(obj_class), str(action), str(obj_name), "policy")
+            record = AuditRecord(
+                "denied",
+                module_name,
+                str(obj_class),
+                str(action),
+                str(obj_name),
+                "policy",
+            )
             self.audit.append(record)
             self._log_denied(record)
             if self.mode == EnforceMode.ENFORCING.value:
                 try:
                     from core.lib.loader.kernel_proxy import CallInsecure
                 except Exception:
-                    raise RuntimeError(f"MCMAC denied {module_name}: {obj_class}:{action}:{obj_name}")
+                    raise RuntimeError(
+                        f"MCMAC denied {module_name}: {obj_class}:{action}:{obj_name}"
+                    )
                 raise CallInsecure(str(obj_name), module_name)
             return False
-        self.audit.append(AuditRecord("allowed", module_name, str(obj_class), str(action), str(obj_name)))
+        self.audit.append(
+            AuditRecord(
+                "allowed", module_name, str(obj_class), str(action), str(obj_name)
+            )
+        )
         return True

@@ -6,7 +6,6 @@ from typing import Any
 from .mac_enforcer import EnforceMode, MacEnforcer
 from .mac_types import Action, ObjectClass
 
-
 _TG_METHOD_CLASS = {
     "send_message": ObjectClass.TG_SEND.value,
     "send_file": ObjectClass.TG_SEND.value,
@@ -25,7 +24,9 @@ def ensure_enforcer(kernel: Any) -> MacEnforcer:
     if enforcer is None:
         enforcer = MacEnforcer(
             enabled=bool(getattr(kernel, "_xpatch_mcmac_enabled", False)),
-            mode=str(getattr(kernel, "_xpatch_mcmac_mode", EnforceMode.PERMISSIVE.value)),
+            mode=str(
+                getattr(kernel, "_xpatch_mcmac_mode", EnforceMode.PERMISSIVE.value)
+            ),
             logger=getattr(kernel, "logger", None),
         )
         setattr(kernel, "_xpatch_mcmac_enforcer", enforcer)
@@ -34,7 +35,9 @@ def ensure_enforcer(kernel: Any) -> MacEnforcer:
     return enforcer
 
 
-def configure(kernel: Any, *, enabled: bool | None = None, mode: str | None = None) -> dict[str, Any]:
+def configure(
+    kernel: Any, *, enabled: bool | None = None, mode: str | None = None
+) -> dict[str, Any]:
     enforcer = ensure_enforcer(kernel)
     enforcer.configure(enabled=enabled, mode=mode)
     if enabled is not None:
@@ -48,7 +51,9 @@ def status(kernel: Any) -> dict[str, Any]:
     return ensure_enforcer(kernel).status()
 
 
-def set_module_type(kernel: Any, module_name: str, security_type: str) -> dict[str, Any]:
+def set_module_type(
+    kernel: Any, module_name: str, security_type: str
+) -> dict[str, Any]:
     enforcer = ensure_enforcer(kernel)
     enforcer.context.set_type(module_name, security_type)
     return enforcer.status()
@@ -83,28 +88,47 @@ def install_hooks(kernel: Any) -> dict[str, Any]:
     original_wrap_event = getattr(kernel_proxy, "wrap_event_for_module", None)
 
     if callable(original_get_module_kernel):
-        def get_module_kernel_with_mcmac(k: Any, module_name: str, is_system: bool) -> Any:
+
+        def get_module_kernel_with_mcmac(
+            k: Any, module_name: str, is_system: bool
+        ) -> Any:
             if k is kernel and not is_system:
-                enforcer.check_access(module_name, ObjectClass.KERNEL_ATTR.value, Action.READ.value, "kernel")
+                enforcer.check_access(
+                    module_name,
+                    ObjectClass.KERNEL_ATTR.value,
+                    Action.READ.value,
+                    "kernel",
+                )
             return original_get_module_kernel(k, module_name, is_system)
-        get_module_kernel_with_mcmac.__xpatch_mcmac_original__ = original_get_module_kernel
+
+        get_module_kernel_with_mcmac.__xpatch_mcmac_original__ = (
+            original_get_module_kernel
+        )
         kernel_proxy.get_module_kernel = get_module_kernel_with_mcmac
 
     if callable(original_get_module_client):
-        def get_module_client_with_mcmac(k: Any, module_name: str, is_system: bool) -> Any:
+
+        def get_module_client_with_mcmac(
+            k: Any, module_name: str, is_system: bool
+        ) -> Any:
             client = original_get_module_client(k, module_name, is_system)
             if k is not kernel or is_system:
                 return client
             return _MacClientProxy(client, enforcer, module_name)
-        get_module_client_with_mcmac.__xpatch_mcmac_original__ = original_get_module_client
+
+        get_module_client_with_mcmac.__xpatch_mcmac_original__ = (
+            original_get_module_client
+        )
         kernel_proxy.get_module_client = get_module_client_with_mcmac
 
     if callable(original_wrap_event):
+
         def wrap_event_with_mcmac(event: Any, module_name: str, k: Any) -> Any:
             wrapped = original_wrap_event(event, module_name, k)
             if k is not kernel:
                 return wrapped
             return _MacEventProxy(wrapped, enforcer, module_name)
+
         wrap_event_with_mcmac.__xpatch_mcmac_original__ = original_wrap_event
         kernel_proxy.wrap_event_for_module = wrap_event_with_mcmac
 
@@ -132,7 +156,10 @@ def _patch_imported_aliases(kernel_proxy: Any) -> None:
                 continue
             current = getattr(module, attr_name, None)
             original = originals.get(attr_name)
-            if current is original or getattr(current, "__xpatch_mcmac_original__", None) is original:
+            if (
+                current is original
+                or getattr(current, "__xpatch_mcmac_original__", None) is original
+            ):
                 setattr(module, attr_name, wrapper)
 
 
@@ -146,11 +173,16 @@ class _MacClientProxy:
         attr = getattr(object.__getattribute__(self, "_client"), name)
         if callable(attr):
             obj_class = _classify_client_method(name)
+
             def wrapper(*args: Any, **kwargs: Any) -> Any:
                 object.__getattribute__(self, "_enforcer").check_access(
-                    object.__getattribute__(self, "_module_name"), obj_class, Action.EXECUTE.value, name
+                    object.__getattribute__(self, "_module_name"),
+                    obj_class,
+                    Action.EXECUTE.value,
+                    name,
                 )
                 return attr(*args, **kwargs)
+
             return wrapper
         return attr
 
