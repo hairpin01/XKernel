@@ -130,7 +130,9 @@ def _patch_mapping(mapping: dict[Any, Any], seen: set[int], depth: int) -> int:
     for key, value in list(mapping.items()):
         if isinstance(key, str) and key in _SKIP_ATTRS:
             continue
-        replacement, nested_changes = _patch_value_with_replacement(value, seen, depth + 1)
+        replacement, nested_changes = _patch_value_with_replacement(
+            value, seen, depth + 1
+        )
         if nested_changes:
             changes += nested_changes
             if replacement is not value:
@@ -142,7 +144,9 @@ def _patch_sequence(seq: Any, seen: set[int], depth: int) -> tuple[Any, int]:
     changes = 0
     items = []
     for value in seq:
-        replacement, nested_changes = _patch_value_with_replacement(value, seen, depth + 1)
+        replacement, nested_changes = _patch_value_with_replacement(
+            value, seen, depth + 1
+        )
         items.append(replacement)
         changes += nested_changes
 
@@ -189,7 +193,9 @@ def _patch_class_dict(cls: type, seen: set[int], depth: int) -> int:
     return changes
 
 
-def _patch_value_with_replacement(value: Any, seen: set[int], depth: int) -> tuple[Any, int]:
+def _patch_value_with_replacement(
+    value: Any, seen: set[int], depth: int
+) -> tuple[Any, int]:
     if isinstance(value, str):
         cleaned, changed = _clean_text(value)
         return cleaned, int(changed)

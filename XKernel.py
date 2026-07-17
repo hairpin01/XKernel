@@ -8,6 +8,7 @@ import json
 import os
 import sqlite3
 import sys
+import time
 import traceback
 from pathlib import Path
 from types import ModuleType
@@ -587,16 +588,28 @@ class XPatchPatchManager:
             "loaded": [],
             "removed": [],
             "failed": [],
+            "blocked": [],
+            "skipped": [],
         }
         files = {self._patch_key(path): path for path in self._iter_patch_files()}
+        options = self._hot_reload_options()
 
         for stale_key in set(self.loaded_patches) - set(files):
             await self.unapply_patch_key(stale_key)
             self._forget_patch(stale_key)
+            self._hot_reload_quarantine().pop(stale_key, None)
             result["removed"].append(stale_key)
 
         changed = False
         for patch_key, file_path in files.items():
+            has_load_failure = (patch_key, "<load>") in self.failed_patches
+            is_new_patch = patch_key not in self.loaded_patches and not has_load_failure
+            if is_new_patch and not options["hot_load_new_patches"]:
+                result["skipped"].append(patch_key)
+                continue
+            if options["smart_disable"] and self._hot_reload_is_blocked(patch_key):
+                result["blocked"].append(patch_key)
+                continue
             state = self._file_state(file_path)
             known_state = self._patch_states.get(patch_key)
             if patch_key in self.loaded_patches and known_state == state:
@@ -626,6 +639,10 @@ class XPatchPatchManager:
                 self.failed_tracebacks[(patch_key, "<load>")] = traceback.format_exc()
                 result["failed"].append(patch_key)
                 self._log("error", "[xpatch] failed to hot-reload %s: %s", file_path, e)
+                if options["smart_disable"]:
+                    self._hot_reload_block_patch(patch_key, options["retry_interval"])
+                if options["disable_on_first_fail"]:
+                    self.set_patch_disabled(patch_key, True)
                 await self._emit_patch_event(
                     "xpatch:failed",
                     patch_key,
@@ -644,6 +661,7 @@ class XPatchPatchManager:
 
         result: dict[str, list[str]] = {"reloaded": [], "failed": [], "missing": []}
         patch_key = str(patch_key)
+        self._hot_reload_quarantine().pop(patch_key, None)
         patch_module = self.loaded_patches.get(patch_key)
         file_path = getattr(patch_module, "__xpatch_file__", "") if patch_module else ""
         if not file_path:
@@ -688,6 +706,44 @@ class XPatchPatchManager:
         result["reloaded"].append(patch_key)
         await self.apply_all()
         return result
+
+    def _hot_reload_options(self) -> dict[str, Any]:
+        state = object.__getattribute__(self.kernel, "__dict__")
+        return {
+            "smart_disable": bool(state.get("_xpatch_hot_reload_smart_disable", False)),
+            "retry_interval": max(
+                float(state.get("_xpatch_hot_reload_retry_interval", 30.0) or 30.0),
+                1.0,
+            ),
+            "disable_on_first_fail": bool(
+                state.get("_xpatch_hot_reload_disable_on_first_fail", False)
+            ),
+            "hot_load_new_patches": bool(
+                state.get("_xpatch_hot_load_new_patches", False)
+            ),
+        }
+
+    def _hot_reload_quarantine(self) -> dict[str, float]:
+        state = object.__getattribute__(self.kernel, "__dict__")
+        quarantine = state.get("_xpatch_hot_reload_quarantine")
+        if not isinstance(quarantine, dict):
+            quarantine = {}
+            state["_xpatch_hot_reload_quarantine"] = quarantine
+        return quarantine
+
+    def _hot_reload_is_blocked(self, patch_key: str) -> bool:
+        until = float(self._hot_reload_quarantine().get(str(patch_key), 0) or 0)
+        if until <= 0:
+            return False
+        if time.time() < until:
+            return True
+        self._hot_reload_quarantine().pop(str(patch_key), None)
+        return False
+
+    def _hot_reload_block_patch(self, patch_key: str, retry_interval: float) -> None:
+        self._hot_reload_quarantine()[str(patch_key)] = time.time() + max(
+            float(retry_interval), 1.0
+        )
 
     def load_patches(self) -> dict[str, ModuleType]:
         """Discover and import patch files from ``patches_dir``."""
@@ -895,7 +951,7 @@ class XPatchPatchManager:
             payload["value"] = value
             if status == "failed":
                 payload["error"] = str(value)
-            elif status == "pending":
+            elif status in {"pending", "skipped", "disabled"}:
                 payload["reason"] = str(value)
             else:
                 payload["result"] = value
@@ -1408,6 +1464,11 @@ class XPatchKernel(KernelBase):
         self._xpatch_event_listeners: dict[str, list[Any]] = {}
         self._xpatch_hot_reload_enabled = False
         self._xpatch_hot_reload_interval = 2.0
+        self._xpatch_hot_reload_smart_disable = False
+        self._xpatch_hot_reload_retry_interval = 30.0
+        self._xpatch_hot_reload_disable_on_first_fail = False
+        self._xpatch_hot_load_new_patches = False
+        self._xpatch_hot_reload_quarantine: dict[str, float] = {}
         self._xpatch_core_lib_client_patch_enabled = False
         self._xpatch_core_lib_client_options: dict[str, Any] = {}
         self._xpatch_core_lib_original_telegram_client = None
@@ -1426,7 +1487,7 @@ class XPatchKernel(KernelBase):
         self._xpatch_extera_proxy_hook_installed = False
         self.ver = f"{self.VERSION}.XPatch"
         self.VERSION = self.ver
-        self.VERSION_XKERNEL = (0, 0, 7)
+        self.VERSION_XKERNEL = (0, 0, 8)
         self._xpatch_full_load_complete = False
         self._xpatch_retry_task = None
         self._xpatch_hot_reload_task = None
@@ -2361,11 +2422,35 @@ class XPatchKernel(KernelBase):
         enabled: bool,
         *,
         interval: float | None = None,
+        smart_disable: bool | None = None,
+        retry_interval: float | None = None,
+        disable_on_first_fail: bool | None = None,
+        hot_load_new_patches: bool | None = None,
     ) -> None:
         object.__setattr__(self, "_xpatch_hot_reload_enabled", bool(enabled))
         if interval is not None:
             object.__setattr__(
                 self, "_xpatch_hot_reload_interval", max(float(interval), 0.5)
+            )
+        if smart_disable is not None:
+            object.__setattr__(
+                self, "_xpatch_hot_reload_smart_disable", bool(smart_disable)
+            )
+        if retry_interval is not None:
+            object.__setattr__(
+                self,
+                "_xpatch_hot_reload_retry_interval",
+                max(float(retry_interval), 1.0),
+            )
+        if disable_on_first_fail is not None:
+            object.__setattr__(
+                self,
+                "_xpatch_hot_reload_disable_on_first_fail",
+                bool(disable_on_first_fail),
+            )
+        if hot_load_new_patches is not None:
+            object.__setattr__(
+                self, "_xpatch_hot_load_new_patches", bool(hot_load_new_patches)
             )
         if enabled:
             self._start_xpatch_hot_reload()

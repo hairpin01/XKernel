@@ -6,7 +6,6 @@ import tempfile
 import types
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -73,26 +72,48 @@ def load_xkernel_with_proxy_stubs():
     sys.modules[base.__name__] = base
     sys.modules[user_loader.__name__] = user_loader
 
-    source = (ROOT / "XKernel.py").read_text(encoding="utf-8").replace(
-        "from .standard import Kernel as KernelBase",
-        "class KernelBase:\n"
-        "    def __init__(self):\n"
-        "        self.VERSION = '1.2.3'\n"
-        "        self._loader = None\n"
-        "        self.loaded_modules = {}\n"
-        "        self.system_modules = {}\n"
-        "        self.logger = None\n"
-        "        self.client = type('Client', (), {'session': 'raw-session'})()\n"
-        "    def setup_directories(self): pass\n"
-        "    async def run(self): pass",
+    source = (
+        (ROOT / "XKernel.py")
+        .read_text(encoding="utf-8")
+        .replace(
+            "from .standard import Kernel as KernelBase",
+            "class KernelBase:\n"
+            "    def __init__(self):\n"
+            "        self.VERSION = '1.2.3'\n"
+            "        self._loader = None\n"
+            "        self.loaded_modules = {}\n"
+            "        self.system_modules = {}\n"
+            "        self.logger = None\n"
+            "        self.client = type('Client', (), {'session': 'raw-session'})()\n"
+            "    def setup_directories(self): pass\n"
+            "    async def run(self): pass",
+        )
     )
     ns: dict[str, object] = {"__name__": "xkernel_test"}
     exec(compile(source, "XKernel.py", "exec"), ns)
-    return ns["Kernel"], kernel_proxy, runtime, base, user_loader, ClientProxy, ModuleKernelProxy, EventProxy
+    return (
+        ns["Kernel"],
+        kernel_proxy,
+        runtime,
+        base,
+        user_loader,
+        ClientProxy,
+        ModuleKernelProxy,
+        EventProxy,
+    )
 
 
 def test_extera_proxy_root_bypasses_direct_client_aliases():
-    Kernel, kernel_proxy, runtime, base, user_loader, ClientProxy, ModuleKernelProxy, _ = load_xkernel_with_proxy_stubs()
+    (
+        Kernel,
+        kernel_proxy,
+        runtime,
+        base,
+        user_loader,
+        ClientProxy,
+        ModuleKernelProxy,
+        _,
+    ) = load_xkernel_with_proxy_stubs()
     kernel = Kernel()
 
     kernel.set_extera_proxy_all(True)
@@ -104,12 +125,19 @@ def test_extera_proxy_root_bypasses_direct_client_aliases():
     assert base.get_module_client(kernel, "evaluator", False) is kernel.client
     assert user_loader.get_module_client(kernel, "evaluator", False) is kernel.client
     assert user_loader.get_module_kernel(kernel, "evaluator", False) is kernel
-    assert kernel_proxy.get_module_client(kernel, "evaluator", False).session == "raw-session"
+    assert (
+        kernel_proxy.get_module_client(kernel, "evaluator", False).session
+        == "raw-session"
+    )
 
     # Exclusions still receive proxies even in all-mode.
     kernel.set_extera_proxy_modules(["ClientSandboxAudit"])
-    assert isinstance(runtime.ClientProxy(kernel.client, "ClientSandboxAudit"), ClientProxy)
-    assert isinstance(kernel_proxy.get_module_client(kernel, "ClientSandboxAudit", False), ClientProxy)
+    assert isinstance(
+        runtime.ClientProxy(kernel.client, "ClientSandboxAudit"), ClientProxy
+    )
+    assert isinstance(
+        kernel_proxy.get_module_client(kernel, "ClientSandboxAudit", False), ClientProxy
+    )
 
 
 def test_xpatch_lifecycle_events_payload_and_legacy_emit():
@@ -188,7 +216,11 @@ def test_xpatch_lifecycle_events_payload_and_legacy_emit():
             assert "xpatch:pending" in event_names
             assert "xpatch:disabled" in event_names
 
-            applied_payload = next(payload for event_name, payload in payload_events if event_name == "xpatch:applied")
+            applied_payload = next(
+                payload
+                for event_name, payload in payload_events
+                if event_name == "xpatch:applied"
+            )
             assert applied_payload["patch"] == "EventPatch"
             assert applied_payload["target"] == "TargetMod"
             assert applied_payload["result"] == "ok"
@@ -197,7 +229,11 @@ def test_xpatch_lifecycle_events_payload_and_legacy_emit():
             assert ("xpatch:applied", "EventPatch", "TargetMod", "ok") in legacy_events
 
             await kernel.patch_manager.apply_all()
-            skipped_payload = next(payload for event_name, payload in payload_events if event_name == "xpatch:skipped")
+            skipped_payload = next(
+                payload
+                for event_name, payload in payload_events
+                if event_name == "xpatch:skipped"
+            )
             assert skipped_payload["patch"] == "EventPatch"
             assert skipped_payload["reason"] == "Patch is already applied"
 
@@ -205,13 +241,17 @@ def test_xpatch_lifecycle_events_payload_and_legacy_emit():
             status = await kernel.patch_manager.unapply_patch(event_key, "TargetMod")
             assert status == "unapplied"
             assert target.applied is False
-            assert any(event_name == "xpatch:unapplied" for event_name, _ in payload_events)
+            assert any(
+                event_name == "xpatch:unapplied" for event_name, _ in payload_events
+            )
 
     asyncio.run(run())
 
 
 def test_extera_proxy_all_mode_treats_module_list_as_exclusions():
-    Kernel, kernel_proxy, _, _, _, _, ModuleKernelProxy, EventProxy = load_xkernel_with_proxy_stubs()
+    Kernel, kernel_proxy, _, _, _, _, ModuleKernelProxy, EventProxy = (
+        load_xkernel_with_proxy_stubs()
+    )
     kernel = Kernel()
 
     kernel.set_extera_proxy_modules(["safe"])
@@ -219,11 +259,15 @@ def test_extera_proxy_all_mode_treats_module_list_as_exclusions():
     kernel.set_extera_proxy_scopes(["root"])
 
     assert kernel_proxy.get_module_kernel(kernel, "other", False) is kernel
-    assert isinstance(kernel_proxy.get_module_kernel(kernel, "safe", False), ModuleKernelProxy)
+    assert isinstance(
+        kernel_proxy.get_module_kernel(kernel, "safe", False), ModuleKernelProxy
+    )
 
     event = object()
     assert kernel_proxy.wrap_event_for_module(event, "other", kernel) is event
-    assert isinstance(kernel_proxy.wrap_event_for_module(event, "safe", kernel), EventProxy)
+    assert isinstance(
+        kernel_proxy.wrap_event_for_module(event, "safe", kernel), EventProxy
+    )
 
 
 def test_extera_proxy_updates_already_loaded_hikka_like_client_attrs():
@@ -348,7 +392,9 @@ def test_core_web_patch_wraps_create_app_and_injects_branding_state():
 
 
 def test_xkernel_control_methods_are_hidden_from_module_kernel_proxy():
-    Kernel, kernel_proxy, _, _, _, _, ModuleKernelProxy, _ = load_xkernel_with_proxy_stubs()
+    Kernel, kernel_proxy, _, _, _, _, ModuleKernelProxy, _ = (
+        load_xkernel_with_proxy_stubs()
+    )
     kernel = Kernel()
     proxy = kernel_proxy.get_module_kernel(kernel, "evil", False)
 
@@ -367,3 +413,108 @@ def test_xkernel_control_methods_are_hidden_from_module_kernel_proxy():
             raise AssertionError(f"{attr_name} was exposed through ModuleKernelProxy")
 
     assert isinstance(proxy, ModuleKernelProxy)
+
+
+def test_hot_reload_quarantines_failed_patch_and_manual_reload_clears_it():
+    Kernel, *_ = load_xkernel_with_proxy_stubs()
+
+    async def run():
+        with tempfile.TemporaryDirectory() as td:
+            patches_dir = Path(td) / "patches"
+            patches_dir.mkdir()
+            patch_file = patches_dir / "BadPatch.py"
+            patch_file.write_text("def broken(:\n", encoding="utf-8")
+
+            kernel = Kernel()
+            kernel.patch_manager.patches_dir = str(patches_dir)
+            kernel.set_xpatch_hot_reload_enabled(
+                False,
+                smart_disable=True,
+                retry_interval=3600,
+                disable_on_first_fail=False,
+                hot_load_new_patches=True,
+            )
+            patch_key = kernel.patch_manager._patch_key(patch_file)
+
+            result = await kernel.patch_manager.reload_changed_patches()
+            assert result["failed"] == [patch_key]
+            assert patch_key in kernel._xpatch_hot_reload_quarantine
+
+            result = await kernel.patch_manager.reload_changed_patches()
+            assert result["blocked"] == [patch_key]
+
+            patch_file.write_text(
+                "PATCH_NAME = 'BadPatch'\n"
+                "PATCH_TARGET = '__kernel__'\n"
+                "def apply_patch(kernel, target):\n"
+                "    kernel.hot_reload_fixed = True\n"
+                "    return 'ok'\n",
+                encoding="utf-8",
+            )
+
+            result = await kernel.patch_manager.reload_patch_key(patch_key)
+            assert result["reloaded"] == [patch_key]
+            assert patch_key not in kernel._xpatch_hot_reload_quarantine
+            assert kernel.hot_reload_fixed is True
+
+    asyncio.run(run())
+
+
+def test_hot_reload_can_skip_or_load_new_patch_files():
+    Kernel, *_ = load_xkernel_with_proxy_stubs()
+
+    async def run():
+        with tempfile.TemporaryDirectory() as td:
+            patches_dir = Path(td) / "patches"
+            patches_dir.mkdir()
+            patch_file = patches_dir / "NewPatch.py"
+            patch_file.write_text(
+                "PATCH_NAME = 'NewPatch'\n"
+                "PATCH_TARGET = '__kernel__'\n"
+                "def apply_patch(kernel, target):\n"
+                "    kernel.hot_loaded_new = True\n"
+                "    return 'ok'\n",
+                encoding="utf-8",
+            )
+
+            kernel = Kernel()
+            kernel.patch_manager.patches_dir = str(patches_dir)
+            patch_key = kernel.patch_manager._patch_key(patch_file)
+
+            kernel.set_xpatch_hot_reload_enabled(False, hot_load_new_patches=False)
+            result = await kernel.patch_manager.reload_changed_patches()
+            assert result["skipped"] == [patch_key]
+            assert patch_key not in kernel.patch_manager.loaded_patches
+
+            kernel.set_xpatch_hot_reload_enabled(False, hot_load_new_patches=True)
+            result = await kernel.patch_manager.reload_changed_patches()
+            assert result["loaded"] == [patch_key]
+            assert kernel.hot_loaded_new is True
+
+    asyncio.run(run())
+
+
+def test_hot_reload_can_disable_patch_on_first_load_failure():
+    Kernel, *_ = load_xkernel_with_proxy_stubs()
+
+    async def run():
+        with tempfile.TemporaryDirectory() as td:
+            patches_dir = Path(td) / "patches"
+            patches_dir.mkdir()
+            patch_file = patches_dir / "DisableMe.py"
+            patch_file.write_text("def nope(:\n", encoding="utf-8")
+
+            kernel = Kernel()
+            kernel.patch_manager.patches_dir = str(patches_dir)
+            kernel.set_xpatch_hot_reload_enabled(
+                False,
+                disable_on_first_fail=True,
+                hot_load_new_patches=True,
+            )
+            patch_key = kernel.patch_manager._patch_key(patch_file)
+
+            result = await kernel.patch_manager.reload_changed_patches()
+            assert result["failed"] == [patch_key]
+            assert patch_key in kernel.patch_manager.disabled_patches
+
+    asyncio.run(run())

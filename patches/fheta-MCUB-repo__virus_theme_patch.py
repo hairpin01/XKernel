@@ -3,16 +3,17 @@ PATCH_NAME = "FHetaRoflVirusTheme"
 
 
 ROFL_THEME_KEYS = {
-    "search": '🦠',
-    "error": '☣️',
-    "warn": '🚨',
-    "description": '🧬',
-    "command": '💉',
-    "placeholder": '🧪',
-    "module": '👾',
-    "channel": '📡',
-    "modules_list": '🧫',
+    "search": "🦠",
+    "error": "☣️",
+    "warn": "🚨",
+    "description": "🧬",
+    "command": "💉",
+    "placeholder": "🧪",
+    "module": "👾",
+    "channel": "📡",
+    "modules_list": "🧫",
 }
+
 
 def _rofl_theme(**overrides):
     theme = dict(ROFL_THEME_KEYS)
@@ -23,11 +24,12 @@ def _rofl_theme(**overrides):
 def _build_rofl_themes():
     return {
         "default": _rofl_theme(),
-        "winter": _rofl_theme(search='🥶', error='🧊'),
-        "summer": _rofl_theme(search='🦟', error='🤒'),
-        "spring": _rofl_theme(search='🧫', error='🤢'),
-        "autumn": _rofl_theme(search='🐛', error='🧟'),
+        "winter": _rofl_theme(search="🥶", error="🧊"),
+        "summer": _rofl_theme(search="🦟", error="🤒"),
+        "spring": _rofl_theme(search="🧫", error="🤢"),
+        "autumn": _rofl_theme(search="🐛", error="🧟"),
     }
+
 
 ROFL_STRINGS = {
     "ru": {
@@ -94,11 +96,19 @@ ROFL_STRINGS = {
 
 
 def _looks_like_themes(value):
-    return isinstance(value, dict) and isinstance(value.get("default"), dict) and "search" in value["default"]
+    return (
+        isinstance(value, dict)
+        and isinstance(value.get("default"), dict)
+        and "search" in value["default"]
+    )
 
 
 def _looks_like_strings(value):
-    return isinstance(value, dict) and isinstance(value.get("ru"), dict) and isinstance(value.get("en"), dict)
+    return (
+        isinstance(value, dict)
+        and isinstance(value.get("ru"), dict)
+        and isinstance(value.get("en"), dict)
+    )
 
 
 def _closure_values(callable_obj):
@@ -252,4 +262,6 @@ def apply_patch(kernel, target):
         patched = _patch_reachable_values(root, seen) or patched
 
     if not patched:
-        raise RuntimeError("FHeta runtime strings/themes were not found; apply after FHeta handlers are registered")
+        raise RuntimeError(
+            "FHeta runtime strings/themes were not found; apply after FHeta handlers are registered"
+        )

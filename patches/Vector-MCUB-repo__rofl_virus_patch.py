@@ -245,9 +245,16 @@ def _patch_strings_dict(strings):
         return False
     changed = False
     for lang, values in VIRUS_STRINGS.items():
-        changed = _patch_locale(strings.setdefault(lang, {}), values, replace_i=lang in {"ru", "uk"}) or changed
+        changed = (
+            _patch_locale(
+                strings.setdefault(lang, {}), values, replace_i=lang in {"ru", "uk"}
+            )
+            or changed
+        )
     if isinstance(strings.get("uk"), dict):
-        changed = _patch_locale(strings["uk"], VIRUS_STRINGS["ru"], replace_i=True) or changed
+        changed = (
+            _patch_locale(strings["uk"], VIRUS_STRINGS["ru"], replace_i=True) or changed
+        )
         strings["uk"]["lang"] = "uk"
     return changed
 
@@ -269,7 +276,9 @@ def _patch_strings_object(strings_obj):
         elif isinstance(value, dict):
             lang = str(value.get("lang", "")).lower()
             source = VIRUS_STRINGS.get(lang) or VIRUS_STRINGS["ru"]
-            changed = _patch_locale(value, source, replace_i=lang in {"ru", "uk"}) or changed
+            changed = (
+                _patch_locale(value, source, replace_i=lang in {"ru", "uk"}) or changed
+            )
     return changed
 
 
@@ -311,4 +320,6 @@ def _patch_target(target):
 
 def apply_patch(target):
     if not _patch_target(target):
-        raise RuntimeError("Vector strings/icons were not found; apply after Vector is loaded")
+        raise RuntimeError(
+            "Vector strings/icons were not found; apply after Vector is loaded"
+        )

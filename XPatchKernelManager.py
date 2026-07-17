@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import ast
 import asyncio
 import contextlib
 import hashlib
 import html
 import inspect
+import io
 import os
 import re
+import secrets
 import shutil
+import tempfile
 import time
+import tokenize
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -20,6 +25,7 @@ from core.lib.loader.module_base import ModuleBase, callback, command
 from core.lib.loader.module_config import (
     Boolean,
     ConfigValue,
+    Integer,
     ModuleConfig,
     Placeholders,
     String,
@@ -29,7 +35,7 @@ from utils.platform import get_platform_name
 
 class XKernelInstaller(ModuleBase):
     name = "XPatchKernelManager"
-    version = "1.5.0"
+    version = "1.5.1"
     author = "@Hairpin00"
     description = {
         "ru": "Менеджер и установщик XKernel core/патчей для MCUB",
@@ -38,8 +44,8 @@ class XKernelInstaller(ModuleBase):
     dependencies = ["aiohttp"]
 
     strings = {
+        "name": "XPatchKernelManager",
         "ru": {
-            "name": "XPatchKernelManager",
             "state_on": "ON",
             "state_off": "OFF",
             "btn_back": "Назад",
@@ -94,8 +100,8 @@ class XKernelInstaller(ModuleBase):
             "logs_title": "Live logs · [xpatch]",
             "logs_desc": "Показывает последние <b>{max_lines}</b> строк с <code>[xpatch]</code> из "
             "<code>logs/kernel.log</code>. Обновление: <b>{interval}</b> сек.",
-            "logs_lines_button": "Строк: {current} → {next}",
-            "logs_interval_button": "Обновление: {current}с → {next}с",
+            "logs_lines_button": "Строк: {current} > {next}",
+            "logs_interval_button": "Обновление: {current}с > {next}с",
             "logs_lines_answer": "Live logs: {value} строк",
             "logs_interval_answer": "Live logs: обновление {value} сек",
             "utils_title": "XPatch Utils",
@@ -104,13 +110,13 @@ class XKernelInstaller(ModuleBase):
             "utils_danger_desc": "<b>Опасная зона</b> — удаление ядра, бекапов, патчей и модуля-менеджера. Можно отдельно "
             "выбрать default core и авто-рестарт.",
             "remove_title": "Удаление XKernel",
-            "remove_desc": "Выбери, что удалить. Действие необратимо для выбранных файлов. Порядок: ядро → бэкапы → патчи "
-            "→ default core → менеджер → restart.",
+            "remove_desc": "Выбери, что удалить. Действие необратимо для выбранных файлов. Порядок: ядро > бэкапы > патчи "
+            "> default core > менеджер > restart.",
             "remove_opt_core": "Ядро",
             "remove_opt_backups": "Все бекапы",
             "remove_opt_manager": "Модуль-менеджер",
             "remove_opt_patches": "Все патчи",
-            "remove_opt_default": "Default → standard",
+            "remove_opt_default": "Default > standard",
             "remove_opt_restart": "Авто-рестарт",
             "remove_answer_start": "Удаляю XKernel...",
             "remove_failed_title": "Удаление XKernel сорвалось",
@@ -144,7 +150,7 @@ class XKernelInstaller(ModuleBase):
             "btn_patch_events": "Patch events: {state}",
             "btn_hot_reload": "Hot reload: {state}",
             "btn_extera_all": "Для всех: {state}",
-            "btn_extera_root_custom": "Root: ON → custom",
+            "btn_extera_root_custom": "Root: ON > custom",
             "btn_extera_scope": "{scope}: {state}",
             "none": "нет",
             "no_access": "Нет доступа",
@@ -289,9 +295,80 @@ class XKernelInstaller(ModuleBase):
             "cli_rollback_done_title": "XKernel rollback выполнен",
             "restart_prompt": "Рестарт MCUB?",
             "btn_reboot": "Reboot",
+            "btn_client_patch_quick_toggle": "Patch: {state}",
+            "settings_notify_state": "Задержка: <code>{delay}</code>с · Manager: <code>{manager}</code>",
+            "settings_notify_delay_button": "Задержка: {delay}с > {next_delay}с",
+            "settings_notify_manager_toggle": "Manager notify: {state}",
+            "settings_notify_delay_answer": "Задержка уведомлений: {delay}с",
+            "manager_notifications_enabled": "Уведомления об обновлении XPatchKernelManager включены",
+            "manager_notifications_disabled": "Уведомления об обновлении XPatchKernelManager выключены",
+            "manager_update_notice_title": "Доступно обновление XPatchKernelManager",
+            "manager_update_notice_hint": "Обнови модуль из репозитория, чтобы получить новые UI-функции.",
+            "btn_notify_settings": "Настройки Notify",
+            "notify_settings_title": "Настройки Notify",
+            "utils_rebuild_desc": "<b>Пересборка менеджера</b> — создаёт копию модуля с новым именим и отправляет .py в "
+            "чат.",
+            "btn_rebuild_manager": "Пересборка менеджера",
+            "rebuild_title": "Пересборка менеджера",
+            "rebuild_desc": "Заменяются только строковые литералы, которые точно равны текущему имени модуля. Подстроки "
+            "внутри длинных текстов не трогаются.",
+            "rebuild_current_name": "Текущее имя:",
+            "rebuild_new_name": "Новое имя:",
+            "rebuild_replacements": "Замен:",
+            "rebuild_delete_state": "Удалить текущий после отправки:",
+            "btn_rebuild_name": "Имя нового модуля",
+            "btn_rebuild_random": "Random",
+            "btn_rebuild_delete_current": "Удалить текущий после сборки",
+            "btn_rebuild_keep_current": "Не удалять текущий",
+            "btn_rebuild_send": "Собрать и отправить",
+            "rebuild_random_answer": "Случайное имя: {name}",
+            "rebuild_name_updated": "Имя для пересборки: {name}",
+            "rebuild_name_invalid": "Некорректное имя. Используй латиницу, цифры и _, первая буква — латинская. Без "
+            "пробелов и спецсимволов.",
+            "rebuild_same_name": "Новое имя должно отличаться от текущего.",
+            "rebuild_forbidden": "Пересборка доступна только из оригинального XPatchKernelManager.",
+            "rebuild_source_missing": "Не удалось найти исходный файл менеджера.",
+            "rebuild_no_replacements": "Не найдено строк для замены. Пересборка отменена.",
+            "rebuild_sent": "Пересобранный менеджер отправлен: <code>{file}</code>. Замен: <b>{count}</b>.",
+            "rebuild_sent_delete": "Пересобранный менеджер отправлен. Удаляю текущий модуль...",
+            "rebuild_send_failed": "Не удалось собрать или отправить менеджер",
+            "rebuild_config_state": "Перенести cfg:",
+            "btn_rebuild_copy_config": "Перенести cfg на новый модуль",
+            "btn_rebuild_skip_config": "Не переносить cfg",
+            "rebuild_config_copied": "Cfg перенесён на <code>{name}</code>",
+            "rebuild_force_wipe_state": "Удалить cfg текущего:",
+            "btn_rebuild_force_wipe": "Удалить текущий с cfg (-f)",
+            "btn_rebuild_keep_current_cfg": "Оставить cfg текущего",
+            "rebuild_saved_only_no_delete": "Файл отправлен в Избранное, но не удалось переслать в этот чат. Текущий "
+            "менеджер не удалён.",
+            "btn_hot_reload_smart_disable": "Умное выключение: {state}",
+            "btn_hot_reload_retry_interval": "Интервал ожидания: {interval}с",
+            "btn_hot_reload_disable_on_first_fail": "Отключать при первой ошибке: {state}",
+            "btn_hot_load_new_patches": "Hot load новых патчей: {state}",
+            "hot_reload_retry_interval_answer": "Интервал ожидания проблемного патча: {interval}с",
+            "hot_reload_retry_interval_invalid": "Интервал должен быть числом от 1 до 3600 секунд.",
+            "btn_load_problem_patch": "Загрузить проблемный патч",
+            "btn_hot_reload_settings": "Настройки Hot reload",
+            "hot_reload_settings_title": "Настройки Hot reload",
+            "hot_reload_old_core_warning": "Текущее XKernel ядро старое и не поддерживает расширенные настройки Hot "
+            "reload. Обнови XKernel, иначе эти опции будут сохранены только в конфиге "
+            "менеджера.",
+            "hot_reload_settings_desc": "<b>Умное выключение</b> — если hot reload словил ошибку загрузки, патч временно "
+            "не трогается.\n"
+            "<b>Интервал ожидания</b> — через сколько секунд пробовать проблемный патч снова.\n"
+            "<b>Отключать при первой ошибке</b> — сразу помечает патч disabled после первой "
+            "ошибки hot reload.\n"
+            "<b>Hot load новых патчей</b> — подхватывает новые файлы из patches/ без рестарта.",
+            "hot_reload_smart_disable_desc": "<b>Умное выключение</b> — если hot reload словил ошибку загрузки, патч "
+            "временно не трогается.",
+            "hot_reload_retry_interval_desc": "<b>Интервал ожидания</b> — через сколько секунд пробовать проблемный патч "
+            "снова.",
+            "hot_reload_disable_on_first_fail_desc": "<b>Отключать при первой ошибке</b> — сразу помечает патч disabled "
+            "после первой ошибки hot reload.",
+            "hot_load_new_patches_desc": "<b>Hot load новых патчей</b> — подхватывает новые файлы из patches/ без "
+            "рестарта.",
         },
         "en": {
-            "name": "XPatchKernelManager",
             "state_on": "ON",
             "state_off": "OFF",
             "btn_back": "Back",
@@ -346,8 +423,8 @@ class XKernelInstaller(ModuleBase):
             "logs_title": "Live logs · [xpatch]",
             "logs_desc": "Shows the last <b>{max_lines}</b> lines with <code>[xpatch]</code> from "
             "<code>logs/kernel.log</code>. Refresh: <b>{interval}</b>s.",
-            "logs_lines_button": "Lines: {current} → {next}",
-            "logs_interval_button": "Refresh: {current}s → {next}s",
+            "logs_lines_button": "Lines: {current} > {next}",
+            "logs_interval_button": "Refresh: {current}s > {next}s",
             "logs_lines_answer": "Live logs: {value} lines",
             "logs_interval_answer": "Live logs: refresh {value}s",
             "utils_title": "XPatch Utils",
@@ -356,13 +433,13 @@ class XKernelInstaller(ModuleBase):
             "utils_danger_desc": "<b>Danger zone</b> — remove the kernel, backups, patches, and manager module. You can "
             "also choose default core and auto-restart.",
             "remove_title": "Remove XKernel",
-            "remove_desc": "Choose what to remove. This is irreversible for selected files. Order: kernel → backups → "
-            "patches → default core → manager → restart.",
+            "remove_desc": "Choose what to remove. This is irreversible for selected files. Order: kernel > backups > "
+            "patches > default core > manager > restart.",
             "remove_opt_core": "Kernel",
             "remove_opt_backups": "All backups",
             "remove_opt_manager": "Manager module",
             "remove_opt_patches": "All patches",
-            "remove_opt_default": "Default → standard",
+            "remove_opt_default": "Default > standard",
             "remove_opt_restart": "Auto-restart",
             "remove_answer_start": "Removing XKernel...",
             "remove_failed_title": "XKernel removal failed",
@@ -396,7 +473,7 @@ class XKernelInstaller(ModuleBase):
             "btn_patch_events": "Patch events: {state}",
             "btn_hot_reload": "Hot reload: {state}",
             "btn_extera_all": "For all: {state}",
-            "btn_extera_root_custom": "Root: ON → custom",
+            "btn_extera_root_custom": "Root: ON > custom",
             "btn_extera_scope": "{scope}: {state}",
             "none": "none",
             "no_access": "No access",
@@ -541,9 +618,77 @@ class XKernelInstaller(ModuleBase):
             "cli_rollback_done_title": "XKernel rollback completed",
             "restart_prompt": "Restart MCUB?",
             "btn_reboot": "Reboot",
+            "btn_client_patch_quick_toggle": "Patch: {state}",
+            "settings_notify_state": "Delay: <code>{delay}</code>s · Manager: <code>{manager}</code>",
+            "settings_notify_delay_button": "Delay: {delay}s > {next_delay}s",
+            "settings_notify_manager_toggle": "Manager notify: {state}",
+            "settings_notify_delay_answer": "Notification delay: {delay}s",
+            "manager_notifications_enabled": "XPatchKernelManager update notifications enabled",
+            "manager_notifications_disabled": "XPatchKernelManager update notifications disabled",
+            "manager_update_notice_title": "XPatchKernelManager update available",
+            "manager_update_notice_hint": "Update the module from the repository to get new UI features.",
+            "btn_notify_settings": "Notify settings",
+            "notify_settings_title": "Notify settings",
+            "utils_rebuild_desc": "<b>Manager rebuild</b> — creates a copy with a new module name and sends the .py file "
+            "to chat.",
+            "btn_rebuild_manager": "Manager rebuild",
+            "rebuild_title": "Manager rebuild",
+            "rebuild_desc": "Only string literals exactly equal to the current module name are replaced. Substrings inside "
+            "longer texts are not touched.",
+            "rebuild_current_name": "Current name:",
+            "rebuild_new_name": "New name:",
+            "rebuild_replacements": "Replacements:",
+            "rebuild_delete_state": "Delete current after send:",
+            "btn_rebuild_name": "New module name",
+            "btn_rebuild_random": "Random",
+            "btn_rebuild_delete_current": "Delete current after build",
+            "btn_rebuild_keep_current": "Keep current module",
+            "btn_rebuild_send": "Build and send",
+            "rebuild_random_answer": "Random name: {name}",
+            "rebuild_name_updated": "Rebuild name: {name}",
+            "rebuild_name_invalid": "Invalid name. Use latin letters, digits and _, first char must be latin. No spaces or "
+            "special symbols.",
+            "rebuild_same_name": "New name must differ from the current one.",
+            "rebuild_forbidden": "Rebuild is available only from the original XPatchKernelManager.",
+            "rebuild_source_missing": "Manager source file was not found.",
+            "rebuild_no_replacements": "No replaceable strings found. Rebuild cancelled.",
+            "rebuild_sent": "Rebuilt manager sent: <code>{file}</code>. Replacements: <b>{count}</b>.",
+            "rebuild_sent_delete": "Rebuilt manager sent. Removing current module...",
+            "rebuild_send_failed": "Failed to build or send manager",
+            "rebuild_config_state": "Copy cfg:",
+            "btn_rebuild_copy_config": "Copy cfg to new module",
+            "btn_rebuild_skip_config": "Do not copy cfg",
+            "rebuild_config_copied": "Cfg copied to <code>{name}</code>",
+            "rebuild_force_wipe_state": "Delete current cfg:",
+            "btn_rebuild_force_wipe": "Delete current with cfg (-f)",
+            "btn_rebuild_keep_current_cfg": "Keep current cfg",
+            "rebuild_saved_only_no_delete": "File was sent to Saved Messages, but forwarding to this chat failed. Current "
+            "manager was not removed.",
+            "btn_hot_reload_smart_disable": "Smart disable: {state}",
+            "btn_hot_reload_retry_interval": "Retry interval: {interval}s",
+            "btn_hot_reload_disable_on_first_fail": "Disable on first error: {state}",
+            "btn_hot_load_new_patches": "Hot load new patches: {state}",
+            "hot_reload_retry_interval_answer": "Problem patch retry interval: {interval}s",
+            "hot_reload_retry_interval_invalid": "Interval must be a number from 1 to 3600 seconds.",
+            "btn_load_problem_patch": "Load problem patch",
+            "btn_hot_reload_settings": "Hot reload settings",
+            "hot_reload_settings_title": "Hot reload settings",
+            "hot_reload_old_core_warning": "Current XKernel is old and does not support advanced Hot reload settings. "
+            "Update XKernel; otherwise these options are saved only in manager config.",
+            "hot_reload_settings_desc": "<b>Smart disable</b> — if hot reload fails to load a patch, it is temporarily "
+            "skipped.\n"
+            "<b>Retry interval</b> — seconds before retrying a problem patch.\n"
+            "<b>Disable on first error</b> — marks the patch disabled after the first hot "
+            "reload error.\n"
+            "<b>Hot load new patches</b> — loads new files from patches/ without restart.",
+            "hot_reload_smart_disable_desc": "<b>Smart disable</b> — if hot reload fails to load a patch, it is "
+            "temporarily skipped.",
+            "hot_reload_retry_interval_desc": "<b>Retry interval</b> — seconds before retrying a problem patch.",
+            "hot_reload_disable_on_first_fail_desc": "<b>Disable on first error</b> — marks the patch disabled after the "
+            "first hot reload error.",
+            "hot_load_new_patches_desc": "<b>Hot load new patches</b> — loads new files from patches/ without restart.",
         },
         "rofl": {
-            "name": "XPatchKernelManager",
             "state_on": "ON",
             "state_off": "OFF",
             "btn_back": "Назад",
@@ -597,8 +742,8 @@ class XKernelInstaller(ModuleBase):
             "logs_title": "Live logs · [xpatch]",
             "logs_desc": "Показывает последние <b>{max_lines}</b> строк с <code>[xpatch]</code> из "
             "<code>logs/kernel.log</code>. Обновление: <b>{interval}</b> сек.",
-            "logs_lines_button": "Строк: {current} → {next}",
-            "logs_interval_button": "Обновление: {current}с → {next}с",
+            "logs_lines_button": "Строк: {current} > {next}",
+            "logs_interval_button": "Обновление: {current}с > {next}с",
             "logs_lines_answer": "Live logs: {value} строк",
             "logs_interval_answer": "Live logs: обновление {value} сек",
             "utils_title": "XPatch Utils",
@@ -607,13 +752,13 @@ class XKernelInstaller(ModuleBase):
             "utils_danger_desc": "<b>Опасная зона</b> — тут можно снести ядро, бекапы, патчи и сам менеджер. Жми только "
             "если уверен.",
             "remove_title": "Удаление XKernel",
-            "remove_desc": "Выбери, что удалить. Действие необратимо для выбранных файлов. Порядок: ядро → бэкапы → "
-            "патчи → default core → менеджер → restart.",
+            "remove_desc": "Выбери, что удалить. Действие необратимо для выбранных файлов. Порядок: ядро > бэкапы > "
+            "патчи > default core > менеджер > restart.",
             "remove_opt_core": "Ядро",
             "remove_opt_backups": "Все бекапы",
             "remove_opt_manager": "Модуль-менеджер",
             "remove_opt_patches": "Все патчи",
-            "remove_opt_default": "Default → standard",
+            "remove_opt_default": "Default > standard",
             "remove_opt_restart": "Авто-рестарт",
             "remove_answer_start": "Удаляю XKernel...",
             "remove_failed_title": "Удаление XKernel сорвалось",
@@ -647,7 +792,7 @@ class XKernelInstaller(ModuleBase):
             "btn_patch_events": "Patch events: {state}",
             "btn_hot_reload": "Hot reload: {state}",
             "btn_extera_all": "Для всех: {state}",
-            "btn_extera_root_custom": "Root: ON → custom",
+            "btn_extera_root_custom": "Root: ON > custom",
             "btn_extera_scope": "{scope}: {state}",
             "none": "пусто, как холодильник",
             "no_access": "Доступа нет, сорян",
@@ -793,9 +938,76 @@ class XKernelInstaller(ModuleBase):
             "cli_rollback_done_title": "XKernel rollback выполнен",
             "restart_prompt": "Рестартнуть MCUB?",
             "btn_reboot": "Reboot",
+            "btn_client_patch_quick_toggle": "Patch: {state}",
+            "settings_notify_state": "Пауза: <code>{delay}</code>с · Manager: <code>{manager}</code>",
+            "settings_notify_delay_button": "Подождать: {delay}с > {next_delay}с",
+            "settings_notify_manager_toggle": "Manager notify: {state}",
+            "settings_notify_delay_answer": "Задержка уведомлений: {delay}с",
+            "manager_notifications_enabled": "Уведомления об обновлении XPatchKernelManager включены",
+            "manager_notifications_disabled": "Уведомления об обновлении XPatchKernelManager выключены",
+            "manager_update_notice_title": "Менеджер обновился, залетай",
+            "manager_update_notice_hint": "Обнови модуль из репы, там новые приколы UI.",
+            "btn_notify_settings": "Настройки Notify",
+            "notify_settings_title": "Настройки Notify",
+            "utils_rebuild_desc": "<b>Пересборка менеджера</b> — создаёт копию модуля с новым именем и отправляет .py в "
+            "чат.",
+            "btn_rebuild_manager": "Клонировать менеджер",
+            "rebuild_title": "Клонирование менеджера",
+            "rebuild_desc": "Заменяются только строковые литералы, которые точно равны текущему имени модуля. Подстроки "
+            "внутри длинных текстов не трогаются.",
+            "rebuild_current_name": "Текущее имя:",
+            "rebuild_new_name": "Новое имя:",
+            "rebuild_replacements": "Замен:",
+            "rebuild_delete_state": "Удалить текущий после отправки:",
+            "btn_rebuild_name": "Имя нового модуля",
+            "btn_rebuild_random": "Random",
+            "btn_rebuild_delete_current": "Удалить текущий после сборки",
+            "btn_rebuild_keep_current": "Не удалять текущий",
+            "btn_rebuild_send": "Собрать и кинуть сюда",
+            "rebuild_random_answer": "Случайное имя: {name}",
+            "rebuild_name_updated": "Имя для пересборки: {name}",
+            "rebuild_name_invalid": "Некорректное имя. Используй латиницу, цифры и _, первая буква — латинская. Без "
+            "пробелов и спецсимволов.",
+            "rebuild_same_name": "Новое имя должно отличаться от текущего.",
+            "rebuild_forbidden": "Пересборка доступна только из оригинального XPatchKernelManager.",
+            "rebuild_source_missing": "Не удалось найти исходный файл менеджера.",
+            "rebuild_no_replacements": "Не найдено строк для замены. Пересборка отменена.",
+            "rebuild_sent": "Пересобранный менеджер отправлен: <code>{file}</code>. Замен: <b>{count}</b>.",
+            "rebuild_sent_delete": "Клон отправлен. Самовыпиливаюсь...",
+            "rebuild_send_failed": "Не удалось собрать или отправить менеджер",
+            "rebuild_config_state": "Утащить cfg:",
+            "btn_rebuild_copy_config": "Утащить cfg в клон",
+            "btn_rebuild_skip_config": "Cfg не трогать",
+            "rebuild_config_copied": "Cfg перенесён на <code>{name}</code>",
+            "rebuild_force_wipe_state": "Снести cfg текущего:",
+            "btn_rebuild_force_wipe": "Снести с cfg (-f)",
+            "btn_rebuild_keep_current_cfg": "Cfg текущего оставить",
+            "rebuild_saved_only_no_delete": "Файл в Избранном, в чат не пролез. Самовыпил отменён.",
+            "btn_hot_reload_smart_disable": "Не долбить сломанный патч: {state}",
+            "btn_hot_reload_retry_interval": "Подождать перед ретраем: {interval}с",
+            "btn_hot_reload_disable_on_first_fail": "Отключать при первой ошибке: {state}",
+            "btn_hot_load_new_patches": "Hot load новых патчей: {state}",
+            "hot_reload_retry_interval_answer": "Интервал ожидания проблемного патча: {interval}с",
+            "hot_reload_retry_interval_invalid": "Интервал должен быть числом от 1 до 3600 секунд.",
+            "btn_load_problem_patch": "Пнуть проблемный патч",
+            "btn_hot_reload_settings": "Настройки Hot reload",
+            "hot_reload_settings_title": "Настройки Hot reload",
+            "hot_reload_old_core_warning": "Ядро старое, новые приколы Hot reload оно не понимает. Обнови XKernel, а "
+            "пока это просто сохранится в конфиг.",
+            "hot_reload_settings_desc": "<b>Не долбить сломанный патч</b> — если reload упал, патч временно не мучаем.\n"
+            "<b>Подождать перед ретраем</b> — через сколько секунд снова пнуть проблемный "
+            "патч.\n"
+            "<b>Отключать при первой ошибке</b> — сразу кидает патч в disabled после фейла.\n"
+            "<b>Hot load новых патчей</b> — подбирает новые файлы из patches/ на горячую.",
+            "hot_reload_smart_disable_desc": "<b>Не долбить сломанный патч</b> — если reload упал, патч временно не "
+            "мучаем.",
+            "hot_reload_retry_interval_desc": "<b>Подождать перед ретраем</b> — через сколько секунд снова пнуть "
+            "проблемный патч.",
+            "hot_reload_disable_on_first_fail_desc": "<b>Отключать при первой ошибке</b> — сразу помечает патч disabled "
+            "после первой ошибки hot reload.",
+            "hot_load_new_patches_desc": "<b>Hot load новых патчей</b> — подбирает новые файлы из patches/ на горячую.",
         },
         "linux": {
-            "name": "XPatchKernelManager",
             "state_on": "ON",
             "state_off": "OFF",
             "btn_back": "Back",
@@ -850,8 +1062,8 @@ class XKernelInstaller(ModuleBase):
             "logs_title": "Live logs · [xpatch]",
             "logs_desc": "Shows the last <b>{max_lines}</b> lines with <code>[xpatch]</code> from "
             "<code>logs/kernel.log</code>. Refresh: <b>{interval}</b>s.",
-            "logs_lines_button": "Lines: {current} → {next}",
-            "logs_interval_button": "Refresh: {current}s → {next}s",
+            "logs_lines_button": "Lines: {current} > {next}",
+            "logs_interval_button": "Refresh: {current}s > {next}s",
             "logs_lines_answer": "Live logs: {value} lines",
             "logs_interval_answer": "Live logs: refresh {value}s",
             "utils_title": "XPatch Utils",
@@ -860,13 +1072,13 @@ class XKernelInstaller(ModuleBase):
             "utils_danger_desc": "<b>Danger zone</b> — destructive maintenance operations: remove kernel, backups, "
             "patches and manager unit.",
             "remove_title": "Remove XKernel",
-            "remove_desc": "Choose what to remove. This is irreversible for selected files. Order: kernel → backups → "
-            "patches → default core → manager → restart.",
+            "remove_desc": "Choose what to remove. This is irreversible for selected files. Order: kernel > backups > "
+            "patches > default core > manager > restart.",
             "remove_opt_core": "Kernel",
             "remove_opt_backups": "All backups",
             "remove_opt_manager": "Manager package",
             "remove_opt_patches": "All patches",
-            "remove_opt_default": "Default → standard",
+            "remove_opt_default": "Default > standard",
             "remove_opt_restart": "Auto-restart",
             "remove_answer_start": "Removing XKernel...",
             "remove_failed_title": "XKernel removal failed",
@@ -900,7 +1112,7 @@ class XKernelInstaller(ModuleBase):
             "btn_patch_events": "Patch events: {state}",
             "btn_hot_reload": "Hot reload: {state}",
             "btn_extera_all": "For all: {state}",
-            "btn_extera_root_custom": "Root: ON → custom",
+            "btn_extera_root_custom": "Root: ON > custom",
             "btn_extera_scope": "{scope}: {state}",
             "none": "none",
             "no_access": "No access",
@@ -1046,6 +1258,77 @@ class XKernelInstaller(ModuleBase):
             "cli_rollback_done_title": "XKernel rollback completed",
             "restart_prompt": "Restart MCUB service?",
             "btn_reboot": "Reboot",
+            "btn_client_patch_quick_toggle": "Patch: {state}",
+            "settings_notify_state": "Delay: <code>{delay}</code>s · Manager package: <code>{manager}</code>",
+            "settings_notify_delay_button": "Delay: {delay}s > {next_delay}s",
+            "settings_notify_manager_toggle": "Manager package notify: {state}",
+            "settings_notify_delay_answer": "Notification delay: {delay}s",
+            "manager_notifications_enabled": "XPatchKernelManager package update notifications enabled",
+            "manager_notifications_disabled": "XPatchKernelManager package update notifications disabled",
+            "manager_update_notice_title": "XPatchKernelManager package update available",
+            "manager_update_notice_hint": "Upgrade the package from repository to get new UI units.",
+            "btn_notify_settings": "Notify settings",
+            "notify_settings_title": "Notify settings",
+            "utils_rebuild_desc": "<b>Manager package rebuild</b> — creates a copy with a new package key and sends the "
+            ".py file to chat.",
+            "btn_rebuild_manager": "Manager package rebuild",
+            "rebuild_title": "Manager package rebuild",
+            "rebuild_desc": "Only string literals exactly equal to the current module name are replaced. Substrings "
+            "inside longer texts are not touched.",
+            "rebuild_current_name": "Current package key:",
+            "rebuild_new_name": "New package key:",
+            "rebuild_replacements": "Replacements:",
+            "rebuild_delete_state": "Remove current package after send:",
+            "btn_rebuild_name": "New package key",
+            "btn_rebuild_random": "Random",
+            "btn_rebuild_delete_current": "Remove current package after build",
+            "btn_rebuild_keep_current": "Keep current package",
+            "btn_rebuild_send": "Build and send",
+            "rebuild_random_answer": "Random name: {name}",
+            "rebuild_name_updated": "Rebuild name: {name}",
+            "rebuild_name_invalid": "Invalid name. Use latin letters, digits and _, first char must be latin. No spaces "
+            "or special symbols.",
+            "rebuild_same_name": "New name must differ from the current one.",
+            "rebuild_forbidden": "Rebuild is available only from the original XPatchKernelManager.",
+            "rebuild_source_missing": "Manager source file was not found.",
+            "rebuild_no_replacements": "No replaceable strings found. Rebuild cancelled.",
+            "rebuild_sent": "Rebuilt manager sent: <code>{file}</code>. Replacements: <b>{count}</b>.",
+            "rebuild_sent_delete": "Rebuilt manager sent. Removing current module...",
+            "rebuild_send_failed": "Failed to build or send manager",
+            "rebuild_config_state": "Copy package cfg:",
+            "btn_rebuild_copy_config": "Copy cfg to new package",
+            "btn_rebuild_skip_config": "Do not copy package cfg",
+            "rebuild_config_copied": "Cfg copied to package <code>{name}</code>",
+            "rebuild_force_wipe_state": "Remove current package cfg:",
+            "btn_rebuild_force_wipe": "Remove current package with cfg (-f)",
+            "btn_rebuild_keep_current_cfg": "Keep current package cfg",
+            "rebuild_saved_only_no_delete": "File was saved to Saved Messages, but forwarding to this chat failed. "
+            "Current package was not removed.",
+            "btn_hot_reload_smart_disable": "Smart quarantine: {state}",
+            "btn_hot_reload_retry_interval": "Retry timeout: {interval}s",
+            "btn_hot_reload_disable_on_first_fail": "Disable unit on first error: {state}",
+            "btn_hot_load_new_patches": "Hot load new patch units: {state}",
+            "hot_reload_retry_interval_answer": "Problem patch retry interval: {interval}s",
+            "hot_reload_retry_interval_invalid": "Interval must be a number from 1 to 3600 seconds.",
+            "btn_load_problem_patch": "Load failed patch unit",
+            "btn_hot_reload_settings": "Hot reload settings",
+            "hot_reload_settings_title": "Hot reload settings",
+            "hot_reload_old_core_warning": "Current XKernel package is old and does not support advanced Hot reload "
+            "units. Upgrade XKernel; otherwise these flags stay manager-side only.",
+            "hot_reload_settings_desc": "<b>Smart quarantine</b> — if hot reload fails to load a patch unit, it is "
+            "temporarily skipped.\n"
+            "<b>Retry timeout</b> — seconds before retrying a failed patch unit.\n"
+            "<b>Disable unit on first error</b> — marks the patch unit disabled after the "
+            "first hot reload error.\n"
+            "<b>Hot load new patch units</b> — loads new files from patches/ without "
+            "service restart.",
+            "hot_reload_smart_disable_desc": "<b>Smart quarantine</b> — if hot reload fails to load a patch unit, it is "
+            "temporarily skipped.",
+            "hot_reload_retry_interval_desc": "<b>Retry timeout</b> — seconds before retrying a failed patch unit.",
+            "hot_reload_disable_on_first_fail_desc": "<b>Disable unit on first error</b> — marks the patch unit "
+            "disabled after the first hot reload error.",
+            "hot_load_new_patches_desc": "<b>Hot load new patch units</b> — loads new files from patches/ without "
+            "service restart.",
         },
     }
 
@@ -1069,6 +1352,18 @@ class XKernelInstaller(ModuleBase):
             validator=Boolean(default=True),
         ),
         ConfigValue(
+            "manager_update_notifications",
+            True,
+            description="Send notifications when XPatchKernelManager has a newer repository version",
+            validator=Boolean(default=True),
+        ),
+        ConfigValue(
+            "update_notification_delay",
+            0,
+            description="Delay before sending update notifications in seconds: 0, 30, 60, or 300",
+            validator=Integer(default=0, min=0, max=300),
+        ),
+        ConfigValue(
             "experimental_patch_events",
             False,
             description="Experimental: emit xpatch:* events after patch lifecycle actions",
@@ -1078,6 +1373,30 @@ class XKernelInstaller(ModuleBase):
             "experimental_patch_hot_reload",
             False,
             description="Experimental: watch patch files and hot-reload changed patches",
+            validator=Boolean(default=False),
+        ),
+        ConfigValue(
+            "experimental_hot_reload_smart_disable",
+            False,
+            description="Temporarily quarantine patches that fail during hot reload",
+            validator=Boolean(default=False),
+        ),
+        ConfigValue(
+            "experimental_hot_reload_retry_interval",
+            30,
+            description="Seconds before hot reload retries a quarantined patch",
+            validator=Integer(default=30, min=1, max=3600),
+        ),
+        ConfigValue(
+            "experimental_hot_reload_disable_on_first_fail",
+            False,
+            description="Disable patch after first failed hot reload load attempt",
+            validator=Boolean(default=False),
+        ),
+        ConfigValue(
+            "experimental_hot_load_new_patches",
+            False,
+            description="Load newly added patch files while hot reload is running",
             validator=Boolean(default=False),
         ),
         ConfigValue(
@@ -1224,6 +1543,11 @@ class XKernelInstaller(ModuleBase):
             "pending": '<tg-emoji emoji-id="5839380464116175529">✏️</tg-emoji>',
             "result": '<tg-emoji emoji-id="5877540355187937244">📤</tg-emoji>',
             "phone": '<tg-emoji emoji-id="5407025283456835913">📱</tg-emoji>',
+            "catalog": '<tg-emoji emoji-id="5258423306255604960">💻</tg-emoji>',
+            "repo": '<tg-emoji emoji-id="5257963315258204021">🏘</tg-emoji>',
+            "add": '<tg-emoji emoji-id="5257991477358763590">↗️</tg-emoji>',
+            "delete": '<tg-emoji emoji-id="5778527486270770928">❌</tg-emoji>',
+            "rebuild": '<tg-emoji emoji-id="5891093751555694829">🎭</tg-emoji>',
         }
         self.C = self.CUSTOM_EMOJI
         await self._load_config()
@@ -1254,6 +1578,7 @@ class XKernelInstaller(ModuleBase):
         if not (
             self._cfg("auto_update_kernel")
             or self._cfg("update_notifications")
+            or self._cfg("manager_update_notifications")
             or self._manager_update_cache_stale()
         ):
             return
@@ -1263,6 +1588,10 @@ class XKernelInstaller(ModuleBase):
 
     async def _run_update_checks(self) -> None:
         await self._refresh_manager_update_cache()
+        if self._cfg("update_notifications") and self._cfg(
+            "manager_update_notifications"
+        ):
+            await self._check_manager_update()
         if self._cfg("auto_update_kernel") or self._cfg("update_notifications"):
             await self._check_kernel_update()
 
@@ -1364,8 +1693,49 @@ class XKernelInstaller(ModuleBase):
             setter = None
         if not callable(setter):
             return False
-        setter(enabled)
+        try:
+            setter(
+                enabled,
+                smart_disable=bool(
+                    self._cfg("experimental_hot_reload_smart_disable", False)
+                ),
+                retry_interval=self._hot_reload_retry_interval(),
+                disable_on_first_fail=bool(
+                    self._cfg("experimental_hot_reload_disable_on_first_fail", False)
+                ),
+                hot_load_new_patches=bool(
+                    self._cfg("experimental_hot_load_new_patches", False)
+                ),
+            )
+            self._hot_reload_advanced_runtime_supported = True
+        except TypeError as exc:
+            if "unexpected keyword" not in str(exc):
+                raise
+            setter(enabled)
+            self._hot_reload_advanced_runtime_supported = False
         return True
+
+    def _hot_reload_advanced_supported(self) -> bool:
+        try:
+            setter = object.__getattribute__(
+                self._kernel_object(), "set_xpatch_hot_reload_enabled"
+            )
+            signature = inspect.signature(setter)
+        except Exception:
+            return bool(getattr(self, "_hot_reload_advanced_runtime_supported", True))
+        params = signature.parameters
+        if any(
+            param.kind == inspect.Parameter.VAR_KEYWORD for param in params.values()
+        ):
+            return True
+        return "smart_disable" in params
+
+    def _hot_reload_retry_interval(self) -> int:
+        try:
+            value = int(self._cfg("experimental_hot_reload_retry_interval", 30) or 30)
+        except (TypeError, ValueError):
+            return 30
+        return min(max(value, 1), 3600)
 
     def _apply_experimental_from_config(self) -> None:
         self._set_runtime_patch_events(
@@ -1906,7 +2276,10 @@ class XKernelInstaller(ModuleBase):
         )
         buttons.append(
             [
-                self.Button.url(f"🧳 {self.strings('btn_repo')}", self.X_KERNEL_REPO),
+                self.Button.url(
+                    f"{self._clear_text(self.C['repo'])} {self.strings('btn_repo')}",
+                    self.X_KERNEL_REPO,
+                ),
             ]
         )
 
@@ -1938,11 +2311,195 @@ class XKernelInstaller(ModuleBase):
         text, buttons = self._build_main_page()
         await call.edit(text, buttons=buttons)
 
+    @staticmethod
+    def _canonical_manager_name() -> str:
+        return "XPatch" "KernelManager"
+
+    def _manager_rebuild_state(self) -> dict[str, Any]:
+        state = getattr(self, "_manager_rebuild_state_data", None)
+        if not isinstance(state, dict):
+            state = {
+                "name": "XPatchKernelManagerFork",
+                "delete_current": True,
+                "copy_config": True,
+                "force_wipe_current_config": False,
+            }
+            self._manager_rebuild_state_data = state
+        return state
+
+    def _validate_manager_rebuild_name(self, name: str) -> str:
+        value = str(name or "").strip()
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{2,63}", value):
+            raise ValueError(self.strings("rebuild_name_invalid"))
+        if value == self._canonical_manager_name():
+            raise ValueError(self.strings("rebuild_same_name"))
+        return value
+
+    def _random_manager_rebuild_name(self) -> str:
+        alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        suffix = "".join(secrets.choice(alphabet) for _ in range(10))
+        return f"Manager_{suffix}"
+
+    def _manager_rebuild_source_path(self) -> Path:
+        raw = inspect.getsourcefile(type(self)) or globals().get("__file__")
+        if not raw:
+            raise FileNotFoundError(self.strings("rebuild_source_missing"))
+        path = Path(raw)
+        if not path.is_absolute():
+            path = Path.cwd() / path
+        if not path.exists():
+            raise FileNotFoundError(self.strings("rebuild_source_missing"))
+        return path
+
+    def _replace_manager_name_literals(
+        self,
+        source: str,
+        *,
+        old_name: str,
+        new_name: str,
+    ) -> tuple[str, int]:
+        tokens: list[tokenize.TokenInfo] = []
+        replacements = 0
+        stream = io.StringIO(source)
+        for token in tokenize.generate_tokens(stream.readline):
+            if token.type == tokenize.STRING:
+                try:
+                    value = ast.literal_eval(token.string)
+                except Exception:
+                    value = None
+                if value == old_name:
+                    token = token._replace(string=repr(new_name))
+                    replacements += 1
+            tokens.append(token)
+        return tokenize.untokenize(tokens), replacements
+
+    def _build_rebuilt_manager_source(self, new_name: str) -> tuple[str, int]:
+        current_name = str(getattr(self, "name", ""))
+        if current_name != self._canonical_manager_name():
+            raise RuntimeError(self.strings("rebuild_forbidden"))
+        new_name = self._validate_manager_rebuild_name(new_name)
+        source = self._manager_rebuild_source_path().read_text(encoding="utf-8")
+        rebuilt, replacements = self._replace_manager_name_literals(
+            source,
+            old_name=current_name,
+            new_name=new_name,
+        )
+        if replacements <= 0:
+            raise RuntimeError(self.strings("rebuild_no_replacements"))
+        return rebuilt, replacements
+
+    def _build_manager_rebuild_page(self) -> tuple[str, list]:
+        C = self.C
+        state = self._manager_rebuild_state()
+        new_name = str(state.get("name") or "XPatchKernelManagerFork")
+        delete_current = bool(state.get("delete_current", True))
+        copy_config = bool(state.get("copy_config", True))
+        force_wipe_current_config = bool(state.get("force_wipe_current_config", False))
+        try:
+            _, replacements = self._build_rebuilt_manager_source(new_name)
+        except Exception:
+            replacements = 0
+        text = (
+            f"{C['rebuild']} <b>{self.strings('rebuild_title')}</b>\n\n"
+            f"<blockquote>{self.strings('rebuild_desc')}</blockquote>\n"
+            f"{C['info']} {self.strings('rebuild_current_name')} <code>{html.escape(str(getattr(self, 'name', '')))}</code>\n"
+            f"{C['file']} {self.strings('rebuild_new_name')} <code>{html.escape(new_name)}</code>\n"
+            f"{C['reload']} {self.strings('rebuild_replacements')} <code>{replacements}</code>\n"
+            f"{C['diskette']} {self.strings('rebuild_config_state')} <code>{self.strings('state_on' if copy_config else 'state_off')}</code>\n"
+            f"{C['warning']} {self.strings('rebuild_delete_state')} <code>{self.strings('state_on' if delete_current else 'state_off')}</code>"
+        )
+        if delete_current and not copy_config:
+            text += (
+                f"\n{C['diskette']} {self.strings('rebuild_force_wipe_state')} "
+                f"<code>{self.strings('state_on' if force_wipe_current_config else 'state_off')}</code>"
+            )
+        buttons = [
+            [
+                self.Button.input(
+                    f"📝 {self.strings('btn_rebuild_name')}",
+                    self.on_manager_rebuild_name_input,
+                    placeholder=new_name,
+                    ttl=600,
+                    style="primary",
+                ),
+                self.Button.inline(
+                    f"🎲 {self.strings('btn_rebuild_random')}",
+                    self.on_manager_rebuild_random,
+                    ttl=600,
+                    style="primary",
+                ),
+            ],
+            [
+                self.Button.inline(
+                    self.strings(
+                        "btn_rebuild_copy_config"
+                        if copy_config
+                        else "btn_rebuild_skip_config"
+                    ),
+                    self.on_toggle_manager_rebuild_copy_config,
+                    ttl=600,
+                    style="success" if copy_config else "danger",
+                )
+            ],
+        ]
+        if delete_current and not copy_config:
+            buttons.append(
+                [
+                    self.Button.inline(
+                        self.strings(
+                            "btn_rebuild_force_wipe"
+                            if force_wipe_current_config
+                            else "btn_rebuild_keep_current_cfg"
+                        ),
+                        self.on_toggle_manager_rebuild_force_wipe,
+                        ttl=600,
+                        style="danger" if force_wipe_current_config else "success",
+                    )
+                ]
+            )
+        buttons.extend(
+            [
+                [
+                    self.Button.inline(
+                        self.strings(
+                            "btn_rebuild_delete_current"
+                            if delete_current
+                            else "btn_rebuild_keep_current"
+                        ),
+                        self.on_toggle_manager_rebuild_delete,
+                        ttl=600,
+                        style="danger" if delete_current else "success",
+                    )
+                ],
+            ]
+        )
+        buttons.extend(
+            [
+                [
+                    self.Button.inline(
+                        f"📦 {self.strings('btn_rebuild_send')}",
+                        self.on_manager_rebuild_send,
+                        ttl=600,
+                        style="success",
+                    )
+                ],
+                [
+                    self.Button.inline(
+                        f"{self._clear_text(C['back'])} {self.strings('btn_back')}",
+                        self.on_back_to_utils,
+                        ttl=600,
+                    )
+                ],
+            ]
+        )
+        return text, buttons
+
     def _build_utils_page(self) -> tuple[str, list]:
         C = self.C
         text = (
             f"{C['utils']} <b>{self.strings('utils_title')}</b>\n\n"
             f"<blockquote>{C['logs']} {self.strings('utils_logs_desc')}</blockquote>\n"
+            f"<blockquote>{C['rebuild']} {self.strings('utils_rebuild_desc')}</blockquote>\n"
             f"<blockquote>{C['warning']} {self.strings('utils_danger_desc')}</blockquote>"
         )
         buttons = [
@@ -1955,7 +2512,14 @@ class XKernelInstaller(ModuleBase):
             ],
             [
                 self.Button.inline(
-                    f"🧨 {self.strings('btn_remove_xkernel')}",
+                    f"{self._clear_text(C['rebuild'])} {self.strings('btn_rebuild_manager')}",
+                    self.on_manager_rebuild_menu,
+                    ttl=600,
+                )
+            ],
+            [
+                self.Button.inline(
+                    f"{self._clear_text(C['delete'])} {self.strings('btn_remove_xkernel')}",
                     self.on_remove_xkernel_menu,
                     ttl=600,
                 )
@@ -1980,6 +2544,246 @@ class XKernelInstaller(ModuleBase):
     async def on_back_to_utils(self, call) -> None:
         self._stop_live_logs()
         text, buttons = self._build_utils_page()
+        await call.edit(text, buttons=buttons)
+
+    @staticmethod
+    def _event_chat_id(event: Any) -> Any:
+        for attr in ("chat_id", "peer_id"):
+            value = getattr(event, attr, None)
+            if value is not None:
+                return value
+        message = getattr(event, "message", None)
+        for attr in ("chat_id", "peer_id"):
+            value = getattr(message, attr, None)
+            if value is not None:
+                return value
+        return "me"
+
+    def _user_client(self) -> Any:
+        client = getattr(self, "client", None)
+        if client is not None and callable(getattr(client, "send_file", None)):
+            return client
+        kernel = getattr(self, "kernel", None)
+        client = getattr(kernel, "client", None)
+        if client is not None and callable(getattr(client, "send_file", None)):
+            return client
+        raise RuntimeError("user client with send_file is not available")
+
+    async def _forward_saved_rebuild_file(
+        self,
+        client: Any,
+        saved_message: Any,
+        chat_id: Any,
+    ) -> bool:
+        if chat_id in {None, "me"}:
+            return False
+        try:
+            forward_to = getattr(saved_message, "forward_to", None)
+            if callable(forward_to):
+                result = forward_to(chat_id)
+                if inspect.isawaitable(result):
+                    await result
+                return True
+            forward_messages = getattr(client, "forward_messages", None)
+            if callable(forward_messages):
+                await forward_messages(chat_id, saved_message)
+                return True
+        except Exception as exc:
+            self.log.debug("manager rebuild forward failed: %s", exc)
+        return False
+
+    async def _delete_saved_rebuild_file(self, client: Any, saved_message: Any) -> None:
+        with contextlib.suppress(Exception):
+            delete = getattr(saved_message, "delete", None)
+            if callable(delete):
+                result = delete()
+                if inspect.isawaitable(result):
+                    await result
+                return
+        with contextlib.suppress(Exception):
+            delete_messages = getattr(client, "delete_messages", None)
+            message_id = getattr(saved_message, "id", None)
+            if callable(delete_messages) and message_id is not None:
+                await delete_messages("me", [message_id])
+
+    async def _copy_manager_rebuild_config(self, new_name: str) -> None:
+        kernel = getattr(self, "kernel", None)
+        save_config = getattr(kernel, "save_module_config", None)
+        if callable(save_config):
+            await save_config(new_name, self.config.to_dict())
+        store_schema = getattr(kernel, "store_module_config_schema", None)
+        if callable(store_schema):
+            store_schema(new_name, self.config)
+
+    async def _send_rebuilt_manager_file(
+        self,
+        event: Any,
+        *,
+        new_name: str,
+        source: str,
+        replacements: int,
+    ) -> bool:
+        chat_id = self._event_chat_id(event)
+        client = self._user_client()
+        file_name = f"{new_name}.py"
+        caption = self.strings(
+            "rebuild_sent",
+            file=html.escape(file_name),
+            count=replacements,
+        )
+        with tempfile.TemporaryDirectory(prefix="xpatch_manager_rebuild_") as tmp:
+            path = Path(tmp) / file_name
+            path.write_text(source, encoding="utf-8")
+            saved_message = await client.send_file(
+                "me",
+                file=str(path),
+                caption=caption,
+                parse_mode="html",
+                force_document=True,
+            )
+            if chat_id in {None, "me"}:
+                return True
+            forwarded = await self._forward_saved_rebuild_file(
+                client, saved_message, chat_id
+            )
+            if forwarded:
+                await self._delete_saved_rebuild_file(client, saved_message)
+                return True
+            return False
+
+    async def _refresh_manager_rebuild_event(self) -> bool:
+        call = getattr(self, "_manager_rebuild_event", None)
+        if call is None:
+            return False
+        try:
+            text, buttons = self._build_manager_rebuild_page()
+            await call.edit(text, buttons=buttons)
+            return True
+        except Exception as exc:
+            self.log.debug("cannot refresh manager rebuild menu: %s", exc)
+            return False
+
+    @callback(ttl=600)
+    async def on_manager_rebuild_menu(self, call) -> None:
+        self._manager_rebuild_event = call
+        text, buttons = self._build_manager_rebuild_page()
+        await call.edit(text, buttons=buttons)
+
+    async def on_manager_rebuild_name_input(
+        self,
+        event: Any,
+        text: str,
+        data: Any = None,
+    ) -> None:
+        try:
+            name = self._validate_manager_rebuild_name(text)
+        except ValueError as exc:
+            await self._refresh_manager_rebuild_event()
+            with contextlib.suppress(Exception):
+                await self._edit(event, f"🚫 {html.escape(str(exc))}")
+            return
+        state = self._manager_rebuild_state()
+        state["name"] = name
+        refreshed = await self._refresh_manager_rebuild_event()
+        if not refreshed:
+            with contextlib.suppress(Exception):
+                await self._edit(
+                    event,
+                    f"{self.C['true']} {self.strings('rebuild_name_updated', name=html.escape(name))}",
+                )
+
+    @callback(ttl=600)
+    async def on_manager_rebuild_random(self, call) -> None:
+        self._manager_rebuild_event = call
+        name = self._random_manager_rebuild_name()
+        self._manager_rebuild_state()["name"] = name
+        await call.answer(self.strings("rebuild_random_answer", name=name), alert=False)
+        text, buttons = self._build_manager_rebuild_page()
+        await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
+    async def on_toggle_manager_rebuild_delete(self, call) -> None:
+        self._manager_rebuild_event = call
+        state = self._manager_rebuild_state()
+        state["delete_current"] = not bool(state.get("delete_current", True))
+        text, buttons = self._build_manager_rebuild_page()
+        await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
+    async def on_toggle_manager_rebuild_copy_config(self, call) -> None:
+        self._manager_rebuild_event = call
+        state = self._manager_rebuild_state()
+        state["copy_config"] = not bool(state.get("copy_config", True))
+        text, buttons = self._build_manager_rebuild_page()
+        await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
+    async def on_toggle_manager_rebuild_force_wipe(self, call) -> None:
+        self._manager_rebuild_event = call
+        state = self._manager_rebuild_state()
+        state["force_wipe_current_config"] = not bool(
+            state.get("force_wipe_current_config", False)
+        )
+        text, buttons = self._build_manager_rebuild_page()
+        await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
+    async def on_manager_rebuild_send(self, call) -> None:
+        self._manager_rebuild_event = call
+        state = self._manager_rebuild_state()
+        new_name = str(state.get("name") or "")
+        delete_current = bool(state.get("delete_current", True))
+        copy_config = bool(state.get("copy_config", True))
+        force_wipe_current_config = bool(state.get("force_wipe_current_config", False))
+        try:
+            source, replacements = self._build_rebuilt_manager_source(new_name)
+            delivered = await self._send_rebuilt_manager_file(
+                call,
+                new_name=new_name,
+                source=source,
+                replacements=replacements,
+            )
+        except Exception as exc:
+            self.log.exception("manager rebuild failed")
+            await call.answer(self.strings("rebuild_send_failed"), alert=True)
+            await call.edit(
+                f"🚫 <b>{self.strings('rebuild_send_failed')}</b>\n"
+                f"<blockquote><code>{html.escape(str(exc))}</code></blockquote>",
+                buttons=[
+                    [
+                        self.Button.inline(
+                            f"{self._clear_text(self.C['back'])} {self.strings('btn_back')}",
+                            self.on_manager_rebuild_menu,
+                            ttl=600,
+                        )
+                    ]
+                ],
+            )
+            return
+
+        if copy_config:
+            await self._copy_manager_rebuild_config(new_name)
+
+        if delete_current:
+            if not delivered:
+                await call.answer(
+                    self.strings("rebuild_saved_only_no_delete"), alert=True
+                )
+                text, buttons = self._build_manager_rebuild_page()
+                await call.edit(text, buttons=buttons)
+                return
+            await call.answer(self.strings("rebuild_sent_delete"), alert=True)
+            delete_args = self.name
+            if not copy_config and force_wipe_current_config:
+                delete_args = f"{delete_args} -f"
+            await self.invoke("um", args=delete_args, chat_id="me")
+            return
+
+        await call.answer(
+            self.strings("rebuild_sent", file=f"{new_name}.py", count=replacements),
+            alert=False,
+        )
+        text, buttons = self._build_manager_rebuild_page()
         await call.edit(text, buttons=buttons)
 
     def _xkernel_remove_options(self) -> dict[str, bool]:
@@ -2013,7 +2817,7 @@ class XKernelInstaller(ModuleBase):
         buttons = [
             [
                 self.Button.inline(
-                    f"🧨 {self.strings('btn_start_remove')}",
+                    f"{self._clear_text(C['delete'])} {self.strings('btn_start_remove')}",
                     self.on_remove_xkernel_start,
                     ttl=300,
                 )
@@ -2214,6 +3018,16 @@ class XKernelInstaller(ModuleBase):
         value = self._live_logs_refresh_interval() if current is None else current
         return self._next_choice(value, (5, 10, 15))
 
+    def _notification_delay_seconds(self) -> int:
+        try:
+            value = int(self._cfg("update_notification_delay", 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+        return value if value in {0, 30, 60, 300} else 0
+
+    def _next_notification_delay_seconds(self) -> int:
+        return self._next_choice(self._notification_delay_seconds(), (0, 30, 60, 300))
+
     async def _set_live_logs_max_lines(self, call: Any, value: int) -> None:
         self.config["live_logs_max_lines"] = str(value)
         await self._save_config()
@@ -2292,7 +3106,19 @@ class XKernelInstaller(ModuleBase):
                     self.on_toggle_notifications,
                     ttl=600,
                     style="danger" if not notifications else "success",
-                )
+                ),
+                *(
+                    [
+                        self.Button.inline(
+                            f"{self._clear_text(C['settings'])} {self.strings('btn_notify_settings')}",
+                            self.on_notify_settings_menu,
+                            ttl=600,
+                            style="primary",
+                        )
+                    ]
+                    if notifications
+                    else []
+                ),
             ],
             [
                 self.Button.inline(
@@ -2318,6 +3144,57 @@ class XKernelInstaller(ModuleBase):
     @callback(ttl=600)
     async def on_settings_menu(self, call) -> None:
         text, buttons = self._build_settings_page()
+        await call.edit(text, buttons=buttons)
+
+    def _build_notify_settings_page(self) -> tuple[str, list]:
+        C = self.C
+        notify_delay = self._notification_delay_seconds()
+        next_notify_delay = self._next_notification_delay_seconds()
+        manager_notifications = bool(self._cfg("manager_update_notifications", True))
+        text = (
+            f"{C['diskette']} <b>{self.strings('notify_settings_title')}</b>\n\n"
+            f"<blockquote><em>{self.strings('settings_notify_desc')}\n"
+            f"{self.strings('settings_notify_state', delay=notify_delay, manager=self.strings('state_on' if manager_notifications else 'state_off'))}</em></blockquote>"
+        )
+        buttons = [
+            [
+                self.Button.inline(
+                    self.strings(
+                        "settings_notify_delay_button",
+                        delay=notify_delay,
+                        next_delay=next_notify_delay,
+                    ),
+                    self.on_cycle_notification_delay,
+                    ttl=600,
+                    style="primary",
+                )
+            ],
+            [
+                self.Button.inline(
+                    self.strings(
+                        "settings_notify_manager_toggle",
+                        state=self.strings(
+                            "state_on" if manager_notifications else "state_off"
+                        ),
+                    ),
+                    self.on_toggle_manager_update_notifications,
+                    ttl=600,
+                    style="danger" if not manager_notifications else "success",
+                )
+            ],
+            [
+                self.Button.inline(
+                    f"{self._clear_text(C['back'])} {self.strings('btn_back')}",
+                    self.on_settings_menu,
+                    ttl=600,
+                )
+            ],
+        ]
+        return text, buttons
+
+    @callback(ttl=600)
+    async def on_notify_settings_menu(self, call) -> None:
+        text, buttons = self._build_notify_settings_page()
         await call.edit(text, buttons=buttons)
 
     def _build_extera_proxy_page(self) -> tuple[str, list]:
@@ -2426,14 +3303,14 @@ class XKernelInstaller(ModuleBase):
             ),
             [
                 self.Button.input(
-                    f"{self._clear_text(C['+'])} {self.strings('btn_extera_add_module')}",
+                    f"{self._clear_text(C['add'])} {self.strings('btn_extera_add_module')}",
                     self.on_extera_proxy_add_input,
                     placeholder="ModuleName",
                     ttl=600,
                     style="success",
                 ),
                 self.Button.input(
-                    f"➖ {self.strings('btn_extera_remove_module')}",
+                    f"{self._clear_text(C['delete'])} {self.strings('btn_extera_remove_module')}",
                     self.on_extera_proxy_remove_input,
                     placeholder="ModuleName",
                     ttl=600,
@@ -2442,7 +3319,7 @@ class XKernelInstaller(ModuleBase):
             ],
             [
                 self.Button.inline(
-                    f"🧹 {self.strings('btn_extera_clear_list')}",
+                    f"{self._clear_text(C['delete'])} {self.strings('btn_extera_clear_list')}",
                     self.on_clear_extera_proxy_modules,
                     ttl=600,
                 )
@@ -2558,7 +3435,7 @@ class XKernelInstaller(ModuleBase):
             ],
             [
                 self.Button.inline(
-                    f"🧹 {self.strings('btn_clear_params')}",
+                    f"{self._clear_text(C['delete'])} {self.strings('btn_clear_params')}",
                     self.on_clear_client_patch_options,
                     ttl=600,
                 )
@@ -2595,6 +3472,7 @@ class XKernelInstaller(ModuleBase):
         C = self.C
         patch_events = bool(self._cfg("experimental_patch_events", False))
         hot_reload = bool(self._cfg("experimental_patch_hot_reload", False))
+        client_patch_enabled = self._is_client_patch_enabled()
         text = (
             f"{C['magic']} <b>{self.strings('experimental_title')}</b>\n\n"
             f"{self._bool_icon(patch_events)} <b>Patch events</b>\n"
@@ -2624,23 +3502,62 @@ class XKernelInstaller(ModuleBase):
                     self.on_toggle_patch_hot_reload,
                     ttl=600,
                     style="danger" if not hot_reload else "success",
-                )
+                ),
+                *(
+                    [
+                        self.Button.inline(
+                            f"{self._clear_text(C['settings'])} {self.strings('btn_hot_reload_settings')}",
+                            self.on_hot_reload_settings_menu,
+                            ttl=600,
+                            style="primary",
+                        )
+                    ]
+                    if hot_reload
+                    else []
+                ),
             ],
             [
+                self.Button.inline(
+                    f"{self.strings('btn_extera_clear_list')}",
+                    self.on_clear_extera_proxy_modules_quick,
+                    ttl=600,
+                    style="danger",
+                ),
                 self.Button.inline(
                     f"{self._clear_text(C['injection'])} {self.strings('btn_extera_proxy')}",
                     self.on_extera_proxy_menu,
                     ttl=600,
                     style="primary",
-                )
+                ),
             ],
             [
                 self.Button.inline(
-                    f"{self._clear_text(C['phone'])} {self.strings('btn_client_patch')}",
-                    self.on_client_patch_menu,
+                    self.strings(
+                        "btn_client_patch_quick_toggle",
+                        state=self.strings(
+                            "state_on" if client_patch_enabled else "state_off"
+                        ),
+                    ),
+                    self.on_toggle_client_patch_quick,
                     ttl=600,
-                    style="primary" if self._client_patch_supported() else "danger",
-                )
+                    style="success" if client_patch_enabled else "danger",
+                ),
+                *(
+                    [
+                        self.Button.inline(
+                            f"{self._clear_text(C['phone'])} {self.strings('btn_client_patch')}",
+                            self.on_client_patch_menu,
+                            ttl=600,
+                            style=(
+                                "primary"
+                                if self._client_patch_supported()
+                                else "danger"
+                            ),
+                        )
+                    ]
+                    if client_patch_enabled
+                    else []
+                ),
             ],
             [
                 self.Button.inline(
@@ -2652,8 +3569,106 @@ class XKernelInstaller(ModuleBase):
         ]
         return text, buttons
 
+    def _build_hot_reload_settings_page(self) -> tuple[str, list]:
+        C = self.C
+        hot_reload_smart_disable = bool(
+            self._cfg("experimental_hot_reload_smart_disable", False)
+        )
+        hot_reload_disable_on_first_fail = bool(
+            self._cfg("experimental_hot_reload_disable_on_first_fail", False)
+        )
+        hot_load_new_patches = bool(
+            self._cfg("experimental_hot_load_new_patches", False)
+        )
+        hot_reload_retry_interval = self._hot_reload_retry_interval()
+        text = f"{C['reload']} <b>{self.strings('hot_reload_settings_title')}</b>\n\n"
+        if not hot_reload_disable_on_first_fail:
+            text += (
+                f"<blockquote>{self.strings('hot_reload_smart_disable_desc')}</blockquote>\n"
+                f"<blockquote>{self.strings('hot_reload_retry_interval_desc')}</blockquote>\n"
+            )
+        text += (
+            f"<blockquote>{self.strings('hot_reload_disable_on_first_fail_desc')}</blockquote>\n"
+            f"<blockquote>{self.strings('hot_load_new_patches_desc')}</blockquote>"
+        )
+        if not self._hot_reload_advanced_supported():
+            text += (
+                f"\n\n<blockquote>{C['warning']} "
+                f"{self.strings('hot_reload_old_core_warning')}</blockquote>"
+            )
+        buttons = []
+        if not hot_reload_disable_on_first_fail:
+            buttons.append(
+                [
+                    self.Button.inline(
+                        self.strings(
+                            "btn_hot_reload_smart_disable",
+                            state=self.strings(
+                                "state_on" if hot_reload_smart_disable else "state_off"
+                            ),
+                        ),
+                        self.on_toggle_hot_reload_smart_disable,
+                        ttl=600,
+                        style="success" if hot_reload_smart_disable else "danger",
+                    ),
+                    self.Button.input(
+                        self.strings(
+                            "btn_hot_reload_retry_interval",
+                            interval=hot_reload_retry_interval,
+                        ),
+                        self.on_hot_reload_retry_interval_input,
+                        placeholder=str(hot_reload_retry_interval),
+                        ttl=600,
+                        style="primary",
+                    ),
+                ]
+            )
+        buttons.extend(
+            [
+                [
+                    self.Button.inline(
+                        self.strings(
+                            "btn_hot_reload_disable_on_first_fail",
+                            state=self.strings(
+                                "state_on"
+                                if hot_reload_disable_on_first_fail
+                                else "state_off"
+                            ),
+                        ),
+                        self.on_toggle_hot_reload_disable_on_first_fail,
+                        ttl=600,
+                        style=(
+                            "success" if hot_reload_disable_on_first_fail else "danger"
+                        ),
+                    )
+                ],
+                [
+                    self.Button.inline(
+                        self.strings(
+                            "btn_hot_load_new_patches",
+                            state=self.strings(
+                                "state_on" if hot_load_new_patches else "state_off"
+                            ),
+                        ),
+                        self.on_toggle_hot_load_new_patches,
+                        ttl=600,
+                        style="success" if hot_load_new_patches else "danger",
+                    )
+                ],
+                [
+                    self.Button.inline(
+                        f"{self._clear_text(C['back'])} {self.strings('btn_back')}",
+                        self.on_experimental_settings_menu,
+                        ttl=600,
+                    )
+                ],
+            ]
+        )
+        return text, buttons
+
     @callback(ttl=600)
     async def on_experimental_settings_menu(self, call) -> None:
+        self._experimental_settings_event = call
         if self._get_pm() is None:
             await call.answer(self.strings("unsupported_current_kernel"), alert=True)
             await call.edit(
@@ -2672,6 +3687,48 @@ class XKernelInstaller(ModuleBase):
             return
         text, buttons = self._build_experimental_settings_page()
         await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
+    async def on_hot_reload_settings_menu(self, call) -> None:
+        self._hot_reload_settings_event = call
+        text, buttons = self._build_hot_reload_settings_page()
+        await call.edit(text, buttons=buttons)
+
+    async def _refresh_experimental_settings_event(self) -> bool:
+        call = getattr(self, "_experimental_settings_event", None)
+        if call is None:
+            return False
+        try:
+            text, buttons = self._build_experimental_settings_page()
+            await call.edit(text, buttons=buttons)
+            return True
+        except Exception as exc:
+            self.log.debug("cannot refresh experimental settings menu: %s", exc)
+            return False
+
+    async def _refresh_hot_reload_runtime_and_page(
+        self, call: Any | None = None
+    ) -> None:
+        self._set_runtime_hot_reload(
+            bool(self._cfg("experimental_patch_hot_reload", False))
+        )
+        if call is not None:
+            self._hot_reload_settings_event = call
+        if not await self._refresh_hot_reload_settings_event() and call is not None:
+            text, buttons = self._build_hot_reload_settings_page()
+            await call.edit(text, buttons=buttons)
+
+    async def _refresh_hot_reload_settings_event(self) -> bool:
+        call = getattr(self, "_hot_reload_settings_event", None)
+        if call is None:
+            return False
+        try:
+            text, buttons = self._build_hot_reload_settings_page()
+            await call.edit(text, buttons=buttons)
+            return True
+        except Exception as exc:
+            self.log.debug("cannot refresh hot reload settings menu: %s", exc)
+            return False
 
     @callback(ttl=600)
     async def on_toggle_stealth(self, call) -> None:
@@ -2728,6 +3785,35 @@ class XKernelInstaller(ModuleBase):
         await call.edit(text, buttons=buttons)
 
     @callback(ttl=600)
+    async def on_cycle_notification_delay(self, call) -> None:
+        delay = self._next_notification_delay_seconds()
+        self.config["update_notification_delay"] = delay
+        await self._save_config()
+        await call.answer(
+            self.strings("settings_notify_delay_answer", delay=delay),
+            alert=False,
+        )
+        text, buttons = self._build_notify_settings_page()
+        await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
+    async def on_toggle_manager_update_notifications(self, call) -> None:
+        new_value = not bool(self._cfg("manager_update_notifications", True))
+        self.config["manager_update_notifications"] = new_value
+        await self._save_config()
+        self._ensure_update_task()
+        await call.answer(
+            self.strings(
+                "manager_notifications_enabled"
+                if new_value
+                else "manager_notifications_disabled"
+            ),
+            alert=False,
+        )
+        text, buttons = self._build_notify_settings_page()
+        await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
     async def on_toggle_client_patch(self, call) -> None:
         self._client_patch_event = call
         new_value = not self._is_client_patch_enabled()
@@ -2745,6 +3831,25 @@ class XKernelInstaller(ModuleBase):
             alert=False,
         )
         text, buttons = self._build_client_patch_page()
+        await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
+    async def on_toggle_client_patch_quick(self, call) -> None:
+        new_value = not self._is_client_patch_enabled()
+        if new_value and not self._set_runtime_client_patch(True):
+            await call.answer(self.strings("client_patch_unsupported"), alert=True)
+            return
+        if not new_value:
+            self._clear_runtime_client_patch()
+        self._client_patch_enabled_db = new_value
+        await self._save_client_patch_db_state()
+        await call.answer(
+            self.strings(
+                "client_patch_enabled" if new_value else "client_patch_disabled"
+            ),
+            alert=False,
+        )
+        text, buttons = self._build_experimental_settings_page()
         await call.edit(text, buttons=buttons)
 
     async def _set_client_patch_input(
@@ -2967,6 +4072,16 @@ class XKernelInstaller(ModuleBase):
         await call.edit(text, buttons=buttons)
 
     @callback(ttl=600)
+    async def on_clear_extera_proxy_modules_quick(self, call) -> None:
+        self._save_extera_modules_to_config([])
+        self._set_runtime_extera_proxy_modules([])
+        await self._save_config()
+        await call.answer(self.strings("extera_clear_answer"), alert=False)
+        await self._refresh_extera_proxy_event()
+        text, buttons = self._build_experimental_settings_page()
+        await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
     async def on_toggle_patch_events(self, call) -> None:
         new_value = not bool(self._cfg("experimental_patch_events", False))
         if new_value and not self._set_runtime_patch_events(True):
@@ -3001,6 +4116,59 @@ class XKernelInstaller(ModuleBase):
         )
         text, buttons = self._build_experimental_settings_page()
         await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
+    async def on_toggle_hot_reload_smart_disable(self, call) -> None:
+        self.config["experimental_hot_reload_smart_disable"] = not bool(
+            self._cfg("experimental_hot_reload_smart_disable", False)
+        )
+        await self._save_config()
+        await call.answer("OK", alert=False)
+        await self._refresh_hot_reload_runtime_and_page(call)
+
+    async def on_hot_reload_retry_interval_input(
+        self,
+        event: Any,
+        text: str,
+        data: Any = None,
+    ) -> None:
+        try:
+            value = int(str(text or "").strip())
+        except (TypeError, ValueError):
+            value = 0
+        if value < 1 or value > 3600:
+            await self._refresh_experimental_settings_event()
+            with contextlib.suppress(Exception):
+                await self._edit(
+                    event, f"🚫 {self.strings('hot_reload_retry_interval_invalid')}"
+                )
+            return
+        self.config["experimental_hot_reload_retry_interval"] = value
+        await self._save_config()
+        await self._refresh_hot_reload_runtime_and_page(None)
+        with contextlib.suppress(Exception):
+            await self._edit(
+                event,
+                f"{self.C['true']} {self.strings('hot_reload_retry_interval_answer', interval=value)}",
+            )
+
+    @callback(ttl=600)
+    async def on_toggle_hot_reload_disable_on_first_fail(self, call) -> None:
+        self.config["experimental_hot_reload_disable_on_first_fail"] = not bool(
+            self._cfg("experimental_hot_reload_disable_on_first_fail", False)
+        )
+        await self._save_config()
+        await call.answer("OK", alert=False)
+        await self._refresh_hot_reload_runtime_and_page(call)
+
+    @callback(ttl=600)
+    async def on_toggle_hot_load_new_patches(self, call) -> None:
+        self.config["experimental_hot_load_new_patches"] = not bool(
+            self._cfg("experimental_hot_load_new_patches", False)
+        )
+        await self._save_config()
+        await call.answer("OK", alert=False)
+        await self._refresh_hot_reload_runtime_and_page(call)
 
     def _patch_button_entries(self, pm: Any) -> list[dict[str, str]]:
         entries: list[dict[str, str]] = []
@@ -3226,7 +4394,7 @@ class XKernelInstaller(ModuleBase):
             info = self._patch_detail_info(pm, entry)
             label = (
                 f"{self._clear_text(self._patch_status_icon(str(info['status'])))} "
-                f"{str(info['name'])[:32]} → {str(info['target'])[:24]}"
+                f"{str(info['name'])[:32]} > {str(info['target'])[:24]}"
             )
             buttons.append(
                 [self.Button.inline(label, self.on_patch_detail, data=entry, ttl=600)]
@@ -3252,11 +4420,14 @@ class XKernelInstaller(ModuleBase):
             await call.answer(self.strings("xpatch_inactive_alert"), alert=True)
             return
         info = self._patch_detail_info(pm, data)
+        reload_label = self.strings("btn_reload_patch")
+        if info.get("status") == "failed" and str(info.get("target")) == "<load>":
+            reload_label = self.strings("btn_load_problem_patch")
         buttons: list[list] = []
         buttons.append(
             [
                 self.Button.inline(
-                    f"🔁 {self.strings('btn_reload_patch')}",
+                    f"🔁 {reload_label}",
                     self.on_patch_reload,
                     data=data,
                     ttl=600,
@@ -3693,7 +4864,7 @@ class XKernelInstaller(ModuleBase):
             )
             for name, tgt in applied:
                 lines.append(
-                    f"  <code>{html.escape(name)}</code> → <i>{html.escape(tgt)}</i>"
+                    f"  <code>{html.escape(name)}</code> > <i>{html.escape(tgt)}</i>"
                 )
         if pending:
             lines.append(
@@ -3701,7 +4872,7 @@ class XKernelInstaller(ModuleBase):
             )
             for name, tgt in pending:
                 lines.append(
-                    f"  <code>{html.escape(name)}</code> → <i>{html.escape(tgt)}</i>"
+                    f"  <code>{html.escape(name)}</code> > <i>{html.escape(tgt)}</i>"
                 )
         if failed:
             lines.append(
@@ -3709,7 +4880,7 @@ class XKernelInstaller(ModuleBase):
             )
             for name, tgt in failed:
                 lines.append(
-                    f"  <code>{html.escape(name)}</code> → <i>{html.escape(tgt)}</i>"
+                    f"  <code>{html.escape(name)}</code> > <i>{html.escape(tgt)}</i>"
                 )
         if skipped:
             lines.append(f"\n⏭ {self.strings('apply_skipped_label')}: {len(skipped)}")
@@ -3978,15 +5149,15 @@ class XKernelInstaller(ModuleBase):
 
             if self._cfg("update_notifications", True):
                 await self._send_update_notice(
-                    f"{self.C['true']} <b>XKernel auto updated</b>\n\n"
-                    f"Version: <code>{self._format_version(installed_version)}</code>\n"
-                    f"File: <code>{html.escape(str(target_path))}</code>\n"
+                    f"{self.C['true']} <b>{self.strings('update_done_title')}</b>\n\n"
+                    f"{self.strings('version_label')} <code>{self._format_version(installed_version)}</code>\n"
+                    f"{self.strings('details_file_label')} <code>{html.escape(str(target_path))}</code>\n"
                     f"SHA: <code>{sha[:16]}…</code>\n\n"
-                    f"{self.C['warning']} <i>Нужен рестарт MCUB</i>",
+                    f"{self.C['warning']} <i>{self.strings('restart_required')}</i>",
                     buttons=[
                         [
                             self.Button.inline(
-                                f"{self._clear_text(self.C['reboot'])} Рестарт",
+                                f"{self._clear_text(self.C['reboot'])} {self.strings('btn_restart')}",
                                 self.on_restart,
                                 ttl=120,
                             )
@@ -4000,13 +5171,44 @@ class XKernelInstaller(ModuleBase):
 
         await self._remember_notified_version(remote_version)
         await self._send_update_notice(
-            f"{self.C['reload']} <b>Доступно обновление XKernel</b>\n\n"
+            f"{self.C['reload']} <b>{self.strings('update_available_title')}</b>\n\n"
             f"<blockquote>"
-            f"Local: <code>{self._format_version(update['local_version'])}</code>\n"
-            f"Remote: <code>{self._format_version(remote_version)}</code>"
+            f"{self.strings('local_label')} <code>{self._format_version(update['local_version'])}</code>\n"
+            f"{self.strings('remote_label')} <code>{self._format_version(remote_version)}</code>"
             f"</blockquote>",
             buttons=[
-                [self.Button.inline("⬆️ Обновиться", self.on_update_now, ttl=300)]
+                [
+                    self.Button.inline(
+                        f"⬆️ {self.strings('btn_update_now')}",
+                        self.on_update_now,
+                        ttl=300,
+                    )
+                ]
+            ],
+        )
+
+    async def _check_manager_update(self) -> None:
+        remote_version = await self._refresh_manager_update_cache()
+        if not self._is_remote_newer(remote_version, self._manager_local_version()):
+            return
+        if await self._already_notified_manager_version(remote_version):
+            return
+
+        await self._remember_notified_manager_version(remote_version)
+        await self._send_update_notice(
+            f"{self.C['reload']} <b>{self.strings('manager_update_notice_title')}</b>\n\n"
+            f"<blockquote>"
+            f"{self.strings('local_label')} <code>{self._format_version(self._manager_local_version())}</code>\n"
+            f"{self.strings('remote_label')} <code>{self._format_version(remote_version)}</code>"
+            f"</blockquote>\n"
+            f"{self.C['warning']} <i>{self.strings('manager_update_notice_hint')}</i>",
+            buttons=[
+                [
+                    self.Button.url(
+                        f"{self._clear_text(self.C['repo'])} {self.strings('btn_repo')}",
+                        self.X_KERNEL_REPO,
+                    )
+                ]
             ],
         )
 
@@ -4058,6 +5260,10 @@ class XKernelInstaller(ModuleBase):
                 "XKernel update notice skipped: bot_client is not authorized"
             )
             return
+
+        delay = self._notification_delay_seconds()
+        if delay > 0:
+            await asyncio.sleep(delay)
 
         await bot_client.send_message(
             target,
@@ -4173,6 +5379,24 @@ class XKernelInstaller(ModuleBase):
             await self.db.db_set(
                 self.name,
                 "last_notified_xkernel_version",
+                self._format_version(version),
+            )
+
+    async def _already_notified_manager_version(
+        self, version: tuple[int, ...] | None
+    ) -> bool:
+        if not version:
+            return False
+        saved = await self.db.db_get(self.name, "last_notified_manager_version")
+        return saved == self._format_version(version)
+
+    async def _remember_notified_manager_version(
+        self, version: tuple[int, ...] | None
+    ) -> None:
+        if version:
+            await self.db.db_set(
+                self.name,
+                "last_notified_manager_version",
                 self._format_version(version),
             )
 
