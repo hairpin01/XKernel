@@ -26,8 +26,11 @@ def ensure_enforcer(kernel: Any) -> MacEnforcer:
         enforcer = MacEnforcer(
             enabled=bool(getattr(kernel, "_xpatch_mcmac_enabled", False)),
             mode=str(getattr(kernel, "_xpatch_mcmac_mode", EnforceMode.PERMISSIVE.value)),
+            logger=getattr(kernel, "logger", None),
         )
         setattr(kernel, "_xpatch_mcmac_enforcer", enforcer)
+    else:
+        enforcer.logger = getattr(kernel, "logger", None)
     return enforcer
 
 
@@ -48,6 +51,12 @@ def status(kernel: Any) -> dict[str, Any]:
 def set_module_type(kernel: Any, module_name: str, security_type: str) -> dict[str, Any]:
     enforcer = ensure_enforcer(kernel)
     enforcer.context.set_type(module_name, security_type)
+    return enforcer.status()
+
+
+def clear_module_type(kernel: Any, module_name: str) -> dict[str, Any]:
+    enforcer = ensure_enforcer(kernel)
+    enforcer.context.clear_type(module_name)
     return enforcer.status()
 
 

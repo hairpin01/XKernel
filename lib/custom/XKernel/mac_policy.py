@@ -15,11 +15,17 @@ class PolicyStore:
             PolicyRule(SecurityType.SYSTEM.value, "*", "*", "*", Effect.ALLOW.value),
             PolicyRule(SecurityType.QUARANTINE.value, "*", "*", "*", Effect.DENY.value),
             PolicyRule(SecurityType.TRUSTED.value, ObjectClass.SUBPROCESS.value, "*", "*", Effect.DENY.value),
+            PolicyRule(SecurityType.STANDARD.value, ObjectClass.TG_ADMIN.value, "*", "*", Effect.DENY.value),
+            PolicyRule(SecurityType.STANDARD.value, ObjectClass.TG_ACCOUNT.value, "*", "*", Effect.DENY.value),
+            PolicyRule(SecurityType.STANDARD.value, ObjectClass.SUBPROCESS.value, "*", "*", Effect.DENY.value),
             PolicyRule(SecurityType.UNTRUSTED.value, ObjectClass.TG_DELETE.value, "*", "*", Effect.DENY.value),
             PolicyRule(SecurityType.UNTRUSTED.value, ObjectClass.TG_ADMIN.value, "*", "*", Effect.DENY.value),
             PolicyRule(SecurityType.UNTRUSTED.value, ObjectClass.TG_ACCOUNT.value, "*", "*", Effect.DENY.value),
             PolicyRule(SecurityType.UNTRUSTED.value, ObjectClass.SUBPROCESS.value, "*", "*", Effect.DENY.value),
             PolicyRule(SecurityType.UNTRUSTED.value, ObjectClass.NETWORK.value, "*", "*", Effect.DENY.value),
+            PolicyRule(SecurityType.UNTRUSTED.value, ObjectClass.CONFIG_DB.value, "write", "*", Effect.DENY.value),
+            PolicyRule(SecurityType.UNTRUSTED.value, ObjectClass.KERNEL_ATTR.value, "write", "*", Effect.DENY.value),
+            PolicyRule(SecurityType.UNTRUSTED.value, ObjectClass.MODULE_LOAD.value, "*", "*", Effect.DENY.value),
             PolicyRule("*", "*", "*", "*", Effect.ALLOW.value),
         ]
 

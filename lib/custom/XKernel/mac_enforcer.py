@@ -25,9 +25,16 @@ class AuditRecord:
 
 
 class MacEnforcer:
-    def __init__(self, *, enabled: bool = False, mode: str = EnforceMode.PERMISSIVE.value) -> None:
+    def __init__(
+        self,
+        *,
+        enabled: bool = False,
+        mode: str = EnforceMode.PERMISSIVE.value,
+        logger: Any | None = None,
+    ) -> None:
         self.enabled = bool(enabled)
         self.mode = str(mode or EnforceMode.PERMISSIVE.value)
+        self.logger = logger
         self.context = MacContext()
         self.policy = PolicyStore()
         self.audit: list[AuditRecord] = []
@@ -47,6 +54,22 @@ class MacEnforcer:
             "contexts": self.context.as_dict(),
         }
 
+    def _log_denied(self, record: AuditRecord) -> None:
+        logger = getattr(self, "logger", None)
+        if logger is None:
+            return
+        try:
+            logger.warning(
+                "[mcmac] denied module=%s class=%s action=%s object=%s mode=%s",
+                record.module,
+                record.obj_class,
+                record.action,
+                record.obj_name,
+                self.mode,
+            )
+        except Exception:
+            pass
+
     def check_access(self, module_name: str, obj_class: str, action: str, obj_name: str = "*") -> bool:
         if not self.enabled:
             return True
@@ -54,7 +77,9 @@ class MacEnforcer:
         rule = self.policy.match(subject, str(obj_class), str(action), str(obj_name))
         denied = rule is not None and rule.effect == Effect.DENY.value
         if denied:
-            self.audit.append(AuditRecord("denied", module_name, str(obj_class), str(action), str(obj_name), "policy"))
+            record = AuditRecord("denied", module_name, str(obj_class), str(action), str(obj_name), "policy")
+            self.audit.append(record)
+            self._log_denied(record)
             if self.mode == EnforceMode.ENFORCING.value:
                 try:
                     from core.lib.loader.kernel_proxy import CallInsecure
