@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
+import importlib
 import importlib.util
 import inspect
 import json
@@ -10,6 +12,7 @@ import sqlite3
 import sys
 import time
 import traceback
+import urllib.request
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -33,6 +36,19 @@ _MAGIC_PRE_LOAD_TARGET = "__pre_load__"
 _MAGIC_KERNEL_TARGET = "__kernel__"
 _MAGIC_FULL_LOAD_TARGET = "__full_load__"
 _XPATCH_MANAGER_MODULE = "XPatchKernelManager"
+_MCMAC_PACKAGE_NAME = "_xkernel_mcmac_runtime"
+_MCMAC_FILES = (
+    "__init__.py",
+    "mac_types.py",
+    "mac_policy.py",
+    "mac_context.py",
+    "mac_enforcer.py",
+    "mac_hooks.py",
+)
+_MCMAC_RAW_BASE = (
+    "https://raw.githubusercontent.com/hairpin01/XKernel/"
+    "refs/heads/main/lib/custom/XKernel"
+)
 _CLIENT_PATCH_DB_KEYS = {
     "app_version": "client_patch_app_version",
     "device_model": "client_patch_device_model",
@@ -67,6 +83,16 @@ _XPATCH_STEALTH_PROTECTED_ATTRS = frozenset(
         "set_extera_proxy_all",
         "set_extera_proxy_modules",
         "set_extera_proxy_scopes",
+        "set_mcmac_enabled",
+        "set_mcmac_mode",
+        "set_mcmac_module_type",
+        "mcmac_module_type",
+        "mcmac_status",
+        "refresh_mcmac_runtime",
+        "_mcmac_runtime_dir",
+        "_ensure_mcmac_runtime_libs",
+        "_load_mcmac_hooks",
+        "_install_mcmac_hooks",
         "add_extera_proxy_module",
         "remove_extera_proxy_module",
         "clear_extera_proxy_modules",
@@ -1485,6 +1511,13 @@ class XPatchKernel(KernelBase):
         self._xpatch_extera_original_wrap_event_for_module = None
         self._xpatch_extera_original_client_proxy_class = None
         self._xpatch_extera_proxy_hook_installed = False
+        self._xpatch_mcmac_enabled = False
+        self._xpatch_mcmac_mode = "permissive"
+        self._xpatch_mcmac_hooks = None
+        self._xpatch_mcmac_enforcer = None
+        self._xpatch_mcmac_available = False
+        self._xpatch_mcmac_error = ""
+        self._xpatch_mcmac_hooks_installed = False
         self.ver = f"{self.VERSION}.XPatch"
         self.VERSION = self.ver
         self.VERSION_XKERNEL = (0, 0, 8)
@@ -2387,6 +2420,7 @@ class XPatchKernel(KernelBase):
     async def run(self) -> None:
         print("Start RUN")
         self._install_extera_proxy_hook()
+        await self._install_mcmac_hooks()
         self._apply_core_lib_client_patch_from_preboot_db()
         if not getattr(self, "_xpatch_stealth_mode", False):
             self.CORE_NAME = "XPatchKernel"
@@ -2398,6 +2432,130 @@ class XPatchKernel(KernelBase):
                 _MAGIC_KERNEL_TARGET, force=True
             )
         await super().run()
+
+    def _mcmac_runtime_dir(self) -> Path:
+        core_dir = Path(__file__).resolve().parents[1]
+        return core_dir / "lib" / "custom" / "XKernel"
+
+    async def _download_mcmac_file(self, file_name: str) -> str:
+        url = f"{_MCMAC_RAW_BASE}/{file_name}"
+
+        def fetch() -> str:
+            with urllib.request.urlopen(url, timeout=15) as response:
+                return response.read().decode("utf-8")
+
+        return await asyncio.to_thread(fetch)
+
+    async def _ensure_mcmac_runtime_libs(self, *, force: bool = False) -> bool:
+        target_dir = self._mcmac_runtime_dir()
+        target_dir.mkdir(parents=True, exist_ok=True)
+        for file_name in _MCMAC_FILES:
+            target = target_dir / file_name
+            if target.exists() and not force:
+                continue
+            source = await self._download_mcmac_file(file_name)
+            target.write_text(source, encoding="utf-8")
+        return True
+
+    def _load_mcmac_hooks(self) -> Any:
+        package_dir = self._mcmac_runtime_dir()
+        init_file = package_dir / "__init__.py"
+        package_name = _MCMAC_PACKAGE_NAME
+        if package_name not in sys.modules:
+            spec = importlib.util.spec_from_file_location(
+                package_name,
+                init_file,
+                submodule_search_locations=[str(package_dir)],
+            )
+            if spec is None or spec.loader is None:
+                raise RuntimeError("cannot build MCMAC import spec")
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[package_name] = module
+            spec.loader.exec_module(module)
+        hooks = importlib.import_module(f"{package_name}.mac_hooks")
+        self._xpatch_mcmac_hooks = hooks
+        self._xpatch_mcmac_available = True
+        self._xpatch_mcmac_error = ""
+        return hooks
+
+    async def _install_mcmac_hooks(self, *, force_download: bool = False) -> bool:
+        try:
+            await self._ensure_mcmac_runtime_libs(force=force_download)
+            hooks = self._load_mcmac_hooks()
+            hooks.install_hooks(self)
+            hooks.configure(
+                self,
+                enabled=self._xpatch_mcmac_enabled,
+                mode=self._xpatch_mcmac_mode,
+            )
+            self._xpatch_mcmac_available = True
+            self._xpatch_mcmac_error = ""
+            return True
+        except Exception as exc:
+            self._xpatch_mcmac_available = False
+            self._xpatch_mcmac_error = str(exc)
+            logger = getattr(self, "logger", None)
+            if logger is not None:
+                with contextlib.suppress(Exception):
+                    logger.warning("[xpatch] MCMAC bootstrap failed: %s", exc)
+            return False
+
+    def set_mcmac_enabled(self, enabled: bool) -> bool:
+        self._xpatch_mcmac_enabled = bool(enabled)
+        hooks = self._xpatch_mcmac_hooks
+        if hooks is not None:
+            hooks.configure(
+                self,
+                enabled=self._xpatch_mcmac_enabled,
+                mode=self._xpatch_mcmac_mode,
+            )
+        return True
+
+    def set_mcmac_mode(self, mode: str) -> bool:
+        value = str(mode or "permissive").strip().casefold()
+        if value not in {"permissive", "enforcing"}:
+            value = "permissive"
+        self._xpatch_mcmac_mode = value
+        hooks = self._xpatch_mcmac_hooks
+        if hooks is not None:
+            hooks.configure(
+                self,
+                enabled=self._xpatch_mcmac_enabled,
+                mode=self._xpatch_mcmac_mode,
+            )
+        return True
+
+    def set_mcmac_module_type(self, module_name: str, security_type: str) -> bool:
+        hooks = self._xpatch_mcmac_hooks
+        if hooks is None:
+            return False
+        hooks.set_module_type(self, module_name, security_type)
+        return True
+
+    def mcmac_module_type(self, module_name: str) -> str:
+        hooks = self._xpatch_mcmac_hooks
+        if hooks is None:
+            return "standard"
+        return str(hooks.module_type(self, module_name))
+
+    def mcmac_status(self) -> dict[str, Any]:
+        status = {
+            "available": bool(self._xpatch_mcmac_available),
+            "enabled": bool(self._xpatch_mcmac_enabled),
+            "mode": self._xpatch_mcmac_mode,
+            "error": self._xpatch_mcmac_error,
+            "path": str(self._mcmac_runtime_dir()),
+        }
+        hooks = self._xpatch_mcmac_hooks
+        if hooks is not None:
+            try:
+                status.update(hooks.status(self))
+            except Exception as exc:
+                status["error"] = str(exc)
+        return status
+
+    async def refresh_mcmac_runtime(self) -> bool:
+        return await self._install_mcmac_hooks(force_download=True)
 
     def set_xpatch_events_enabled(self, enabled: bool) -> None:
         object.__setattr__(self, "_xpatch_events_enabled", bool(enabled))
