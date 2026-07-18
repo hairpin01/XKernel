@@ -155,6 +155,8 @@ class MacEnforcer:
         self._append_audit(record)
         if record.decision == "denied":
             self._log_denied(record)
+            return
+        self._log_allowed(record)
 
     def set_type_permissive(
         self, security_type: str, enabled: bool = True
@@ -194,6 +196,28 @@ class MacEnforcer:
                 record.target_type or "?",
                 record.obj_class,
                 1 if record.permissive else 0,
+                record.rule_source or "policy",
+            )
+        except Exception:
+            pass
+
+    def _log_allowed(self, record: AuditRecord) -> None:
+        logger = getattr(self, "logger", None)
+        if logger is None:
+            return
+        debug = getattr(logger, "debug", None)
+        if not callable(debug):
+            return
+        try:
+            debug(
+                "[mcmac] avc: allowed {%s} for module=%s name=%s "
+                "scontext=%s tcontext=%s tclass=%s source=%s",
+                record.action,
+                record.module,
+                record.obj_name,
+                record.subject_type or "?",
+                record.target_type or "?",
+                record.obj_class,
                 record.rule_source or "policy",
             )
         except Exception:

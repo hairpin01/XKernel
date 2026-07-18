@@ -9,6 +9,18 @@ from lib.custom.XKernel.mac_policy import PolicyStore
 from lib.custom.XKernel.mac_types import Action, Effect, ObjectClass, SecurityType
 
 
+class MemoryLogger:
+    def __init__(self):
+        self.debugs = []
+        self.warnings = []
+
+    def debug(self, *args):
+        self.debugs.append(args)
+
+    def warning(self, *args):
+        self.warnings.append(args)
+
+
 def test_mac_context_normalizes_and_validates_module_types():
     context = MacContext()
 
@@ -151,6 +163,42 @@ def test_mac_enforcer_audit_modes_filter_records_by_decision():
             "delete_messages",
         )
     assert enforcer.status()["audit_size"] == 0
+
+
+def test_mac_enforcer_all_mode_writes_allowed_debug_logs():
+    logger = MemoryLogger()
+    enforcer = MacEnforcer(
+        enabled=True,
+        audit_mode=AuditMode.ALL.value,
+        logger=logger,
+    )
+
+    assert enforcer.check_access(
+        "StdMod",
+        ObjectClass.TG_SEND.value,
+        Action.EXECUTE.value,
+        "send_message",
+    ) is True
+
+    assert len(enforcer.audit) == 1
+    assert enforcer.audit[-1].decision == "allowed"
+    assert logger.debugs
+    assert "avc: allowed" in logger.debugs[-1][0]
+    assert logger.warnings == []
+
+    enforcer.clear_audit()
+    logger.debugs.clear()
+    enforcer.configure(audit_mode=AuditMode.DENIED.value)
+
+    assert enforcer.check_access(
+        "StdMod",
+        ObjectClass.TG_SEND.value,
+        Action.EXECUTE.value,
+        "send_message",
+    ) is True
+
+    assert enforcer.audit == []
+    assert logger.debugs == []
 
 
 def test_policy_store_respects_explicit_empty_rules():
