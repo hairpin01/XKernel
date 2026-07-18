@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import sys
 import tempfile
 import types
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -197,6 +200,117 @@ def make_manager(tmp_root: Path):
     return manager
 
 
+class FakeResponse:
+    def __init__(self, text: str, status: int = 200):
+        self._text = text
+        self.status = status
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+    async def text(self, encoding="utf-8"):
+        return self._text
+
+
+def test_manager_hash_helpers_accept_common_sha256_formats():
+    Manager, _ = load_manager_class()
+    digest = "a" * 64
+
+    assert Manager._extract_sha256_hash(digest) == digest
+    assert Manager._extract_sha256_hash(f"SHA256:{digest}\n") == digest
+    assert Manager._extract_sha256_hash(f"{digest}  XKernel.py\n") == digest
+
+    with pytest.raises(ValueError):
+        Manager._extract_sha256_hash("not-a-sha")
+
+
+def test_manager_download_xkernel_verifies_remote_sha256():
+    Manager, _ = load_manager_class()
+    source = "print('xkernel')\n"
+    digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
+    requested_urls = []
+
+    class FakeClientSession:
+        def __init__(self, timeout=None):
+            self.timeout = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        def get(self, url):
+            requested_urls.append(url)
+            responses = {
+                Manager.X_KERNEL_URL: source,
+                Manager._hash_url("XKernel"): f"SHA256:{digest}\n",
+            }
+            return FakeResponse(responses[url])
+
+    aiohttp_stub = sys.modules["aiohttp"]
+    aiohttp_stub.ClientTimeout = lambda total: ("timeout", total)
+    aiohttp_stub.ClientSession = FakeClientSession
+
+    manager = object.__new__(Manager)
+
+    assert asyncio.run(manager._download_xkernel()) == source
+    assert requested_urls == [Manager.X_KERNEL_URL, Manager._hash_url("XKernel")]
+
+
+def test_manager_download_rejects_sha256_mismatch():
+    Manager, _ = load_manager_class()
+    source = "print('xkernel')\n"
+
+    class FakeClientSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        def get(self, url):
+            responses = {
+                Manager.X_MANAGER_URL: source,
+                Manager._hash_url("XPatchKernelManager"): f"{'0' * 64}\n",
+            }
+            return FakeResponse(responses[url])
+
+    aiohttp_stub = sys.modules["aiohttp"]
+    aiohttp_stub.ClientTimeout = lambda total: ("timeout", total)
+    aiohttp_stub.ClientSession = lambda timeout=None: FakeClientSession()
+
+    manager = object.__new__(Manager)
+
+    with pytest.raises(RuntimeError, match="SHA256 mismatch"):
+        asyncio.run(manager._download_manager())
+
+
+def test_repository_hash_files_exist_for_verified_downloads():
+    modules = {
+        "XKernel": ROOT / "XKernel.py",
+        "XPatchKernelManager": ROOT / "XPatchKernelManager.py",
+        "__init__": ROOT / "lib/custom/XKernel/__init__.py",
+        "mac_types": ROOT / "lib/custom/XKernel/mac_types.py",
+        "mac_policy": ROOT / "lib/custom/XKernel/mac_policy.py",
+        "mac_context": ROOT / "lib/custom/XKernel/mac_context.py",
+        "mac_enforcer": ROOT / "lib/custom/XKernel/mac_enforcer.py",
+        "mac_hooks": ROOT / "lib/custom/XKernel/mac_hooks.py",
+    }
+
+    for module, source_path in modules.items():
+        hash_path = ROOT / "hash" / module / "SHA256:hash.txt"
+        expected = hashlib.sha256(
+            source_path.read_text(encoding="utf-8").encode("utf-8")
+        ).hexdigest()
+
+        assert hash_path.exists(), module
+        assert expected in hash_path.read_text(encoding="utf-8"), module
+
+
 def test_live_logs_cycle_buttons_update_config_and_form():
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
@@ -232,9 +346,63 @@ def test_utils_page_describes_live_logs():
         assert "<blockquote>" in text
         assert "Live logs" in text
         assert "Можно выбрать лимит строк" in text
+        assert "Патчит системные модули MCUB: man и updates." in text
         assert "удаление ядра" in text
         assert "default core" in text
         assert "Удаление XKernel" in str(_)
+        assert "Patch system module" in str(_)
+
+
+def test_system_patch_menus_toggle_runtime_options():
+    with tempfile.TemporaryDirectory() as td:
+        manager = make_manager(Path(td))
+        calls = []
+
+        def set_runtime():
+            calls.append(
+                {
+                    "man_extera": manager.config.data.get("system_patch_man_extera"),
+                    "man_mcmac": manager.config.data.get("system_patch_man_mcmac"),
+                    "updates_xkernel": manager.config.data.get("system_patch_updates_xkernel"),
+                }
+            )
+            return True
+
+        manager._set_runtime_system_module_patches = set_runtime
+        manager._system_module_patch_status = lambda: {"available": True, "options": {}}
+
+        async def run():
+            call = Call()
+            await manager.on_system_patch_menu(call)
+            text, buttons = call.edits[-1]
+            assert "Patch system module" in text
+            assert "on_system_patch_man_menu" in str(buttons)
+            assert "on_system_patch_updates_menu" in str(buttons)
+
+            await manager.on_system_patch_man_menu(call)
+            text, buttons = call.edits[-1]
+            assert "Patch man" in text
+            assert "Man ExteraProxy info: OFF" in str(buttons)
+            assert "Man MCMAC info: OFF" in str(buttons)
+
+            await manager.on_toggle_system_patch_man_extera(call)
+            assert manager.config["system_patch_man_extera"] is True
+            assert calls[-1]["man_extera"] is True
+
+            await manager.on_toggle_system_patch_man_mcmac(call)
+            assert manager.config["system_patch_man_mcmac"] is True
+            assert calls[-1]["man_mcmac"] is True
+
+            await manager.on_system_patch_updates_menu(call)
+            text, buttons = call.edits[-1]
+            assert "Patch updates" in text
+            assert "Update XKernel status: OFF" in str(buttons)
+
+            await manager.on_toggle_system_patch_updates_xkernel(call)
+            assert manager.config["system_patch_updates_xkernel"] is True
+            assert calls[-1]["updates_xkernel"] is True
+
+        asyncio.run(run())
 
 
 def test_settings_and_notify_routes_are_separate():
@@ -754,6 +922,9 @@ def test_extera_proxy_extra_features_open_mcmac_settings():
                 self.contexts[str(module_name)] = str(security_type)
                 return True
 
+            def clear_mcmac_module_type(self, module_name):
+                return self.contexts.pop(str(module_name), None) is not None
+
             async def refresh_mcmac_runtime(self):
                 self.refreshed = True
                 return True
@@ -779,12 +950,25 @@ def test_extera_proxy_extra_features_open_mcmac_settings():
             assert "subprocess запрещён" in text
             assert "обычные локальные модули" in text
             assert "remote/сомнительные модули" in text
+            assert "permissive</b>" in text
+            assert "enforcing</b>" in text
+            assert "CallInsecure" in text
+            assert "Доступен:" not in text
+            assert "- ModuleName" not in text
             assert "Download" not in text
-            assert "on_toggle_mcmac_enabled" in str(buttons)
+            rendered_buttons = str(buttons)
+            assert "on_toggle_mcmac_enabled" in rendered_buttons
+            assert "on_toggle_mcmac_mode" not in rendered_buttons
+            assert "on_mcmac_module_type_input" not in rendered_buttons
 
             await manager.on_toggle_mcmac_enabled(call)
             assert fake_kernel.enabled is True
             assert manager.config["mcmac_enabled"] is True
+            assert "- ModuleName" not in call.edits[-1][0]
+            rendered_buttons = str(call.edits[-1][1])
+            assert "on_toggle_mcmac_mode" in rendered_buttons
+            assert "on_mcmac_module_type_input" in rendered_buttons
+            assert "on_mcmac_module_type_remove_input" in rendered_buttons
 
             await manager.on_toggle_mcmac_mode(call)
             assert fake_kernel.mode == "enforcing"
@@ -796,8 +980,36 @@ def test_extera_proxy_extra_features_open_mcmac_settings():
             input_event = Call()
             await manager.on_mcmac_module_type_input(input_event, "UnsafeMod:quarantine")
             assert fake_kernel.contexts["UnsafeMod"] == "quarantine"
+            await manager.on_mcmac_module_type_input(input_event, "- UnsafeMod")
+            assert "UnsafeMod" not in fake_kernel.contexts
 
         asyncio.run(run())
+
+
+def test_mcmac_settings_hides_actions_when_unavailable():
+    with tempfile.TemporaryDirectory() as td:
+        manager = make_manager(Path(td))
+
+        class FakeKernel:
+            def mcmac_status(self):
+                return {
+                    "available": False,
+                    "enabled": False,
+                    "mode": "permissive",
+                    "path": "/tmp/missing",
+                    "error": "missing libs",
+                    "contexts": {},
+                }
+
+        manager._kernel_object = lambda: FakeKernel()
+        text, buttons = manager._build_mcmac_settings_page()
+        rendered = str(buttons)
+        assert "Доступен:" not in text
+        assert "MCMAC libs недоступны" in text
+        assert "on_toggle_mcmac_enabled" not in rendered
+        assert "on_toggle_mcmac_mode" not in rendered
+        assert "on_mcmac_module_type_input" not in rendered
+        assert "on_refresh_mcmac_runtime" in rendered
 
 
 def test_patch_detail_page_shows_full_error_and_retries_failed_target():

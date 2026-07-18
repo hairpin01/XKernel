@@ -6,6 +6,8 @@ import tempfile
 import types
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -32,6 +34,9 @@ def load_xkernel_with_proxy_stubs():
         def __init__(self, client, module_name):
             self.client = client
             self.module_name = module_name
+
+        def __getattr__(self, name):
+            return getattr(self.client, name)
 
     class EventProxy:
         pass
@@ -552,6 +557,26 @@ def test_mcmac_runtime_libs_bootstrap_and_status():
     asyncio.run(run())
 
 
+def test_xkernel_hash_helpers_verify_remote_sha256_sources():
+    Kernel, *_ = load_xkernel_with_proxy_stubs()
+    source = "print('mcmac')\n"
+    digest = Kernel._sha256_text(source)
+
+    assert Kernel._extract_sha256_hash(f"SHA256:{digest}\n") == digest
+    assert Kernel._verify_remote_sha256(
+        "mac_hooks", source, f"{digest}  mac_hooks.py\n"
+    ) == digest
+    assert Kernel._hash_module_name("mac_hooks.py") == "mac_hooks"
+    assert Kernel._hash_url("mac_hooks").endswith(
+        "/hash/mac_hooks/SHA256:hash.txt"
+    )
+
+    with pytest.raises(RuntimeError, match="SHA256 mismatch"):
+        Kernel._verify_remote_sha256("mac_hooks", source, "0" * 64)
+    with pytest.raises(ValueError):
+        Kernel._extract_sha256_hash("not-a-sha")
+
+
 def test_mcmac_patches_imported_proxy_aliases_and_context():
     Kernel, kernel_proxy, _, base, user_loader, *_ = load_xkernel_with_proxy_stubs()
 
@@ -587,5 +612,207 @@ def test_mcmac_patches_imported_proxy_aliases_and_context():
             assert kernel.set_mcmac_module_type("UnsafeMod", "quarantine") is True
             assert kernel.mcmac_module_type("UnsafeMod") == "quarantine"
             assert kernel.mcmac_status()["contexts"]["UnsafeMod"] == "quarantine"
+            assert kernel.clear_mcmac_module_type("UnsafeMod") is True
+            assert kernel.mcmac_module_type("UnsafeMod") == "standard"
+
+    asyncio.run(run())
+
+
+def test_mcmac_admin_controls_are_protected_from_module_kernel_proxy():
+    Kernel, kernel_proxy, *_ = load_xkernel_with_proxy_stubs()
+    kernel = Kernel()
+    kernel._install_extera_proxy_hook()
+
+    module_kernel = kernel_proxy.get_module_kernel(kernel, "UnsafeMod", False)
+    protected_names = {
+        "set_mcmac_enabled",
+        "set_mcmac_mode",
+        "set_mcmac_module_type",
+        "clear_mcmac_module_type",
+        "set_mcmac_object_type",
+        "clear_mcmac_object_type",
+        "set_mcmac_permissive_type",
+        "clear_mcmac_permissive_type",
+        "clear_mcmac_audit",
+        "refresh_mcmac_runtime",
+    }
+
+    assert protected_names.issubset(kernel_proxy.PROTECTED_KERNEL_NAMES)
+    for name in protected_names:
+        with pytest.raises(RuntimeError):
+            getattr(module_kernel, name)
+
+
+def test_mcmac_enforcing_blocks_and_logs_denied_client_method():
+    Kernel, _, _, base, *_ = load_xkernel_with_proxy_stubs()
+
+    async def run():
+        with tempfile.TemporaryDirectory() as td:
+            for name in list(sys.modules):
+                if name == "_xkernel_mcmac_runtime" or name.startswith(
+                    "_xkernel_mcmac_runtime."
+                ):
+                    sys.modules.pop(name, None)
+
+            target = Path(td) / "core" / "lib" / "custom" / "XKernel"
+            source_dir = ROOT / "lib" / "custom" / "XKernel"
+
+            class Logger:
+                def __init__(self):
+                    self.warnings = []
+
+                def warning(self, *args):
+                    self.warnings.append(args)
+
+            class Client:
+                def delete_messages(self, *args, **kwargs):
+                    return "deleted"
+
+            kernel = Kernel()
+            kernel.logger = Logger()
+            kernel.client = Client()
+            kernel._mcmac_runtime_dir = lambda: target
+
+            async def download(file_name):
+                return (source_dir / file_name).read_text(encoding="utf-8")
+
+            kernel._download_mcmac_file = download
+            assert await kernel._install_mcmac_hooks()
+            kernel.set_mcmac_enabled(True)
+            kernel.set_mcmac_mode("enforcing")
+            kernel.set_mcmac_module_type("UnsafeMod", "untrusted")
+
+            client = base.get_module_client(kernel, "UnsafeMod", False)
+            try:
+                client.delete_messages(1, [2])
+            except Exception as exc:
+                assert "delete_messages" in str(exc)
+            else:
+                raise AssertionError("MCMAC did not block denied delete_messages")
+
+            status = kernel.mcmac_status()
+            assert status["audit_size"] >= 1
+            assert kernel.logger.warnings
+
+    asyncio.run(run())
+
+
+def test_mcmac_explicit_quarantine_overrides_system_bypass():
+    Kernel, kernel_proxy, _, base, *_ = load_xkernel_with_proxy_stubs()
+
+    async def run():
+        with tempfile.TemporaryDirectory() as td:
+            for name in list(sys.modules):
+                if name == "_xkernel_mcmac_runtime" or name.startswith(
+                    "_xkernel_mcmac_runtime."
+                ):
+                    sys.modules.pop(name, None)
+
+            target = Path(td) / "core" / "lib" / "custom" / "XKernel"
+            source_dir = ROOT / "lib" / "custom" / "XKernel"
+
+            class Logger:
+                def __init__(self):
+                    self.warnings = []
+
+                def warning(self, *args):
+                    self.warnings.append(args)
+
+            class Client:
+                def send_message(self, *args, **kwargs):
+                    return "sent"
+
+            kernel = Kernel()
+            kernel.logger = Logger()
+            kernel.client = Client()
+            kernel._mcmac_runtime_dir = lambda: target
+
+            async def download(file_name):
+                return (source_dir / file_name).read_text(encoding="utf-8")
+
+            kernel._download_mcmac_file = download
+            assert await kernel._install_mcmac_hooks()
+            kernel.set_mcmac_enabled(True)
+            kernel.set_mcmac_mode("enforcing")
+            kernel.set_mcmac_module_type("tr", "quarantine")
+
+            client = base.get_module_client(kernel, "tr", True)
+            assert type(client).__name__ == "_MacClientProxy"
+            try:
+                client.send_message("me", "hello")
+            except Exception as exc:
+                assert "send_message" in str(exc)
+            else:
+                raise AssertionError("system module quarantine did not block client call")
+
+            event = object()
+            try:
+                kernel_proxy.wrap_event_for_module(event, "tr", kernel)
+            except Exception as exc:
+                assert "handler" in str(exc)
+            else:
+                raise AssertionError("system module quarantine did not block event path")
+
+            assert len(kernel.mcmac_status()["contexts"]) == 1
+            assert kernel.logger.warnings
+
+    asyncio.run(run())
+
+
+def test_system_module_patches_man_and_updates():
+    Kernel, *_ = load_xkernel_with_proxy_stubs()
+
+    async def run():
+        class ManModule:
+            async def _build_module_detail(self, match_tuple):
+                return "base detail", None
+
+        class UpdatesModule:
+            async def cmd_update(self, event):
+                event.calls.append("original")
+
+        class Event:
+            def __init__(self):
+                self.calls = []
+                self.replies = []
+
+            async def reply(self, text, **kwargs):
+                self.replies.append((text, kwargs))
+
+        kernel = Kernel()
+        man = ManModule()
+        updates = UpdatesModule()
+        kernel.system_modules["man"] = man
+        kernel.system_modules["updates"] = updates
+        kernel.set_extera_proxy_modules(["targetmod"])
+        kernel.set_extera_proxy_scopes(["kernel", "client"])
+        kernel._xpatch_mcmac_available = True
+        kernel._xpatch_mcmac_hooks = type(
+            "Hooks",
+            (),
+            {
+                "module_type": staticmethod(lambda _kernel, _name: "quarantine"),
+                "status": staticmethod(lambda _kernel: {"contexts": {"targetmod": "quarantine"}}),
+            },
+        )()
+
+        status = kernel.patch_system_modules(
+            man_extera=True,
+            man_mcmac=True,
+            updates_xkernel=True,
+        )
+        assert "man._build_module_detail" in status["patched"]
+        assert "updates.cmd_update" in status["patched"]
+
+        detail, _ = await man._build_module_detail(("targetmod", "user", object()))
+        assert "ExteraProxy: <code>ON</code>" in detail
+        assert "kernel" in detail and "client" in detail
+        assert "MCMAC: <code>quarantine</code>" in detail
+
+        event = Event()
+        await updates.cmd_update(event)
+        assert event.calls == ["original"]
+        assert event.replies
+        assert "XKernel core" in event.replies[-1][0]
 
     asyncio.run(run())
