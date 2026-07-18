@@ -46,3 +46,6 @@ class PolicyRule:
     action: str
     pattern: str = "*"
     effect: str = Effect.ALLOW.value
+    target: str = "*"
+    source: str = "runtime"
+    reason: str = ""

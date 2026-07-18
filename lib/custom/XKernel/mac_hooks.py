@@ -43,7 +43,7 @@ def configure(
     if enabled is not None:
         setattr(kernel, "_xpatch_mcmac_enabled", bool(enabled))
     if mode is not None:
-        setattr(kernel, "_xpatch_mcmac_mode", str(mode))
+        setattr(kernel, "_xpatch_mcmac_mode", enforcer.mode)
     return enforcer.status()
 
 
@@ -69,8 +69,50 @@ def module_type(kernel: Any, module_name: str) -> str:
     return ensure_enforcer(kernel).context.get_type(module_name)
 
 
+def set_object_type(
+    kernel: Any, obj_class: str, obj_name: str, security_type: str
+) -> dict[str, Any]:
+    enforcer = ensure_enforcer(kernel)
+    enforcer.context.set_object_type(obj_class, obj_name, security_type)
+    return enforcer.status()
+
+
+def clear_object_type(kernel: Any, obj_class: str, obj_name: str) -> dict[str, Any]:
+    enforcer = ensure_enforcer(kernel)
+    enforcer.context.clear_object_type(obj_class, obj_name)
+    return enforcer.status()
+
+
+def object_type(kernel: Any, obj_class: str, obj_name: str) -> str:
+    return ensure_enforcer(kernel).context.get_object_type(obj_class, obj_name)
+
+
+def set_permissive_type(
+    kernel: Any, security_type: str, enabled: bool = True
+) -> dict[str, Any]:
+    enforcer = ensure_enforcer(kernel)
+    enforcer.set_type_permissive(security_type, enabled=enabled)
+    return enforcer.status()
+
+
+def clear_permissive_type(kernel: Any, security_type: str) -> dict[str, Any]:
+    enforcer = ensure_enforcer(kernel)
+    enforcer.clear_type_permissive(security_type)
+    return enforcer.status()
+
+
+def clear_audit(kernel: Any) -> dict[str, Any]:
+    enforcer = ensure_enforcer(kernel)
+    enforcer.clear_audit()
+    return enforcer.status()
+
+
 def _classify_client_method(name: str) -> str:
     return _TG_METHOD_CLASS.get(str(name), ObjectClass.TG_SEND.value)
+
+
+def _has_explicit_context(enforcer: MacEnforcer, module_name: str) -> bool:
+    return enforcer.context.has_type(module_name)
 
 
 def install_hooks(kernel: Any) -> dict[str, Any]:
@@ -92,14 +134,16 @@ def install_hooks(kernel: Any) -> dict[str, Any]:
         def get_module_kernel_with_mcmac(
             k: Any, module_name: str, is_system: bool
         ) -> Any:
-            if k is kernel and not is_system:
+            explicit_context = _has_explicit_context(enforcer, module_name)
+            effective_is_system = bool(is_system and not explicit_context)
+            if k is kernel and not effective_is_system:
                 enforcer.check_access(
                     module_name,
                     ObjectClass.KERNEL_ATTR.value,
                     Action.READ.value,
                     "kernel",
                 )
-            return original_get_module_kernel(k, module_name, is_system)
+            return original_get_module_kernel(k, module_name, effective_is_system)
 
         get_module_kernel_with_mcmac.__xpatch_mcmac_original__ = (
             original_get_module_kernel
@@ -111,8 +155,10 @@ def install_hooks(kernel: Any) -> dict[str, Any]:
         def get_module_client_with_mcmac(
             k: Any, module_name: str, is_system: bool
         ) -> Any:
-            client = original_get_module_client(k, module_name, is_system)
-            if k is not kernel or is_system:
+            explicit_context = _has_explicit_context(enforcer, module_name)
+            effective_is_system = bool(is_system and not explicit_context)
+            client = original_get_module_client(k, module_name, effective_is_system)
+            if k is not kernel or effective_is_system:
                 return client
             return _MacClientProxy(client, enforcer, module_name)
 
@@ -124,9 +170,15 @@ def install_hooks(kernel: Any) -> dict[str, Any]:
     if callable(original_wrap_event):
 
         def wrap_event_with_mcmac(event: Any, module_name: str, k: Any) -> Any:
-            wrapped = original_wrap_event(event, module_name, k)
             if k is not kernel:
-                return wrapped
+                return original_wrap_event(event, module_name, k)
+            enforcer.check_access(
+                module_name,
+                ObjectClass.INLINE.value,
+                Action.EXECUTE.value,
+                "handler",
+            )
+            wrapped = original_wrap_event(event, module_name, k)
             return _MacEventProxy(wrapped, enforcer, module_name)
 
         wrap_event_with_mcmac.__xpatch_mcmac_original__ = original_wrap_event

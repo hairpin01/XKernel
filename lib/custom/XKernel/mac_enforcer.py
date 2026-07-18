@@ -14,6 +14,9 @@ class EnforceMode(str, Enum):
     ENFORCING = "enforcing"
 
 
+DEFAULT_MAX_AUDIT_RECORDS = 512
+
+
 @dataclass
 class AuditRecord:
     decision: str
@@ -22,6 +25,10 @@ class AuditRecord:
     action: str
     obj_name: str
     reason: str = ""
+    subject_type: str = ""
+    target_type: str = ""
+    rule_source: str = ""
+    permissive: bool = False
 
 
 class MacEnforcer:
@@ -29,15 +36,36 @@ class MacEnforcer:
         self,
         *,
         enabled: bool = False,
-        mode: str = EnforceMode.PERMISSIVE.value,
+        mode: str | EnforceMode = EnforceMode.PERMISSIVE.value,
+        max_audit_records: int = DEFAULT_MAX_AUDIT_RECORDS,
         logger: Any | None = None,
     ) -> None:
         self.enabled = bool(enabled)
-        self.mode = str(mode or EnforceMode.PERMISSIVE.value)
+        self.mode = self._mode_value(mode)
+        self.max_audit_records = self._audit_limit(max_audit_records)
+        self._audit_dropped = 0
         self.logger = logger
         self.context = MacContext()
         self.policy = PolicyStore()
+        self.permissive_types: set[str] = set()
         self.audit: list[AuditRecord] = []
+
+    @staticmethod
+    def _mode_value(mode: str | EnforceMode | None) -> str:
+        value = getattr(mode, "value", mode)
+        normalized = str(value or EnforceMode.PERMISSIVE.value).strip().casefold()
+        allowed = {item.value for item in EnforceMode}
+        if normalized not in allowed:
+            return EnforceMode.PERMISSIVE.value
+        return normalized
+
+    @staticmethod
+    def _audit_limit(value: int) -> int:
+        try:
+            limit = int(value)
+        except (TypeError, ValueError):
+            return DEFAULT_MAX_AUDIT_RECORDS
+        return max(0, limit)
 
     def configure(
         self, *, enabled: bool | None = None, mode: str | None = None
@@ -45,16 +73,60 @@ class MacEnforcer:
         if enabled is not None:
             self.enabled = bool(enabled)
         if mode:
-            self.mode = str(mode)
+            self.mode = self._mode_value(mode)
 
     def status(self) -> dict[str, Any]:
+        audit_denied = sum(1 for record in self.audit if record.decision == "denied")
         return {
             "available": True,
             "enabled": self.enabled,
             "mode": self.mode,
             "audit_size": len(self.audit),
+            "audit_limit": self.max_audit_records,
+            "audit_dropped": self._audit_dropped,
+            "audit_allowed": len(self.audit) - audit_denied,
+            "audit_denied": audit_denied,
             "contexts": self.context.as_dict(),
+            "object_contexts": self.context.objects_as_dict(),
+            "permissive_types": sorted(self.permissive_types),
         }
+
+    def clear_audit(self) -> None:
+        self.audit.clear()
+        self._audit_dropped = 0
+
+    def _append_audit(self, record: AuditRecord) -> None:
+        if self.max_audit_records <= 0:
+            self._audit_dropped += 1
+            return
+        self.audit.append(record)
+        overflow = len(self.audit) - self.max_audit_records
+        if overflow > 0:
+            del self.audit[:overflow]
+            self._audit_dropped += overflow
+
+    def set_type_permissive(
+        self, security_type: str, enabled: bool = True
+    ) -> None:
+        value = MacContext._security_type_value(security_type)
+        if enabled:
+            self.permissive_types.add(value)
+            return
+        self.permissive_types.discard(value)
+
+    def clear_type_permissive(self, security_type: str) -> bool:
+        value = MacContext._security_type_value(security_type)
+        existed = value in self.permissive_types
+        self.permissive_types.discard(value)
+        return existed
+
+    def is_type_permissive(self, security_type: str) -> bool:
+        value = MacContext._security_type_value(security_type)
+        return value in self.permissive_types
+
+    @staticmethod
+    def _is_enforced(mode: str, subject_type: str, permissive_types: set[str]) -> bool:
+        return mode == EnforceMode.ENFORCING.value and subject_type not in permissive_types
 
     def _log_denied(self, record: AuditRecord) -> None:
         logger = getattr(self, "logger", None)
@@ -62,12 +134,16 @@ class MacEnforcer:
             return
         try:
             logger.warning(
-                "[mcmac] denied module=%s class=%s action=%s object=%s mode=%s",
-                record.module,
-                record.obj_class,
+                "[mcmac] avc: denied {%s} for module=%s name=%s "
+                "scontext=%s tcontext=%s tclass=%s permissive=%d source=%s",
                 record.action,
+                record.module,
                 record.obj_name,
-                self.mode,
+                record.subject_type or "?",
+                record.target_type or "?",
+                record.obj_class,
+                1 if record.permissive else 0,
+                record.rule_source or "policy",
             )
         except Exception:
             pass
@@ -77,32 +153,57 @@ class MacEnforcer:
     ) -> bool:
         if not self.enabled:
             return True
-        subject = self.context.get_type(module_name)
-        rule = self.policy.match(subject, str(obj_class), str(action), str(obj_name))
+        module = str(module_name)
+        obj_class_value = str(obj_class)
+        action_value = str(action)
+        obj_name_value = str(obj_name)
+        subject = self.context.get_type(module)
+        target = self.context.get_object_type(obj_class_value, obj_name_value)
+        rule = self.policy.match(
+            subject,
+            obj_class_value,
+            action_value,
+            obj_name_value,
+            target,
+        )
         denied = rule is not None and rule.effect == Effect.DENY.value
         if denied:
+            permissive = not self._is_enforced(self.mode, subject, self.permissive_types)
             record = AuditRecord(
                 "denied",
-                module_name,
-                str(obj_class),
-                str(action),
-                str(obj_name),
-                "policy",
+                module,
+                obj_class_value,
+                action_value,
+                obj_name_value,
+                rule.reason or "policy",
+                subject,
+                target,
+                rule.source,
+                permissive,
             )
-            self.audit.append(record)
+            self._append_audit(record)
             self._log_denied(record)
-            if self.mode == EnforceMode.ENFORCING.value:
+            if not permissive:
                 try:
                     from core.lib.loader.kernel_proxy import CallInsecure
                 except Exception:
                     raise RuntimeError(
-                        f"MCMAC denied {module_name}: {obj_class}:{action}:{obj_name}"
+                        f"MCMAC denied {module}: {obj_class_value}:{action_value}:{obj_name_value}"
                     )
-                raise CallInsecure(str(obj_name), module_name)
+                raise CallInsecure(obj_name_value, module)
             return False
-        self.audit.append(
+        self._append_audit(
             AuditRecord(
-                "allowed", module_name, str(obj_class), str(action), str(obj_name)
+                "allowed",
+                module,
+                obj_class_value,
+                action_value,
+                obj_name_value,
+                getattr(rule, "reason", ""),
+                subject,
+                target,
+                getattr(rule, "source", ""),
+                False,
             )
         )
         return True
