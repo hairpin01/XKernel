@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fnmatch import fnmatchcase
 
-from .mac_types import Effect, ObjectClass, PolicyRule, SecurityType
+from .mac_types import Action, Effect, ObjectClass, PolicyRule, SecurityType
 
 
 class PolicyStore:
@@ -134,6 +134,14 @@ class PolicyStore:
                 "*",
                 "*",
                 Effect.DENY.value,
+            ),
+            PolicyRule(
+                SecurityType.UNTRUSTED.value,
+                ObjectClass.INLINE.value,
+                Action.EXECUTE.value,
+                "*",
+                Effect.DENY.value,
+                reason="untrusted inline execution",
             ),
             PolicyRule(
                 SecurityType.UNTRUSTED.value,

@@ -2471,6 +2471,16 @@ class XPatchKernel(KernelBase):
         core_dir = Path(__file__).resolve().parents[1]
         return core_dir / "lib" / "custom" / "XKernel"
 
+    def _xpatch_log(self, level: str, message: str, *args: Any) -> None:
+        logger = getattr(self, "logger", None)
+        if logger is None:
+            return
+        writer = getattr(logger, level, None)
+        if not callable(writer):
+            return
+        with contextlib.suppress(Exception):
+            writer(message, *args)
+
     @staticmethod
     def _extract_sha256_hash(source: str) -> str:
         match = _SHA256_RE.search(str(source or ""))
@@ -2504,6 +2514,12 @@ class XPatchKernel(KernelBase):
         url = f"{_MCMAC_RAW_BASE}/{file_name}"
         module_name = self._hash_module_name(file_name)
         hash_url = self._hash_url(module_name)
+        self._xpatch_log(
+            "debug",
+            "[xpatch] MCMAC download start file=%s hash=%s",
+            file_name,
+            hash_url,
+        )
 
         def fetch(fetch_url: str) -> str:
             with urllib.request.urlopen(fetch_url, timeout=15) as response:
@@ -2511,7 +2527,13 @@ class XPatchKernel(KernelBase):
 
         source = await asyncio.to_thread(fetch, url)
         hash_source = await asyncio.to_thread(fetch, hash_url)
-        self._verify_remote_sha256(module_name, source, hash_source)
+        digest = self._verify_remote_sha256(module_name, source, hash_source)
+        self._xpatch_log(
+            "debug",
+            "[xpatch] MCMAC download verified file=%s sha256=%s",
+            file_name,
+            digest,
+        )
         return source
 
     async def _ensure_mcmac_runtime_libs(self, *, force: bool = False) -> bool:
@@ -2520,15 +2542,22 @@ class XPatchKernel(KernelBase):
         for file_name in _MCMAC_FILES:
             target = target_dir / file_name
             if target.exists() and not force:
+                self._xpatch_log(
+                    "debug", "[xpatch] MCMAC runtime file exists: %s", target
+                )
                 continue
             source = await self._download_mcmac_file(file_name)
             target.write_text(source, encoding="utf-8")
+            self._xpatch_log(
+                "info", "[xpatch] MCMAC runtime file written: %s", target
+            )
         return True
 
     def _load_mcmac_hooks(self) -> Any:
         package_dir = self._mcmac_runtime_dir()
         init_file = package_dir / "__init__.py"
         package_name = _MCMAC_PACKAGE_NAME
+        self._xpatch_log("debug", "[xpatch] MCMAC runtime import from %s", package_dir)
         if package_name not in sys.modules:
             spec = importlib.util.spec_from_file_location(
                 package_name,
@@ -2544,10 +2573,16 @@ class XPatchKernel(KernelBase):
         self._xpatch_mcmac_hooks = hooks
         self._xpatch_mcmac_available = True
         self._xpatch_mcmac_error = ""
+        self._xpatch_log("debug", "[xpatch] MCMAC hooks module loaded")
         return hooks
 
     async def _install_mcmac_hooks(self, *, force_download: bool = False) -> bool:
         try:
+            self._xpatch_log(
+                "info",
+                "[xpatch] MCMAC bootstrap start force_download=%s",
+                force_download,
+            )
             await self._ensure_mcmac_runtime_libs(force=force_download)
             hooks = self._load_mcmac_hooks()
             hooks.install_hooks(self)
@@ -2559,18 +2594,25 @@ class XPatchKernel(KernelBase):
             )
             self._xpatch_mcmac_available = True
             self._xpatch_mcmac_error = ""
+            self._xpatch_log(
+                "info",
+                "[xpatch] MCMAC hooks installed enabled=%s mode=%s audit_mode=%s",
+                self._xpatch_mcmac_enabled,
+                self._xpatch_mcmac_mode,
+                self._xpatch_mcmac_audit_mode,
+            )
             return True
         except Exception as exc:
             self._xpatch_mcmac_available = False
             self._xpatch_mcmac_error = str(exc)
-            logger = getattr(self, "logger", None)
-            if logger is not None:
-                with contextlib.suppress(Exception):
-                    logger.warning("[xpatch] MCMAC bootstrap failed: %s", exc)
+            self._xpatch_log("warning", "[xpatch] MCMAC bootstrap failed: %s", exc)
             return False
 
     def set_mcmac_enabled(self, enabled: bool) -> bool:
         self._xpatch_mcmac_enabled = bool(enabled)
+        self._xpatch_log(
+            "info", "[xpatch] MCMAC enabled=%s", self._xpatch_mcmac_enabled
+        )
         hooks = self._xpatch_mcmac_hooks
         if hooks is not None:
             hooks.configure(
@@ -2586,6 +2628,7 @@ class XPatchKernel(KernelBase):
         if value not in {"permissive", "enforcing"}:
             value = "permissive"
         self._xpatch_mcmac_mode = value
+        self._xpatch_log("info", "[xpatch] MCMAC mode=%s", value)
         hooks = self._xpatch_mcmac_hooks
         if hooks is not None:
             hooks.configure(
@@ -2601,6 +2644,7 @@ class XPatchKernel(KernelBase):
         if value not in {"all", "denied", "blocked", "off"}:
             value = "all"
         self._xpatch_mcmac_audit_mode = value
+        self._xpatch_log("info", "[xpatch] MCMAC audit_mode=%s", value)
         hooks = self._xpatch_mcmac_hooks
         if hooks is not None:
             hooks.configure(
@@ -2616,6 +2660,12 @@ class XPatchKernel(KernelBase):
         if hooks is None:
             return False
         hooks.set_module_type(self, module_name, security_type)
+        self._xpatch_log(
+            "info",
+            "[xpatch] MCMAC module type module=%s type=%s",
+            module_name,
+            security_type,
+        )
         return True
 
     def clear_mcmac_module_type(self, module_name: str) -> bool:
@@ -2623,6 +2673,7 @@ class XPatchKernel(KernelBase):
         if hooks is None:
             return False
         hooks.clear_module_type(self, module_name)
+        self._xpatch_log("info", "[xpatch] MCMAC module type cleared module=%s", module_name)
         return True
 
     def mcmac_module_type(self, module_name: str) -> str:
@@ -2638,6 +2689,13 @@ class XPatchKernel(KernelBase):
         if hooks is None:
             return False
         hooks.set_object_type(self, obj_class, obj_name, security_type)
+        self._xpatch_log(
+            "info",
+            "[xpatch] MCMAC object type class=%s object=%s type=%s",
+            obj_class,
+            obj_name,
+            security_type,
+        )
         return True
 
     def clear_mcmac_object_type(self, obj_class: str, obj_name: str) -> bool:
@@ -2645,6 +2703,9 @@ class XPatchKernel(KernelBase):
         if hooks is None:
             return False
         hooks.clear_object_type(self, obj_class, obj_name)
+        self._xpatch_log(
+            "info", "[xpatch] MCMAC object type cleared class=%s object=%s", obj_class, obj_name
+        )
         return True
 
     def mcmac_object_type(self, obj_class: str, obj_name: str) -> str:
@@ -2660,6 +2721,12 @@ class XPatchKernel(KernelBase):
         if hooks is None:
             return False
         hooks.set_permissive_type(self, security_type, enabled=enabled)
+        self._xpatch_log(
+            "info",
+            "[xpatch] MCMAC permissive type=%s enabled=%s",
+            security_type,
+            enabled,
+        )
         return True
 
     def clear_mcmac_permissive_type(self, security_type: str) -> bool:
@@ -2667,6 +2734,7 @@ class XPatchKernel(KernelBase):
         if hooks is None:
             return False
         hooks.clear_permissive_type(self, security_type)
+        self._xpatch_log("info", "[xpatch] MCMAC permissive cleared type=%s", security_type)
         return True
 
     def clear_mcmac_audit(self) -> bool:
@@ -2674,6 +2742,7 @@ class XPatchKernel(KernelBase):
         if hooks is None:
             return False
         hooks.clear_audit(self)
+        self._xpatch_log("info", "[xpatch] MCMAC audit cleared")
         return True
 
     def mcmac_status(self) -> dict[str, Any]:

@@ -25,6 +25,7 @@ from core.lib.loader.module_base import ModuleBase, callback, command
 from core.lib.loader.module_config import (
     Boolean,
     ConfigValue,
+    DictType,
     Integer,
     ModuleConfig,
     Placeholders,
@@ -1693,6 +1694,12 @@ class XKernelInstaller(ModuleBase):
             validator=String(default="all"),
         ),
         ConfigValue(
+            "mcmac_module_types",
+            {},
+            description="JSON map of persistent MCMAC module type overrides",
+            validator=DictType(default={}, key_type=str, value_type=str),
+        ),
+        ConfigValue(
             "system_patch_man_extera",
             False,
             description="Add ExteraProxy info to man module details",
@@ -2205,6 +2212,25 @@ class XKernelInstaller(ModuleBase):
             return False
         return bool(setter(module_name, security_type))
 
+    def _mcmac_module_types_config(self) -> dict[str, str]:
+        data = self._cfg("mcmac_module_types", {}) or {}
+        if not isinstance(data, dict):
+            return {}
+        allowed = {"trusted", "standard", "untrusted", "quarantine"}
+        result = {}
+        for module_name, security_type in data.items():
+            module = str(module_name or "").strip()
+            value = str(security_type or "").strip().casefold()
+            if module and value in allowed:
+                result[module] = value
+        return result
+
+    async def _save_mcmac_module_types_config(
+        self, module_types: dict[str, str]
+    ) -> None:
+        self.config["mcmac_module_types"] = dict(sorted(module_types.items()))
+        await self._save_config()
+
     def _clear_runtime_mcmac_module_type(self, module_name: str) -> bool:
         try:
             clearer = object.__getattribute__(
@@ -2237,6 +2263,8 @@ class XKernelInstaller(ModuleBase):
         self._set_runtime_mcmac_audit_mode(
             str(self._cfg("mcmac_audit_mode", "all") or "all")
         )
+        for module_name, security_type in self._mcmac_module_types_config().items():
+            self._set_runtime_mcmac_module_type(module_name, security_type)
         self._set_runtime_mcmac_enabled(bool(self._cfg("mcmac_enabled", False)))
 
     def _set_runtime_system_module_patches(self) -> bool:
@@ -4213,6 +4241,10 @@ class XKernelInstaller(ModuleBase):
             await self._edit(event, f"🚫 {self.strings('mcmac_module_type_invalid')}")
             return
         ok = self._set_runtime_mcmac_module_type(module_name, security_type)
+        if ok:
+            module_types = self._mcmac_module_types_config()
+            module_types[module_name] = security_type
+            await self._save_mcmac_module_types_config(module_types)
         await self._refresh_mcmac_settings_event()
         await self._edit(
             event,
@@ -4235,6 +4267,10 @@ class XKernelInstaller(ModuleBase):
             await self._edit(event, f"🚫 {self.strings('mcmac_module_type_invalid')}")
             return
         ok = self._clear_runtime_mcmac_module_type(module_name)
+        if ok:
+            module_types = self._mcmac_module_types_config()
+            module_types.pop(module_name, None)
+            await self._save_mcmac_module_types_config(module_types)
         await self._refresh_mcmac_settings_event()
         await self._edit(
             event,
@@ -4249,6 +4285,8 @@ class XKernelInstaller(ModuleBase):
     @callback(ttl=600)
     async def on_refresh_mcmac_runtime(self, call) -> None:
         ok = await self._refresh_mcmac_runtime()
+        if ok:
+            self._apply_mcmac_from_config()
         await call.answer(
             self.strings("mcmac_refresh_ok" if ok else "mcmac_refresh_failed"),
             alert=not ok,

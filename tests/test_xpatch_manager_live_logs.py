@@ -71,6 +71,7 @@ def load_manager_class():
     module_config = types.ModuleType("core.lib.loader.module_config")
     module_config.Boolean = DummyValue
     module_config.ConfigValue = DummyValue
+    module_config.DictType = DummyValue
     module_config.Integer = DummyValue
     module_config.ModuleConfig = DummyConfig
     module_config.Placeholders = DummyValue
@@ -890,6 +891,7 @@ def test_extera_proxy_extra_features_open_mcmac_settings():
                 "mcmac_enabled": False,
                 "mcmac_mode": "permissive",
                 "mcmac_audit_mode": "all",
+                "mcmac_module_types": {},
             }
         )
         manager._get_pm = lambda: object()
@@ -1010,8 +1012,12 @@ def test_extera_proxy_extra_features_open_mcmac_settings():
             input_event = Call()
             await manager.on_mcmac_module_type_input(input_event, "UnsafeMod:quarantine")
             assert fake_kernel.contexts["UnsafeMod"] == "quarantine"
+            assert manager.config["mcmac_module_types"] == {
+                "UnsafeMod": "quarantine"
+            }
             await manager.on_mcmac_module_type_input(input_event, "- UnsafeMod")
             assert "UnsafeMod" not in fake_kernel.contexts
+            assert manager.config["mcmac_module_types"] == {}
 
         asyncio.run(run())
 

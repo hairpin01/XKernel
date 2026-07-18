@@ -201,6 +201,22 @@ def test_mac_enforcer_all_mode_writes_allowed_debug_logs():
     assert logger.debugs == []
 
 
+def test_untrusted_modules_are_denied_inline_execution():
+    enforcer = MacEnforcer(enabled=True, mode=EnforceMode.ENFORCING.value)
+    enforcer.context.set_type("terminal", SecurityType.UNTRUSTED)
+
+    with pytest.raises(RuntimeError):
+        enforcer.check_access(
+            "terminal",
+            ObjectClass.INLINE.value,
+            Action.EXECUTE.value,
+            "handler",
+        )
+
+    assert enforcer.audit[-1].decision == "denied"
+    assert enforcer.audit[-1].reason == "untrusted inline execution"
+
+
 def test_policy_store_respects_explicit_empty_rules():
     store = PolicyStore([])
 

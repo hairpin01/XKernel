@@ -532,7 +532,24 @@ def test_mcmac_runtime_libs_bootstrap_and_status():
         with tempfile.TemporaryDirectory() as td:
             target = Path(td) / "core" / "lib" / "custom" / "XKernel"
             source_dir = ROOT / "lib" / "custom" / "XKernel"
+
+            class Logger:
+                def __init__(self):
+                    self.debugs = []
+                    self.infos = []
+                    self.warnings = []
+
+                def debug(self, *args):
+                    self.debugs.append(args)
+
+                def info(self, *args):
+                    self.infos.append(args)
+
+                def warning(self, *args):
+                    self.warnings.append(args)
+
             kernel = Kernel()
+            kernel.logger = Logger()
             kernel._mcmac_runtime_dir = lambda: target
 
             async def download(file_name):
@@ -553,6 +570,13 @@ def test_mcmac_runtime_libs_bootstrap_and_status():
             status = kernel.mcmac_status()
             assert status["enabled"] is True
             assert status["mode"] == "enforcing"
+            info_messages = [args[0] for args in kernel.logger.infos]
+            debug_messages = [args[0] for args in kernel.logger.debugs]
+            assert any("MCMAC runtime file written" in msg for msg in info_messages)
+            assert any("MCMAC hooks installed" in msg for msg in info_messages)
+            assert any("MCMAC enabled" in msg for msg in info_messages)
+            assert any("MCMAC mode" in msg for msg in info_messages)
+            assert any("MCMAC runtime import" in msg for msg in debug_messages)
 
     asyncio.run(run())
 
