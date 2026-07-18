@@ -889,6 +889,7 @@ def test_extera_proxy_extra_features_open_mcmac_settings():
                 "extera_proxy_scopes": "kernel",
                 "mcmac_enabled": False,
                 "mcmac_mode": "permissive",
+                "mcmac_audit_mode": "all",
             }
         )
         manager._get_pm = lambda: object()
@@ -897,6 +898,7 @@ def test_extera_proxy_extra_features_open_mcmac_settings():
             def __init__(self):
                 self.enabled = False
                 self.mode = "permissive"
+                self.audit_mode = "all"
                 self.refreshed = False
                 self.contexts = {}
 
@@ -905,6 +907,11 @@ def test_extera_proxy_extra_features_open_mcmac_settings():
                     "available": True,
                     "enabled": self.enabled,
                     "mode": self.mode,
+                    "audit_mode": self.audit_mode,
+                    "audit_allowed": 3,
+                    "audit_denied": 2,
+                    "audit_blocked": 1,
+                    "audit_dropped": 0,
                     "path": "/tmp/core/lib/custom/XKernel",
                     "error": "",
                     "contexts": self.contexts,
@@ -916,6 +923,10 @@ def test_extera_proxy_extra_features_open_mcmac_settings():
 
             def set_mcmac_mode(self, mode):
                 self.mode = str(mode)
+                return True
+
+            def set_mcmac_audit_mode(self, audit_mode):
+                self.audit_mode = str(audit_mode)
                 return True
 
             def set_mcmac_module_type(self, module_name, security_type):
@@ -941,6 +952,8 @@ def test_extera_proxy_extra_features_open_mcmac_settings():
             text, buttons = call.edits[-1]
             assert "<b>MCMAC</b>" in text
             assert "permissive" in text
+            assert "Логирование:" in text
+            assert "Audit: allowed" in text
             assert "<b>system</b>" in text
             assert "<b>trusted</b>" in text
             assert "<b>standard</b>" in text
@@ -959,6 +972,7 @@ def test_extera_proxy_extra_features_open_mcmac_settings():
             rendered_buttons = str(buttons)
             assert "on_toggle_mcmac_enabled" in rendered_buttons
             assert "on_toggle_mcmac_mode" not in rendered_buttons
+            assert "on_mcmac_audit_mode_menu" not in rendered_buttons
             assert "on_mcmac_module_type_input" not in rendered_buttons
 
             await manager.on_toggle_mcmac_enabled(call)
@@ -967,12 +981,28 @@ def test_extera_proxy_extra_features_open_mcmac_settings():
             assert "- ModuleName" not in call.edits[-1][0]
             rendered_buttons = str(call.edits[-1][1])
             assert "on_toggle_mcmac_mode" in rendered_buttons
+            assert "on_mcmac_audit_mode_menu" in rendered_buttons
             assert "on_mcmac_module_type_input" in rendered_buttons
             assert "on_mcmac_module_type_remove_input" in rendered_buttons
 
             await manager.on_toggle_mcmac_mode(call)
             assert fake_kernel.mode == "enforcing"
             assert manager.config["mcmac_mode"] == "enforcing"
+
+            await manager.on_mcmac_audit_mode_menu(call)
+            text, buttons = call.edits[-1]
+            assert "Режим логирования MCMAC" in text
+            assert "Все действия" in str(buttons)
+            assert "Только запрещённые" in str(buttons)
+            assert "Только заблокированные" in str(buttons)
+            assert "Выключить audit" in str(buttons)
+            assert "on_set_mcmac_audit_mode" in str(buttons)
+
+            await manager.on_set_mcmac_audit_mode(call, "denied")
+            assert fake_kernel.audit_mode == "denied"
+            assert manager.config["mcmac_audit_mode"] == "denied"
+            assert call.answers[-1] == ("MCMAC logging mode: denied", False)
+            assert "✅ Только запрещённые" in str(call.edits[-1][1])
 
             await manager.on_refresh_mcmac_runtime(call)
             assert fake_kernel.refreshed is True

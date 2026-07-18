@@ -14,6 +14,13 @@ class EnforceMode(str, Enum):
     ENFORCING = "enforcing"
 
 
+class AuditMode(str, Enum):
+    ALL = "all"
+    DENIED = "denied"
+    BLOCKED = "blocked"
+    OFF = "off"
+
+
 DEFAULT_MAX_AUDIT_RECORDS = 512
 
 
@@ -37,11 +44,13 @@ class MacEnforcer:
         *,
         enabled: bool = False,
         mode: str | EnforceMode = EnforceMode.PERMISSIVE.value,
+        audit_mode: str | AuditMode = AuditMode.ALL.value,
         max_audit_records: int = DEFAULT_MAX_AUDIT_RECORDS,
         logger: Any | None = None,
     ) -> None:
         self.enabled = bool(enabled)
         self.mode = self._mode_value(mode)
+        self.audit_mode = self._audit_mode_value(audit_mode)
         self.max_audit_records = self._audit_limit(max_audit_records)
         self._audit_dropped = 0
         self.logger = logger
@@ -60,6 +69,15 @@ class MacEnforcer:
         return normalized
 
     @staticmethod
+    def _audit_mode_value(mode: str | AuditMode | None) -> str:
+        value = getattr(mode, "value", mode)
+        normalized = str(value or AuditMode.ALL.value).strip().casefold()
+        allowed = {item.value for item in AuditMode}
+        if normalized not in allowed:
+            return AuditMode.ALL.value
+        return normalized
+
+    @staticmethod
     def _audit_limit(value: int) -> int:
         try:
             limit = int(value)
@@ -68,24 +86,37 @@ class MacEnforcer:
         return max(0, limit)
 
     def configure(
-        self, *, enabled: bool | None = None, mode: str | None = None
+        self,
+        *,
+        enabled: bool | None = None,
+        mode: str | None = None,
+        audit_mode: str | None = None,
     ) -> None:
         if enabled is not None:
             self.enabled = bool(enabled)
         if mode:
             self.mode = self._mode_value(mode)
+        if audit_mode:
+            self.audit_mode = self._audit_mode_value(audit_mode)
 
     def status(self) -> dict[str, Any]:
         audit_denied = sum(1 for record in self.audit if record.decision == "denied")
+        audit_blocked = sum(
+            1
+            for record in self.audit
+            if record.decision == "denied" and not record.permissive
+        )
         return {
             "available": True,
             "enabled": self.enabled,
             "mode": self.mode,
+            "audit_mode": self.audit_mode,
             "audit_size": len(self.audit),
             "audit_limit": self.max_audit_records,
             "audit_dropped": self._audit_dropped,
             "audit_allowed": len(self.audit) - audit_denied,
             "audit_denied": audit_denied,
+            "audit_blocked": audit_blocked,
             "contexts": self.context.as_dict(),
             "object_contexts": self.context.objects_as_dict(),
             "permissive_types": sorted(self.permissive_types),
@@ -104,6 +135,26 @@ class MacEnforcer:
         if overflow > 0:
             del self.audit[:overflow]
             self._audit_dropped += overflow
+
+    def _should_audit(self, record: AuditRecord) -> bool:
+        if self.audit_mode == AuditMode.OFF.value:
+            return False
+        if self.audit_mode == AuditMode.ALL.value:
+            return True
+        if record.decision != "denied":
+            return False
+        if self.audit_mode == AuditMode.DENIED.value:
+            return True
+        if self.audit_mode == AuditMode.BLOCKED.value:
+            return not record.permissive
+        return True
+
+    def _record_audit(self, record: AuditRecord) -> None:
+        if not self._should_audit(record):
+            return
+        self._append_audit(record)
+        if record.decision == "denied":
+            self._log_denied(record)
 
     def set_type_permissive(
         self, security_type: str, enabled: bool = True
@@ -181,8 +232,7 @@ class MacEnforcer:
                 rule.source,
                 permissive,
             )
-            self._append_audit(record)
-            self._log_denied(record)
+            self._record_audit(record)
             if not permissive:
                 try:
                     from core.lib.loader.kernel_proxy import CallInsecure
@@ -192,7 +242,7 @@ class MacEnforcer:
                     )
                 raise CallInsecure(obj_name_value, module)
             return False
-        self._append_audit(
+        self._record_audit(
             AuditRecord(
                 "allowed",
                 module,

@@ -374,14 +374,27 @@ class XKernelInstaller(ModuleBase):
             "mcmac_available": "Доступен:",
             "mcmac_enabled": "Включён:",
             "mcmac_mode": "Mode:",
+            "mcmac_audit_mode": "Логирование:",
             "mcmac_path": "Path:",
             "mcmac_error": "Ошибка:",
             "btn_mcmac_toggle": "MCMAC: {state}",
             "btn_mcmac_mode": "Mode: {mode}",
+            "btn_mcmac_audit_mode": "Логи: {mode}",
             "btn_mcmac_update_libs": "Скачать/обновить MCMAC libs",
             "mcmac_enabled_answer": "MCMAC включён",
             "mcmac_disabled_answer": "MCMAC выключен",
             "mcmac_mode_answer": "MCMAC mode: {mode}",
+            "mcmac_audit_mode_answer": "MCMAC logging mode: {mode}",
+            "mcmac_audit_mode_title": "Режим логирования MCMAC",
+            "mcmac_audit_mode_desc": "<b>all</b> — логировать все проверенные действия: кто, класс, действие, объект.\n"
+            "<b>denied</b> — только запрещённые политикой действия, с отметкой blocked/permissive.\n"
+            "<b>blocked</b> — только реально заблокированные действия в enforcing.\n"
+            "<b>off</b> — не сохранять audit-записи.",
+            "mcmac_audit_stats": "Audit: allowed <code>{allowed}</code>, denied <code>{denied}</code>, blocked <code>{blocked}</code>, dropped <code>{dropped}</code>",
+            "btn_mcmac_audit_all": "Все действия",
+            "btn_mcmac_audit_denied": "Только запрещённые",
+            "btn_mcmac_audit_blocked": "Только заблокированные",
+            "btn_mcmac_audit_off": "Выключить audit",
             "mcmac_refresh_ok": "MCMAC libs обновлены",
             "mcmac_refresh_failed": "Не удалось обновить MCMAC libs",
             "mcmac_contexts": "Типы модулей:",
@@ -746,14 +759,27 @@ class XKernelInstaller(ModuleBase):
             "mcmac_available": "Available:",
             "mcmac_enabled": "Enabled:",
             "mcmac_mode": "Mode:",
+            "mcmac_audit_mode": "Logging:",
             "mcmac_path": "Path:",
             "mcmac_error": "Error:",
             "btn_mcmac_toggle": "MCMAC: {state}",
             "btn_mcmac_mode": "Mode: {mode}",
+            "btn_mcmac_audit_mode": "Logs: {mode}",
             "btn_mcmac_update_libs": "Download/update MCMAC libs",
             "mcmac_enabled_answer": "MCMAC enabled",
             "mcmac_disabled_answer": "MCMAC disabled",
             "mcmac_mode_answer": "MCMAC mode: {mode}",
+            "mcmac_audit_mode_answer": "MCMAC logging mode: {mode}",
+            "mcmac_audit_mode_title": "MCMAC logging mode",
+            "mcmac_audit_mode_desc": "<b>all</b> — log every checked action: who, class, action and object.\n"
+            "<b>denied</b> — log only policy-denied actions with blocked/permissive marker.\n"
+            "<b>blocked</b> — log only actions actually blocked in enforcing mode.\n"
+            "<b>off</b> — do not store audit records.",
+            "mcmac_audit_stats": "Audit: allowed <code>{allowed}</code>, denied <code>{denied}</code>, blocked <code>{blocked}</code>, dropped <code>{dropped}</code>",
+            "btn_mcmac_audit_all": "All actions",
+            "btn_mcmac_audit_denied": "Denied only",
+            "btn_mcmac_audit_blocked": "Blocked only",
+            "btn_mcmac_audit_off": "Disable audit",
             "mcmac_refresh_ok": "MCMAC libs updated",
             "mcmac_refresh_failed": "Failed to update MCMAC libs",
             "mcmac_contexts": "Module types:",
@@ -1116,14 +1142,27 @@ class XKernelInstaller(ModuleBase):
             "mcmac_available": "Доступен:",
             "mcmac_enabled": "Включён:",
             "mcmac_mode": "Mode:",
+            "mcmac_audit_mode": "Логирование:",
             "mcmac_path": "Path:",
             "mcmac_error": "Ошибка:",
             "btn_mcmac_toggle": "MCMAC: {state}",
             "btn_mcmac_mode": "Mode: {mode}",
+            "btn_mcmac_audit_mode": "Логи: {mode}",
             "btn_mcmac_update_libs": "Скачать/обновить MCMAC libs",
             "mcmac_enabled_answer": "MCMAC включён",
             "mcmac_disabled_answer": "MCMAC выключен",
             "mcmac_mode_answer": "MCMAC mode: {mode}",
+            "mcmac_audit_mode_answer": "MCMAC logging mode: {mode}",
+            "mcmac_audit_mode_title": "Режим логирования MCMAC",
+            "mcmac_audit_mode_desc": "<b>all</b> — логировать все проверенные действия: кто, класс, действие, объект.\n"
+            "<b>denied</b> — только запрещённые политикой действия, с отметкой blocked/permissive.\n"
+            "<b>blocked</b> — только реально заблокированные действия в enforcing.\n"
+            "<b>off</b> — не сохранять audit-записи.",
+            "mcmac_audit_stats": "Audit: allowed <code>{allowed}</code>, denied <code>{denied}</code>, blocked <code>{blocked}</code>, dropped <code>{dropped}</code>",
+            "btn_mcmac_audit_all": "Все действия",
+            "btn_mcmac_audit_denied": "Только запрещённые",
+            "btn_mcmac_audit_blocked": "Только заблокированные",
+            "btn_mcmac_audit_off": "Выключить audit",
             "mcmac_refresh_ok": "MCMAC libs обновлены",
             "mcmac_refresh_failed": "Не удалось обновить MCMAC libs",
             "mcmac_contexts": "Клейма модулей:",
@@ -1489,14 +1528,27 @@ class XKernelInstaller(ModuleBase):
             "mcmac_available": "Available:",
             "mcmac_enabled": "Enabled:",
             "mcmac_mode": "Mode:",
+            "mcmac_audit_mode": "Logging:",
             "mcmac_path": "Path:",
             "mcmac_error": "Error:",
             "btn_mcmac_toggle": "MCMAC: {state}",
             "btn_mcmac_mode": "Mode: {mode}",
+            "btn_mcmac_audit_mode": "Logs: {mode}",
             "btn_mcmac_update_libs": "Download/update MCMAC libs",
             "mcmac_enabled_answer": "MCMAC enabled",
             "mcmac_disabled_answer": "MCMAC disabled",
             "mcmac_mode_answer": "MCMAC mode: {mode}",
+            "mcmac_audit_mode_answer": "MCMAC logging mode: {mode}",
+            "mcmac_audit_mode_title": "MCMAC logging mode",
+            "mcmac_audit_mode_desc": "<b>all</b> — log every checked action: who, class, action and object.\n"
+            "<b>denied</b> — log only policy-denied actions with blocked/permissive marker.\n"
+            "<b>blocked</b> — log only actions actually blocked in enforcing mode.\n"
+            "<b>off</b> — do not store audit records.",
+            "mcmac_audit_stats": "Audit: allowed <code>{allowed}</code>, denied <code>{denied}</code>, blocked <code>{blocked}</code>, dropped <code>{dropped}</code>",
+            "btn_mcmac_audit_all": "All actions",
+            "btn_mcmac_audit_denied": "Denied only",
+            "btn_mcmac_audit_blocked": "Blocked only",
+            "btn_mcmac_audit_off": "Disable audit",
             "mcmac_refresh_ok": "MCMAC libs updated",
             "mcmac_refresh_failed": "Failed to update MCMAC libs",
             "mcmac_contexts": "Package security types:",
@@ -1633,6 +1685,12 @@ class XKernelInstaller(ModuleBase):
             "permissive",
             description="MCMAC mode: permissive or enforcing",
             validator=String(default="permissive"),
+        ),
+        ConfigValue(
+            "mcmac_audit_mode",
+            "all",
+            description="MCMAC audit/logging mode: all, denied, blocked, off",
+            validator=String(default="all"),
         ),
         ConfigValue(
             "system_patch_man_extera",
@@ -2123,6 +2181,17 @@ class XKernelInstaller(ModuleBase):
             return False
         return bool(setter(mode))
 
+    def _set_runtime_mcmac_audit_mode(self, audit_mode: str) -> bool:
+        try:
+            setter = object.__getattribute__(
+                self._kernel_object(), "set_mcmac_audit_mode"
+            )
+        except Exception:
+            setter = None
+        if not callable(setter):
+            return False
+        return bool(setter(audit_mode))
+
     def _set_runtime_mcmac_module_type(
         self, module_name: str, security_type: str
     ) -> bool:
@@ -2164,6 +2233,9 @@ class XKernelInstaller(ModuleBase):
     def _apply_mcmac_from_config(self) -> None:
         self._set_runtime_mcmac_mode(
             str(self._cfg("mcmac_mode", "permissive") or "permissive")
+        )
+        self._set_runtime_mcmac_audit_mode(
+            str(self._cfg("mcmac_audit_mode", "all") or "all")
         )
         self._set_runtime_mcmac_enabled(bool(self._cfg("mcmac_enabled", False)))
 
@@ -3891,9 +3963,16 @@ class XKernelInstaller(ModuleBase):
         status = self._mcmac_status()
         enabled = bool(status.get("enabled", self._cfg("mcmac_enabled", False)))
         mode = str(status.get("mode") or self._cfg("mcmac_mode", "permissive"))
+        audit_mode = str(
+            status.get("audit_mode") or self._cfg("mcmac_audit_mode", "all") or "all"
+        )
         available = bool(status.get("available", False))
         path = html.escape(str(status.get("path", "")))
         error = html.escape(str(status.get("error", "")))
+        audit_allowed = int(status.get("audit_allowed", 0) or 0)
+        audit_denied = int(status.get("audit_denied", 0) or 0)
+        audit_blocked = int(status.get("audit_blocked", 0) or 0)
+        audit_dropped = int(status.get("audit_dropped", 0) or 0)
         contexts = status.get("contexts") or {}
         if isinstance(contexts, dict) and contexts:
             contexts_text = ", ".join(
@@ -3913,6 +3992,8 @@ class XKernelInstaller(ModuleBase):
             f"<blockquote>{self.strings('mcmac_type_quarantine_desc')}</blockquote>\n"
             f"{self._bool_icon(enabled)} {self.strings('mcmac_enabled')} <code>{self.strings('state_on' if enabled else 'state_off')}</code>\n"
             f"{C['settings']} {self.strings('mcmac_mode')} <code>{html.escape(mode)}</code>\n"
+            f"{C['lock']} {self.strings('mcmac_audit_mode')} <code>{html.escape(audit_mode)}</code>\n"
+            f"{C['menu']} {self.strings('mcmac_audit_stats', allowed=audit_allowed, denied=audit_denied, blocked=audit_blocked, dropped=audit_dropped)}\n"
             f"{C['dir']} {self.strings('mcmac_path')} <code>{path}</code>\n"
             f"{C['menu']} {self.strings('mcmac_contexts')} {contexts_text}"
         )
@@ -3944,6 +4025,14 @@ class XKernelInstaller(ModuleBase):
                         self.Button.inline(
                             self.strings("btn_mcmac_mode", mode=mode),
                             self.on_toggle_mcmac_mode,
+                            ttl=600,
+                            style="primary",
+                        )
+                    ],
+                    [
+                        self.Button.inline(
+                            self.strings("btn_mcmac_audit_mode", mode=audit_mode),
+                            self.on_mcmac_audit_mode_menu,
                             ttl=600,
                             style="primary",
                         )
@@ -3983,6 +4072,51 @@ class XKernelInstaller(ModuleBase):
                         ttl=600,
                     )
                 ],
+            ]
+        )
+        return text, buttons
+
+    def _build_mcmac_audit_mode_page(self) -> tuple[str, list]:
+        C = self.C
+        status = self._mcmac_status()
+        current = str(
+            status.get("audit_mode") or self._cfg("mcmac_audit_mode", "all") or "all"
+        ).casefold()
+        audit_allowed = int(status.get("audit_allowed", 0) or 0)
+        audit_denied = int(status.get("audit_denied", 0) or 0)
+        audit_blocked = int(status.get("audit_blocked", 0) or 0)
+        audit_dropped = int(status.get("audit_dropped", 0) or 0)
+        modes = (
+            ("all", "btn_mcmac_audit_all"),
+            ("denied", "btn_mcmac_audit_denied"),
+            ("blocked", "btn_mcmac_audit_blocked"),
+            ("off", "btn_mcmac_audit_off"),
+        )
+        text = (
+            f"{C['lock']} <b>{self.strings('mcmac_audit_mode_title')}</b>\n\n"
+            f"<blockquote>{self.strings('mcmac_audit_mode_desc')}</blockquote>\n"
+            f"{C['settings']} {self.strings('mcmac_audit_mode')} <code>{html.escape(current)}</code>\n"
+            f"{C['menu']} {self.strings('mcmac_audit_stats', allowed=audit_allowed, denied=audit_denied, blocked=audit_blocked, dropped=audit_dropped)}"
+        )
+        buttons = [
+            [
+                self.Button.inline(
+                    f"{'✅ ' if mode == current else ''}{self.strings(label)}",
+                    self.on_set_mcmac_audit_mode,
+                    data=mode,
+                    ttl=600,
+                    style="success" if mode == current else "primary",
+                )
+            ]
+            for mode, label in modes
+        ]
+        buttons.append(
+            [
+                self.Button.inline(
+                    f"{self._clear_text(C['back'])} {self.strings('btn_back')}",
+                    self.on_mcmac_settings_menu,
+                    ttl=600,
+                )
             ]
         )
         return text, buttons
@@ -4032,6 +4166,27 @@ class XKernelInstaller(ModuleBase):
             alert=not ok,
         )
         text, buttons = self._build_mcmac_settings_page()
+        await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
+    async def on_mcmac_audit_mode_menu(self, call) -> None:
+        self._mcmac_settings_event = call
+        text, buttons = self._build_mcmac_audit_mode_page()
+        await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
+    async def on_set_mcmac_audit_mode(self, call, data: Any = None) -> None:
+        audit_mode = str(data or "all").strip().casefold()
+        if audit_mode not in {"all", "denied", "blocked", "off"}:
+            audit_mode = "all"
+        self.config["mcmac_audit_mode"] = audit_mode
+        ok = self._set_runtime_mcmac_audit_mode(audit_mode)
+        await self._save_config()
+        await call.answer(
+            self.strings("mcmac_audit_mode_answer", mode=audit_mode),
+            alert=not ok,
+        )
+        text, buttons = self._build_mcmac_audit_mode_page()
         await call.edit(text, buttons=buttons)
 
     async def on_mcmac_module_type_input(

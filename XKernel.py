@@ -88,6 +88,7 @@ _XPATCH_STEALTH_PROTECTED_ATTRS = frozenset(
         "set_extera_proxy_scopes",
         "set_mcmac_enabled",
         "set_mcmac_mode",
+        "set_mcmac_audit_mode",
         "set_mcmac_module_type",
         "clear_mcmac_module_type",
         "mcmac_module_type",
@@ -1525,6 +1526,7 @@ class XPatchKernel(KernelBase):
         self._xpatch_extera_proxy_hook_installed = False
         self._xpatch_mcmac_enabled = False
         self._xpatch_mcmac_mode = "permissive"
+        self._xpatch_mcmac_audit_mode = "all"
         self._xpatch_mcmac_hooks = None
         self._xpatch_mcmac_enforcer = None
         self._xpatch_mcmac_available = False
@@ -2153,6 +2155,7 @@ class XPatchKernel(KernelBase):
             "extera_proxy_status",
             "set_mcmac_enabled",
             "set_mcmac_mode",
+            "set_mcmac_audit_mode",
             "set_mcmac_module_type",
             "clear_mcmac_module_type",
             "mcmac_module_type",
@@ -2552,6 +2555,7 @@ class XPatchKernel(KernelBase):
                 self,
                 enabled=self._xpatch_mcmac_enabled,
                 mode=self._xpatch_mcmac_mode,
+                audit_mode=self._xpatch_mcmac_audit_mode,
             )
             self._xpatch_mcmac_available = True
             self._xpatch_mcmac_error = ""
@@ -2573,6 +2577,7 @@ class XPatchKernel(KernelBase):
                 self,
                 enabled=self._xpatch_mcmac_enabled,
                 mode=self._xpatch_mcmac_mode,
+                audit_mode=self._xpatch_mcmac_audit_mode,
             )
         return True
 
@@ -2587,6 +2592,22 @@ class XPatchKernel(KernelBase):
                 self,
                 enabled=self._xpatch_mcmac_enabled,
                 mode=self._xpatch_mcmac_mode,
+                audit_mode=self._xpatch_mcmac_audit_mode,
+            )
+        return True
+
+    def set_mcmac_audit_mode(self, audit_mode: str) -> bool:
+        value = str(audit_mode or "all").strip().casefold()
+        if value not in {"all", "denied", "blocked", "off"}:
+            value = "all"
+        self._xpatch_mcmac_audit_mode = value
+        hooks = self._xpatch_mcmac_hooks
+        if hooks is not None:
+            hooks.configure(
+                self,
+                enabled=self._xpatch_mcmac_enabled,
+                mode=self._xpatch_mcmac_mode,
+                audit_mode=self._xpatch_mcmac_audit_mode,
             )
         return True
 

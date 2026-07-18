@@ -627,6 +627,7 @@ def test_mcmac_admin_controls_are_protected_from_module_kernel_proxy():
     protected_names = {
         "set_mcmac_enabled",
         "set_mcmac_mode",
+        "set_mcmac_audit_mode",
         "set_mcmac_module_type",
         "clear_mcmac_module_type",
         "set_mcmac_object_type",

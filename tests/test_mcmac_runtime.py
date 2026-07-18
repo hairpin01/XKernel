@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from lib.custom.XKernel.mac_context import MacContext
-from lib.custom.XKernel.mac_enforcer import EnforceMode, MacEnforcer
+from lib.custom.XKernel.mac_enforcer import AuditMode, EnforceMode, MacEnforcer
 from lib.custom.XKernel import mac_hooks
 from lib.custom.XKernel.mac_policy import PolicyStore
 from lib.custom.XKernel.mac_types import Action, Effect, ObjectClass, SecurityType
@@ -98,6 +98,59 @@ def test_mac_enforcer_zero_audit_limit_keeps_counters_only():
     status = enforcer.status()
     assert status["audit_size"] == 0
     assert status["audit_dropped"] == 1
+
+
+def test_mac_enforcer_audit_modes_filter_records_by_decision():
+    enforcer = MacEnforcer(enabled=True, audit_mode="invalid")
+    assert enforcer.audit_mode == AuditMode.ALL.value
+
+    enforcer.configure(audit_mode=AuditMode.DENIED.value)
+    assert enforcer.check_access(
+        "StdMod",
+        ObjectClass.TG_SEND.value,
+        Action.EXECUTE.value,
+        "send_message",
+    ) is True
+    assert enforcer.audit == []
+
+    enforcer.context.set_type("NoisyMod", SecurityType.UNTRUSTED)
+    assert enforcer.check_access(
+        "NoisyMod",
+        ObjectClass.TG_DELETE.value,
+        Action.EXECUTE.value,
+        "delete_messages",
+    ) is False
+    assert len(enforcer.audit) == 1
+    assert enforcer.audit[-1].decision == "denied"
+    assert enforcer.audit[-1].permissive is True
+    assert enforcer.status()["audit_blocked"] == 0
+
+    enforcer.clear_audit()
+    enforcer.configure(
+        mode=EnforceMode.ENFORCING.value,
+        audit_mode=AuditMode.BLOCKED.value,
+    )
+    with pytest.raises(RuntimeError):
+        enforcer.check_access(
+            "NoisyMod",
+            ObjectClass.TG_DELETE.value,
+            Action.EXECUTE.value,
+            "delete_messages",
+        )
+    assert len(enforcer.audit) == 1
+    assert enforcer.audit[-1].permissive is False
+    assert enforcer.status()["audit_blocked"] == 1
+
+    enforcer.clear_audit()
+    enforcer.configure(audit_mode=AuditMode.OFF.value)
+    with pytest.raises(RuntimeError):
+        enforcer.check_access(
+            "NoisyMod",
+            ObjectClass.TG_DELETE.value,
+            Action.EXECUTE.value,
+            "delete_messages",
+        )
+    assert enforcer.status()["audit_size"] == 0
 
 
 def test_policy_store_respects_explicit_empty_rules():
@@ -246,13 +299,22 @@ def test_mac_hooks_expose_selinux_like_runtime_controls():
         {
             "_xpatch_mcmac_enabled": True,
             "_xpatch_mcmac_mode": "invalid",
+            "_xpatch_mcmac_audit_mode": "invalid",
             "logger": None,
         },
     )()
 
-    status = mac_hooks.configure(kernel, enabled=True, mode="invalid")
+    status = mac_hooks.configure(
+        kernel, enabled=True, mode="invalid", audit_mode="invalid"
+    )
     assert status["mode"] == EnforceMode.PERMISSIVE.value
+    assert status["audit_mode"] == AuditMode.ALL.value
     assert kernel._xpatch_mcmac_mode == EnforceMode.PERMISSIVE.value
+    assert kernel._xpatch_mcmac_audit_mode == AuditMode.ALL.value
+
+    status = mac_hooks.set_audit_mode(kernel, AuditMode.DENIED.value)
+    assert status["audit_mode"] == AuditMode.DENIED.value
+    assert kernel._xpatch_mcmac_audit_mode == AuditMode.DENIED.value
 
     mac_hooks.set_object_type(
         kernel,

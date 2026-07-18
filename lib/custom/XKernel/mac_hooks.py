@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from typing import Any
 
-from .mac_enforcer import EnforceMode, MacEnforcer
+from .mac_enforcer import AuditMode, EnforceMode, MacEnforcer
 from .mac_types import Action, ObjectClass
 
 _TG_METHOD_CLASS = {
@@ -27,6 +27,9 @@ def ensure_enforcer(kernel: Any) -> MacEnforcer:
             mode=str(
                 getattr(kernel, "_xpatch_mcmac_mode", EnforceMode.PERMISSIVE.value)
             ),
+            audit_mode=str(
+                getattr(kernel, "_xpatch_mcmac_audit_mode", AuditMode.ALL.value)
+            ),
             logger=getattr(kernel, "logger", None),
         )
         setattr(kernel, "_xpatch_mcmac_enforcer", enforcer)
@@ -36,14 +39,20 @@ def ensure_enforcer(kernel: Any) -> MacEnforcer:
 
 
 def configure(
-    kernel: Any, *, enabled: bool | None = None, mode: str | None = None
+    kernel: Any,
+    *,
+    enabled: bool | None = None,
+    mode: str | None = None,
+    audit_mode: str | None = None,
 ) -> dict[str, Any]:
     enforcer = ensure_enforcer(kernel)
-    enforcer.configure(enabled=enabled, mode=mode)
+    enforcer.configure(enabled=enabled, mode=mode, audit_mode=audit_mode)
     if enabled is not None:
         setattr(kernel, "_xpatch_mcmac_enabled", bool(enabled))
     if mode is not None:
         setattr(kernel, "_xpatch_mcmac_mode", enforcer.mode)
+    if audit_mode is not None:
+        setattr(kernel, "_xpatch_mcmac_audit_mode", enforcer.audit_mode)
     return enforcer.status()
 
 
@@ -104,6 +113,13 @@ def clear_permissive_type(kernel: Any, security_type: str) -> dict[str, Any]:
 def clear_audit(kernel: Any) -> dict[str, Any]:
     enforcer = ensure_enforcer(kernel)
     enforcer.clear_audit()
+    return enforcer.status()
+
+
+def set_audit_mode(kernel: Any, audit_mode: str) -> dict[str, Any]:
+    enforcer = ensure_enforcer(kernel)
+    enforcer.configure(audit_mode=audit_mode)
+    setattr(kernel, "_xpatch_mcmac_audit_mode", enforcer.audit_mode)
     return enforcer.status()
 
 
