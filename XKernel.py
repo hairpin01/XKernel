@@ -8,6 +8,7 @@ import importlib.util
 import inspect
 import json
 import os
+import re
 import sqlite3
 import sys
 import time
@@ -45,10 +46,12 @@ _MCMAC_FILES = (
     "mac_enforcer.py",
     "mac_hooks.py",
 )
+_XKERNEL_RAW_ROOT = "https://raw.githubusercontent.com/hairpin01/XKernel/refs/heads/main"
 _MCMAC_RAW_BASE = (
-    "https://raw.githubusercontent.com/hairpin01/XKernel/"
-    "refs/heads/main/lib/custom/XKernel"
+    f"{_XKERNEL_RAW_ROOT}/lib/custom/XKernel"
 )
+_HASH_FILE_NAME = "SHA256:hash.txt"
+_SHA256_RE = re.compile(r"\b[a-fA-F0-9]{64}\b")
 _CLIENT_PATCH_DB_KEYS = {
     "app_version": "client_patch_app_version",
     "device_model": "client_patch_device_model",
@@ -86,9 +89,18 @@ _XPATCH_STEALTH_PROTECTED_ATTRS = frozenset(
         "set_mcmac_enabled",
         "set_mcmac_mode",
         "set_mcmac_module_type",
+        "clear_mcmac_module_type",
         "mcmac_module_type",
+        "set_mcmac_object_type",
+        "clear_mcmac_object_type",
+        "mcmac_object_type",
+        "set_mcmac_permissive_type",
+        "clear_mcmac_permissive_type",
+        "clear_mcmac_audit",
         "mcmac_status",
         "refresh_mcmac_runtime",
+        "patch_system_modules",
+        "system_module_patch_status",
         "_mcmac_runtime_dir",
         "_ensure_mcmac_runtime_libs",
         "_load_mcmac_hooks",
@@ -1518,6 +1530,12 @@ class XPatchKernel(KernelBase):
         self._xpatch_mcmac_available = False
         self._xpatch_mcmac_error = ""
         self._xpatch_mcmac_hooks_installed = False
+        self._xpatch_system_module_patch_options: dict[str, bool] = {
+            "man_extera": False,
+            "man_mcmac": False,
+            "updates_xkernel": False,
+        }
+        self._xpatch_system_module_originals: dict[tuple[str, str], Any] = {}
         self.ver = f"{self.VERSION}.XPatch"
         self.VERSION = self.ver
         self.VERSION_XKERNEL = (0, 0, 8)
@@ -2133,6 +2151,19 @@ class XPatchKernel(KernelBase):
             "remove_extera_proxy_module",
             "clear_extera_proxy_modules",
             "extera_proxy_status",
+            "set_mcmac_enabled",
+            "set_mcmac_mode",
+            "set_mcmac_module_type",
+            "clear_mcmac_module_type",
+            "mcmac_module_type",
+            "set_mcmac_object_type",
+            "clear_mcmac_object_type",
+            "mcmac_object_type",
+            "set_mcmac_permissive_type",
+            "clear_mcmac_permissive_type",
+            "clear_mcmac_audit",
+            "mcmac_status",
+            "refresh_mcmac_runtime",
         }
         try:
             kernel_proxy_module.PROTECTED_KERNEL_NAMES = frozenset(
@@ -2437,14 +2468,48 @@ class XPatchKernel(KernelBase):
         core_dir = Path(__file__).resolve().parents[1]
         return core_dir / "lib" / "custom" / "XKernel"
 
+    @staticmethod
+    def _extract_sha256_hash(source: str) -> str:
+        match = _SHA256_RE.search(str(source or ""))
+        if match is None:
+            raise ValueError("SHA256 hash file does not contain a valid digest")
+        return match.group(0).casefold()
+
+    @staticmethod
+    def _sha256_text(source: str) -> str:
+        return hashlib.sha256(source.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _verify_remote_sha256(module_name: str, source: str, hash_source: str) -> str:
+        expected = XPatchKernel._extract_sha256_hash(hash_source)
+        actual = XPatchKernel._sha256_text(source)
+        if actual != expected:
+            raise RuntimeError(
+                f"SHA256 mismatch for {module_name}: expected {expected}, got {actual}"
+            )
+        return actual
+
+    @staticmethod
+    def _hash_module_name(file_name: str) -> str:
+        return Path(str(file_name)).stem or str(file_name).strip()
+
+    @staticmethod
+    def _hash_url(module_name: str) -> str:
+        return f"{_XKERNEL_RAW_ROOT}/hash/{module_name}/{_HASH_FILE_NAME}"
+
     async def _download_mcmac_file(self, file_name: str) -> str:
         url = f"{_MCMAC_RAW_BASE}/{file_name}"
+        module_name = self._hash_module_name(file_name)
+        hash_url = self._hash_url(module_name)
 
-        def fetch() -> str:
-            with urllib.request.urlopen(url, timeout=15) as response:
+        def fetch(fetch_url: str) -> str:
+            with urllib.request.urlopen(fetch_url, timeout=15) as response:
                 return response.read().decode("utf-8")
 
-        return await asyncio.to_thread(fetch)
+        source = await asyncio.to_thread(fetch, url)
+        hash_source = await asyncio.to_thread(fetch, hash_url)
+        self._verify_remote_sha256(module_name, source, hash_source)
+        return source
 
     async def _ensure_mcmac_runtime_libs(self, *, force: bool = False) -> bool:
         target_dir = self._mcmac_runtime_dir()
@@ -2532,11 +2597,63 @@ class XPatchKernel(KernelBase):
         hooks.set_module_type(self, module_name, security_type)
         return True
 
+    def clear_mcmac_module_type(self, module_name: str) -> bool:
+        hooks = self._xpatch_mcmac_hooks
+        if hooks is None:
+            return False
+        hooks.clear_module_type(self, module_name)
+        return True
+
     def mcmac_module_type(self, module_name: str) -> str:
         hooks = self._xpatch_mcmac_hooks
         if hooks is None:
             return "standard"
         return str(hooks.module_type(self, module_name))
+
+    def set_mcmac_object_type(
+        self, obj_class: str, obj_name: str, security_type: str
+    ) -> bool:
+        hooks = self._xpatch_mcmac_hooks
+        if hooks is None:
+            return False
+        hooks.set_object_type(self, obj_class, obj_name, security_type)
+        return True
+
+    def clear_mcmac_object_type(self, obj_class: str, obj_name: str) -> bool:
+        hooks = self._xpatch_mcmac_hooks
+        if hooks is None:
+            return False
+        hooks.clear_object_type(self, obj_class, obj_name)
+        return True
+
+    def mcmac_object_type(self, obj_class: str, obj_name: str) -> str:
+        hooks = self._xpatch_mcmac_hooks
+        if hooks is None:
+            return "standard"
+        return str(hooks.object_type(self, obj_class, obj_name))
+
+    def set_mcmac_permissive_type(
+        self, security_type: str, enabled: bool = True
+    ) -> bool:
+        hooks = self._xpatch_mcmac_hooks
+        if hooks is None:
+            return False
+        hooks.set_permissive_type(self, security_type, enabled=enabled)
+        return True
+
+    def clear_mcmac_permissive_type(self, security_type: str) -> bool:
+        hooks = self._xpatch_mcmac_hooks
+        if hooks is None:
+            return False
+        hooks.clear_permissive_type(self, security_type)
+        return True
+
+    def clear_mcmac_audit(self) -> bool:
+        hooks = self._xpatch_mcmac_hooks
+        if hooks is None:
+            return False
+        hooks.clear_audit(self)
+        return True
 
     def mcmac_status(self) -> dict[str, Any]:
         status = {
@@ -2556,6 +2673,116 @@ class XPatchKernel(KernelBase):
 
     async def refresh_mcmac_runtime(self) -> bool:
         return await self._install_mcmac_hooks(force_download=True)
+
+    def patch_system_modules(
+        self,
+        *,
+        man_extera: bool = False,
+        man_mcmac: bool = False,
+        updates_xkernel: bool = False,
+    ) -> dict[str, Any]:
+        options = {
+            "man_extera": bool(man_extera),
+            "man_mcmac": bool(man_mcmac),
+            "updates_xkernel": bool(updates_xkernel),
+        }
+        object.__setattr__(self, "_xpatch_system_module_patch_options", options)
+        self._install_system_module_patches()
+        return self.system_module_patch_status()
+
+    def system_module_patch_status(self) -> dict[str, Any]:
+        return {
+            "options": dict(
+                object.__getattribute__(self, "_xpatch_system_module_patch_options")
+            ),
+            "patched": [
+                f"{m}.{a}"
+                for (m, a) in object.__getattribute__(
+                    self, "_xpatch_system_module_originals"
+                )
+            ],
+        }
+
+    def _system_module_instance(self, name: str) -> Any | None:
+        for collection_name in ("loaded_modules", "system_modules"):
+            collection = getattr(self, collection_name, {}) or {}
+            module = collection.get(name)
+            if module is not None:
+                return getattr(module, "_class_instance", module)
+        return None
+
+    def _install_system_module_patches(self) -> None:
+        self._patch_man_module()
+        self._patch_updates_module()
+
+    def _patch_man_module(self) -> None:
+        module = self._system_module_instance("man")
+        if module is None or not hasattr(module, "_build_module_detail"):
+            return
+        key = ("man", "_build_module_detail")
+        originals = object.__getattribute__(self, "_xpatch_system_module_originals")
+        if key not in originals:
+            originals[key] = module._build_module_detail
+        original = originals[key]
+        kernel = self
+
+        async def patched(match_tuple):
+            text, media = await original(match_tuple)
+            name = str(match_tuple[0])
+            options = object.__getattribute__(
+                kernel, "_xpatch_system_module_patch_options"
+            )
+            extra: list[str] = []
+            if options.get("man_extera"):
+                scopes = ", ".join(
+                    sorted(
+                        object.__getattribute__(kernel, "_xpatch_extera_proxy_scopes")
+                    )
+                )
+                modules = object.__getattribute__(
+                    kernel, "_xpatch_extera_proxy_modules"
+                )
+                all_enabled = bool(
+                    object.__getattribute__(kernel, "_xpatch_extera_proxy_all")
+                )
+                enabled = all_enabled or name.casefold() in modules
+                extra.append(
+                    f"<blockquote>ExteraProxy: <code>{'ON' if enabled else 'OFF'}</code>; scopes: <code>{scopes}</code></blockquote>"
+                )
+            if options.get("man_mcmac"):
+                extra.append(
+                    f"<blockquote>MCMAC: <code>{kernel.mcmac_module_type(name)}</code></blockquote>"
+                )
+            if extra:
+                text = f"{text}\n" + "\n".join(extra)
+            return text, media
+
+        module._build_module_detail = patched
+
+    def _patch_updates_module(self) -> None:
+        module = self._system_module_instance("updates")
+        if module is None or not hasattr(module, "cmd_update"):
+            return
+        key = ("updates", "cmd_update")
+        originals = object.__getattribute__(self, "_xpatch_system_module_originals")
+        if key not in originals:
+            originals[key] = module.cmd_update
+        original = originals[key]
+        kernel = self
+
+        async def patched(event):
+            await original(event)
+            if not object.__getattribute__(
+                kernel, "_xpatch_system_module_patch_options"
+            ).get("updates_xkernel"):
+                return
+            version = getattr(kernel, "VERSION_XKERNEL", None)
+            text = f"✅ XKernel core: <code>{version}</code>"
+            reply = getattr(event, "reply", None)
+            if callable(reply):
+                await reply(text, parse_mode="html")
+
+        module.cmd_update = patched
 
     def set_xpatch_events_enabled(self, enabled: bool) -> None:
         object.__setattr__(self, "_xpatch_events_enabled", bool(enabled))

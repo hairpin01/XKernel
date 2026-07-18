@@ -43,1410 +43,1499 @@ class XKernelInstaller(ModuleBase):
     }
     dependencies = ["aiohttp"]
 
-    strings = {'name': 'XPatchKernelManager',
-     'ru': {'state_on': 'ON',
-            'state_off': 'OFF',
-            'btn_back': 'Назад',
-            'btn_patches': 'Патчи',
-            'btn_details': 'Диагностика',
-            'btn_apply_all': 'Применить все',
-            'btn_failed_count': '{count} с ошибкой',
-            'btn_settings': 'Настройки',
-            'btn_check_update': 'Проверить обновление',
-            'btn_utils': 'Инструменты',
-            'btn_install_update': 'Установить / обновить',
-            'btn_repo': 'Repo',
-            'btn_live_logs': 'Live logs',
-            'btn_danger_zone': 'Опасная зона',
-            'btn_remove_xkernel': 'Удаление XKernel',
-            'btn_start_remove': 'Начать процесс удаления',
-            'btn_clear_params': 'Очистить параметры',
-            'btn_client_patch_toggle': 'Client Patch: {state}',
-            'btn_client_app_version': 'Версия приложения',
-            'btn_client_device_model': 'Модель устройства',
-            'btn_client_system_version': 'Версия системы',
-            'btn_client_lang_code': 'Язык приложения',
-            'btn_client_system_lang_code': 'Системный язык',
-            'btn_reload_patch': 'Перезагрузить патч',
-            'btn_enable_patch': 'Включить патч',
-            'btn_disable_patch': 'Отключить патч',
-            'btn_unapply_patch': 'Откатить применение',
-            'btn_retry_patch': 'Повторить',
-            'btn_experimental': 'Экспериментальные функции',
-            'main_title': 'XPatch Manager',
-            'main_mcub_version': 'Version (MCUB):',
-            'main_patch_stats': 'Применено: <b>{applied}</b>  Ожидает: <b>{pending}</b>  Ошибки: <b>{failed}</b>',
-            'main_flags': 'Stealth: <code>{stealth}</code>  Auto: <code>{auto_update}</code>  Notify: '
-                          '<code>{notifications}</code>',
-            'main_extera': '<b>ExteraProxy Inject:</b> <i>{status}</i>',
-            'main_core': 'Core:',
-            'main_xkernel_version': 'Version XPatchKernel:',
-            'main_inactive_warning': 'XPatchKernel не активен — патчи и некоторые функции недоступны',
-            'main_manager_update_warning': 'Надо обновить XPatch Manager из репозитория, иначе через UI нельзя будет '
-                                           'потрогать новые фишки.',
-            'manager_opening': 'Открываю менеджер...',
-            'manager_open_failed': 'Не удалось открыть менеджер',
-            'status_not_supported': 'Не поддерживается текущим ядром',
-            'status_disabled': 'Выключен',
-            'status_enabled_no_params': 'Включен без параметров',
-            'status_enabled_params': 'Включен, параметров: {count}',
-            'extera_forced_all_except': 'Принуждёный для всех, кроме {count} модуля(-лей)',
-            'extera_forced_all': 'Принуждёный для всех',
-            'extera_inactive': 'Не активен',
-            'extera_forced_selected': 'Принуждёный только для {count} модуля(-лей)',
-            'logs_empty': 'логи [xpatch] не найдены',
-            'logs_title': 'Live logs · [xpatch]',
-            'logs_desc': 'Показывает последние <b>{max_lines}</b> строк с <code>[xpatch]</code> из '
-                         '<code>logs/kernel.log</code>. Обновление: <b>{interval}</b> сек.',
-            'logs_lines_button': 'Строк: {current} > {next}',
-            'logs_interval_button': 'Обновление: {current}с > {next}с',
-            'logs_lines_answer': 'Live logs: {value} строк',
-            'logs_interval_answer': 'Live logs: обновление {value} сек',
-            'utils_title': 'XPatch Utils',
-            'utils_logs_desc': '<b>Live logs</b> — live-просмотр строк <code>[xpatch]</code> из '
-                               '<code>logs/kernel.log</code>. Можно выбрать лимит строк и интервал обновления.',
-            'utils_danger_desc': '<b>Опасная зона</b> — удаление ядра, бекапов, патчей и модуля-менеджера. Можно отдельно '
-                                 'выбрать default core и авто-рестарт.',
-            'remove_title': 'Удаление XKernel',
-            'remove_desc': 'Выбери, что удалить. Действие необратимо для выбранных файлов. Порядок: ядро > бэкапы > патчи '
-                           '> default core > менеджер > restart.',
-            'remove_opt_core': 'Ядро',
-            'remove_opt_backups': 'Все бекапы',
-            'remove_opt_manager': 'Модуль-менеджер',
-            'remove_opt_patches': 'Все патчи',
-            'remove_opt_default': 'Default > standard',
-            'remove_opt_restart': 'Авто-рестарт',
-            'remove_answer_start': 'Удаляю XKernel...',
-            'remove_failed_title': 'Удаление XKernel сорвалось',
-            'remove_done_title': 'Удаление XKernel завершено',
-            'settings_title': 'XPatch настройки',
-            'settings_stealth_desc': 'VERSION без .XPatch, без VERSION_XKERNEL/ver, CORE_NAME=standard',
-            'settings_auto_desc': 'Если VERSION_XKERNEL стал выше — ставить сразу',
-            'settings_notify_desc': 'Бот пишет в лог-чат или в ЛС клиенту',
-            'settings_stealth': 'Stealth mode',
-            'settings_auto': 'Auto update ядра',
-            'settings_notify': 'Уведомления об обновлении',
-            'client_title': 'Client Patch',
-            'client_desc': 'Патчит <code>core.lib.base.client.TelegramClient</code> и меняет параметры клиента: название '
-                           'приложения, девайс и язык.',
-            'client_restart_warn': 'Изменения применятся после рестарта MCUB / пересоздания клиента.',
-            'client_status': 'Статус:',
-            'client_field_app_version': 'Версия приложения',
-            'client_field_device_model': 'Модель устройства',
-            'client_field_system_version': 'Версия системы',
-            'client_field_lang_code': 'Язык приложения',
-            'client_field_system_lang_code': 'Системный язык',
-            'client_cleared': 'Параметры Client Patch очищены',
-            'xpatch_inactive_alert': 'XPatchKernel не активен',
-            'patches_title': 'Патчи',
-            'patches_stats': 'Applied: <b>{applied}</b>  Pending: <b>{pending}</b>  Failed: <b>{failed}</b>  Disabled: '
-                             '<b>{disabled}</b>',
-            'patches_hint': 'Нажми на патч, чтобы открыть детали.',
-            'patches_empty': 'Патчи не найдены',
-            'btn_extera_proxy': 'ExteraProxy Inject',
-            'btn_client_patch': 'Client Patch',
-            'btn_patch_events': 'Patch events: {state}',
-            'btn_hot_reload': 'Hot reload: {state}',
-            'btn_extera_all': 'Для всех: {state}',
-            'btn_extera_root_custom': 'Root: ON > custom',
-            'btn_extera_scope': '{scope}: {state}',
-            'none': 'нет',
-            'no_access': 'Нет доступа',
-            'remove_core_deleted': '✅ Ядро удалено: <code>{path}</code>',
-            'remove_core_absent': 'ℹ️ Ядро уже отсутствует',
-            'remove_backups_deleted': '✅ Бекапы удалены: <b>{count}</b>',
-            'remove_patches_deleted': '✅ Патчи удалены: <code>{path}</code>',
-            'remove_patches_absent': 'ℹ️ Папка патчей уже отсутствует',
-            'remove_default_standard': '✅ Default core установлен: <code>standard</code>',
-            'remove_manager_requested': '✅ Запрошено удаление модуля-менеджера',
-            'remove_restart_requested': '✅ Запрошен рестарт MCUB',
-            'remove_nothing_selected': 'ℹ️ Ничего не выбрано',
-            'settings_toggle_stealth': 'Stealth: {state}',
-            'settings_toggle_auto': 'Auto update: {state}',
-            'settings_toggle_notify': 'Notify: {state}',
-            'extera_title': 'ExteraProxy Inject',
-            'extera_desc': 'Что делает: даёт выбранным модулям доступ к защищённым объектам XKernel: <b>kernel / client / '
-                           'event</b>. Нужно, если модуль явно требует защищённый объект, например session у client.',
-            'extera_do_not_touch': 'Если не знаешь зачем это нужно — <b>не трогай</b>.',
-            'extera_status_label': 'Статус:',
-            'extera_scopes_label': 'Scopes:',
-            'extera_modules_selected': 'Выбранные модули',
-            'extera_modules_excluded': 'Исключения',
-            'extera_trusted_warning': 'Включай только для известных и доверенных модулей. Не включай для неизвестных или '
-                                      'подозрительных модулей.',
-            'extera_unsupported_scopes': 'Текущее XKernel ядро не поддерживает ExteraProxy scopes',
-            'extera_unsupported': 'Текущее XKernel ядро не поддерживает ExteraProxy',
-            'extera_scope_answer': 'ExteraProxy {scope}: {state}',
-            'extera_all_on_answer': 'ExteraProxy для всех включён. Осторожно: только для доверенных модулей!',
-            'extera_all_off_answer': 'ExteraProxy для всех выключен',
-            'experimental_title': 'Экспериментальные функции XPatch',
-            'experimental_events_desc': 'emit xpatch:applied / xpatch:failed / xpatch:unapplied',
-            'experimental_hot_reload_title': 'Hot reload патчей',
-            'experimental_hot_reload_desc': 'следит за файлами patches/*.py и перезагружает изменённые',
-            'experimental_warning': 'Функции экспериментальные: включай только если понимаешь риски.',
-            'experimental_unavailable_title': 'Экспериментальные функции недоступны',
-            'experimental_unavailable_desc': 'Текущее ядро не поддерживает runtime-функции XKernel.',
-            'stealth_enabled': 'Stealth включён',
-            'stealth_disabled': 'Stealth выключен',
-            'auto_update_enabled': 'Автообновление ядра включено',
-            'auto_update_disabled': 'Автообновление ядра выключено',
-            'notifications_enabled': 'Уведомления включены',
-            'notifications_disabled': 'Уведомления выключены',
-            'client_patch_enabled': 'Client Patch включён',
-            'client_patch_disabled': 'Client Patch выключен',
-            'unsupported_current_kernel': 'Не поддерживается текущим ядром',
-            'btn_extera_add_module': 'Добавить модуль',
-            'btn_extera_remove_module': 'Убрать модуль',
-            'btn_extera_clear_list': 'Очистить список',
-            'stealth_unsupported': 'Текущее XKernel ядро не поддерживает stealth mode. Обнови XKernel и перезапусти MCUB.',
-            'client_patch_unsupported': 'Текущее XKernel ядро не поддерживает Client Patch',
-            'client_patch_updated': 'Client Patch обновлён',
-            'client_patch_clear_hint': 'Чтобы очистить поле, отправь <code>-</code> или <code>clear</code>.',
-            'client_patch_value_cleared': 'очищено',
-            'extera_name_required': 'Укажи имя модуля',
-            'extera_updated': 'ExteraProxy обновлён',
-            'extera_add_result': 'Модуль <code>{module}</code> добавлен',
-            'extera_remove_result': 'Модуль <code>{module}</code> убран',
-            'extera_clear_answer': 'Список ExteraProxy очищен',
-            'patch_events_enabled': 'Patch events включены',
-            'patch_events_disabled': 'Patch events выключены',
-            'hot_reload_enabled': 'Hot reload включён',
-            'hot_reload_disabled': 'Hot reload выключен',
-            'patch_detail_title': 'Детали патча',
-            'patch_status_label': 'Статус:',
-            'patch_label': 'Патч:',
-            'patch_target_label': 'Цель:',
-            'patch_file_label': 'Файл:',
-            'patch_key_label': 'Ключ:',
-            'patch_result_label': 'Результат',
-            'patch_pending_reason_label': 'Причина ожидания',
-            'patch_error_label': 'Ошибка',
-            'patch_traceback_label': 'Traceback',
-            'patch_min_version': 'Минимальная версия XKernel для этого патча: {version}',
-            'patch_version_ok': 'Патч совместим с текущей версией XKernel',
-            'patch_min_version_unknown': 'Минимальная версия XKernel для этого патча не указана',
-            'patch_reload_unsupported': 'Это XKernel ядро не поддерживает reload одного патча',
-            'patch_reload_failed': 'Reload не удался',
-            'patch_file_not_found': 'Файл патча не найден',
-            'patch_reloaded': 'Патч перезагружен',
-            'patch_unapply_result': 'Откат: {result}',
-            'patch_toggle_unsupported': 'Это XKernel ядро не поддерживает enable/disable патчей',
-            'patch_disabled_answer': 'Патч отключён',
-            'patch_enabled_answer': 'Патч включён',
-            'patch_retry_answer': 'Повторяю патч...',
-            'details_file_label': 'Файл:',
-            'details_size_label': 'Размер:',
-            'details_backups_label': 'Бэкапов:',
-            'details_not_found': 'XKernel не найден:',
-            'details_default_core': 'Default core:',
-            'details_not_set': 'не задан',
-            'details_title': 'XKernel · Диагностика',
-            'install_loading': 'Загружаю XKernel...',
-            'platform_label': 'Платформа:',
-            'install_done_title': 'XKernel установлен',
-            'install_default_prompt': 'Сделать XKernel ядром по умолчанию?',
-            'install_default_desc': 'Если выбрать да, MCUB будет стартовать с XKernel без ручного <code>--core '
-                                    'XKernel</code>.',
-            'btn_set_default': 'Установить по дефолту',
-            'btn_no_thanks': 'Нет, спасибо',
-            'install_error_title': 'Ошибка установки',
-            'install_finish_title': 'Готово',
-            'install_default_unchanged': 'не менял',
-            'restart_required': 'Нужен рестарт MCUB',
-            'btn_restart': 'Рестарт',
-            'install_default_set_answer': 'XKernel установлен по умолчанию',
-            'install_default_skip_answer': 'Default core не менял',
-            'update_checking': 'Проверяю XKernel...',
-            'update_check_failed_title': 'Update check failed',
-            'update_current_title': 'XKernel уже актуален',
-            'local_label': 'Local:',
-            'remote_label': 'Remote:',
-            'update_available_title': 'Доступно обновление XKernel',
-            'btn_update_now': 'Обновиться',
-            'update_loading': 'Обновляю XKernel...',
-            'update_failed_title': 'XKernel не обновлён',
-            'reopen_manager_hint': 'Открой менеджер заново:',
-            'update_done_title': 'XKernel обновлён',
-            'version_label': 'Version:',
-            'apply_all_loading': 'Применяю патчи...',
-            'apply_all_error_title': 'Ошибка apply_patches',
-            'apply_all_result_title': 'Apply all — результат',
-            'apply_applied_label': 'Applied',
-            'apply_pending_label': 'Pending',
-            'apply_failed_label': 'Failed',
-            'apply_skipped_label': 'Skipped',
-            'apply_restart_required': 'Нужен рестарт для применения патчей',
-            'rollback_no_backup': 'Backup не найден',
-            'rollback_confirm_title': 'Rollback — подтверждение',
-            'rollback_will_restore': 'Будет восстановлен:',
-            'rollback_restart_required': 'Нужен рестарт после отката',
-            'btn_rollback': 'Откатить',
-            'btn_cancel': 'Отмена',
-            'rollback_failed_title': 'Rollback не выполнен',
-            'rollback_done_title': 'Rollback выполнен',
-            'rollback_restored_label': 'Восстановлен:',
-            'restart_answer': 'Ребутаю MCUB...',
-            'cli_install_start': 'Начинаю ставить XPatchKernel',
-            'cli_install_done_title': 'XKernel установлен/обновлён',
-            'cli_install_failed_title': 'XKernel не установлен',
-            'cli_rollback_not_found': 'Backup для XKernel не найден',
-            'cli_rollback_done_title': 'XKernel rollback выполнен',
-            'restart_prompt': 'Рестарт MCUB?',
-            'btn_reboot': 'Reboot',
-            'btn_client_patch_quick_toggle': 'Patch: {state}',
-            'settings_notify_state': 'Задержка: <code>{delay}</code>с · Manager: <code>{manager}</code>',
-            'settings_notify_delay_button': 'Задержка: {delay}с > {next_delay}с',
-            'settings_notify_manager_toggle': 'Manager notify: {state}',
-            'settings_notify_delay_answer': 'Задержка уведомлений: {delay}с',
-            'manager_notifications_enabled': 'Уведомления об обновлении XPatchKernelManager включены',
-            'manager_notifications_disabled': 'Уведомления об обновлении XPatchKernelManager выключены',
-            'manager_update_notice_title': 'Доступно обновление XPatchKernelManager',
-            'manager_update_notice_hint': 'Обнови модуль из репозитория, чтобы получить новые UI-функции.',
-            'btn_notify_settings': 'Настройки Notify',
-            'notify_settings_title': 'Настройки Notify',
-            'utils_rebuild_desc': '<b>Пересборка менеджера</b> — создаёт копию модуля с новым именим и отправляет .py в '
-                                  'чат.',
-            'btn_rebuild_manager': 'Пересборка менеджера',
-            'rebuild_title': 'Пересборка менеджера',
-            'rebuild_desc': 'Заменяются только строковые литералы, которые точно равны текущему имени модуля. Подстроки '
-                            'внутри длинных текстов не трогаются.',
-            'rebuild_current_name': 'Текущее имя:',
-            'rebuild_new_name': 'Новое имя:',
-            'rebuild_replacements': 'Замен:',
-            'rebuild_delete_state': 'Удалить текущий после отправки:',
-            'btn_rebuild_name': 'Имя нового модуля',
-            'btn_rebuild_random': 'Random',
-            'btn_rebuild_delete_current': 'Удалить текущий после сборки',
-            'btn_rebuild_keep_current': 'Не удалять текущий',
-            'btn_rebuild_send': 'Собрать и отправить',
-            'rebuild_random_answer': 'Случайное имя: {name}',
-            'rebuild_name_updated': 'Имя для пересборки: {name}',
-            'rebuild_name_invalid': 'Некорректное имя. Используй латиницу, цифры и _, первая буква — латинская. Без '
-                                    'пробелов и спецсимволов.',
-            'rebuild_same_name': 'Новое имя должно отличаться от текущего.',
-            'rebuild_forbidden': 'Пересборка доступна только из оригинального XPatchKernelManager.',
-            'rebuild_source_missing': 'Не удалось найти исходный файл менеджера.',
-            'rebuild_no_replacements': 'Не найдено строк для замены. Пересборка отменена.',
-            'rebuild_sent': 'Пересобранный менеджер отправлен: <code>{file}</code>. Замен: <b>{count}</b>.',
-            'rebuild_sent_delete': 'Пересобранный менеджер отправлен. Удаляю текущий модуль...',
-            'rebuild_send_failed': 'Не удалось собрать или отправить менеджер',
-            'rebuild_config_state': 'Перенести cfg:',
-            'btn_rebuild_copy_config': 'Перенести cfg на новый модуль',
-            'btn_rebuild_skip_config': 'Не переносить cfg',
-            'rebuild_config_copied': 'Cfg перенесён на <code>{name}</code>',
-            'rebuild_force_wipe_state': 'Удалить cfg текущего:',
-            'btn_rebuild_force_wipe': 'Удалить текущий с cfg (-f)',
-            'btn_rebuild_keep_current_cfg': 'Оставить cfg текущего',
-            'rebuild_saved_only_no_delete': 'Файл отправлен в Избранное, но не удалось переслать в этот чат. Текущий '
-                                            'менеджер не удалён.',
-            'btn_hot_reload_smart_disable': 'Умное выключение: {state}',
-            'btn_hot_reload_retry_interval': 'Интервал ожидания: {interval}с',
-            'btn_hot_reload_disable_on_first_fail': 'Отключать при первой ошибке: {state}',
-            'btn_hot_load_new_patches': 'Hot load новых патчей: {state}',
-            'hot_reload_retry_interval_answer': 'Интервал ожидания проблемного патча: {interval}с',
-            'hot_reload_retry_interval_invalid': 'Интервал должен быть числом от 1 до 3600 секунд.',
-            'btn_load_problem_patch': 'Загрузить проблемный патч',
-            'btn_hot_reload_settings': 'Настройки Hot reload',
-            'hot_reload_settings_title': 'Настройки Hot reload',
-            'hot_reload_old_core_warning': 'Текущее XKernel ядро старое и не поддерживает расширенные настройки Hot '
-                                           'reload. Обнови XKernel, иначе эти опции будут сохранены только в конфиге '
-                                           'менеджера.',
-            'hot_reload_settings_desc': '<b>Умное выключение</b> — если hot reload словил ошибку загрузки, патч временно '
-                                        'не трогается.\n'
-                                        '<b>Интервал ожидания</b> — через сколько секунд пробовать проблемный патч снова.\n'
-                                        '<b>Отключать при первой ошибке</b> — сразу помечает патч disabled после первой '
-                                        'ошибки hot reload.\n'
-                                        '<b>Hot load новых патчей</b> — подхватывает новые файлы из patches/ без рестарта.',
-            'hot_reload_smart_disable_desc': '<b>Умное выключение</b> — если hot reload словил ошибку загрузки, патч '
-                                             'временно не трогается.',
-            'hot_reload_retry_interval_desc': '<b>Интервал ожидания</b> — через сколько секунд пробовать проблемный патч '
-                                              'снова.',
-            'hot_reload_disable_on_first_fail_desc': '<b>Отключать при первой ошибке</b> — сразу помечает патч disabled '
-                                                     'после первой ошибки hot reload.',
-            'hot_load_new_patches_desc': '<b>Hot load новых патчей</b> — подхватывает новые файлы из patches/ без '
-                                         'рестарта.',
-            'btn_extera_extra_features': 'Дополнительные возможности',
-            'mcmac_title': 'MCMAC',
-            'mcmac_desc': 'Mandatory Access Control для модулей MCUB. Пока безопасный permissive/no-op слой: можно '
-                          'включить audit и подготовить политики.',
-            'mcmac_available': 'Доступен:',
-            'mcmac_enabled': 'Включён:',
-            'mcmac_mode': 'Mode:',
-            'mcmac_path': 'Path:',
-            'mcmac_error': 'Ошибка:',
-            'btn_mcmac_toggle': 'MCMAC: {state}',
-            'btn_mcmac_mode': 'Mode: {mode}',
-            'btn_mcmac_update_libs': 'Скачать/обновить MCMAC libs',
-            'mcmac_enabled_answer': 'MCMAC включён',
-            'mcmac_disabled_answer': 'MCMAC выключен',
-            'mcmac_mode_answer': 'MCMAC mode: {mode}',
-            'mcmac_refresh_ok': 'MCMAC libs обновлены',
-            'mcmac_refresh_failed': 'Не удалось обновить MCMAC libs',
-            'mcmac_contexts': 'Типы модулей:',
-            'btn_mcmac_set_module_type': 'Назначить тип модулю',
-            'mcmac_module_type_updated': 'MCMAC: <code>{module}</code> → <code>{type}</code>',
-            'mcmac_module_type_invalid': 'Формат: <code>ModuleName:trusted</code>. Типы: trusted, standard, untrusted, '
-                                         'quarantine.',
-            'mcmac_type_system_desc': '<b>system</b> — системные модули MCUB. Полный доступ, назначается ядром '
-                                      'автоматически.',
-            'mcmac_type_trusted_desc': '<b>trusted</b> — доверенные модули. Разрешены kernel read, Telegram '
-                                       'send/delete/admin, network; subprocess запрещён.',
-            'mcmac_type_standard_desc': '<b>standard</b> — обычные локальные модули. Разрешены kernel read, Telegram '
-                                        'send/delete, network, config db; запрещены admin/account/subprocess.',
-            'mcmac_type_untrusted_desc': '<b>untrusted</b> — remote/сомнительные модули. Разрешён только базовый send; '
-                                         'запрещены delete/admin/account/network/subprocess/config write/module load.',
-            'mcmac_type_quarantine_desc': '<b>quarantine</b> — карантин. Всё запрещено, остаётся только '
-                                          'audit/permissive-лог.'},
-     'en': {'state_on': 'ON',
-            'state_off': 'OFF',
-            'btn_back': 'Back',
-            'btn_patches': 'Patches',
-            'btn_details': 'Diagnostics',
-            'btn_apply_all': 'Apply all',
-            'btn_failed_count': '{count} failed',
-            'btn_settings': 'Settings',
-            'btn_check_update': 'Check update',
-            'btn_utils': 'Tools',
-            'btn_install_update': 'Install / update',
-            'btn_repo': 'Repo',
-            'btn_live_logs': 'Live logs',
-            'btn_danger_zone': 'Danger zone',
-            'btn_remove_xkernel': 'Remove XKernel',
-            'btn_start_remove': 'Start removal',
-            'btn_clear_params': 'Clear parameters',
-            'btn_client_patch_toggle': 'Client Patch: {state}',
-            'btn_client_app_version': 'App version',
-            'btn_client_device_model': 'Device model',
-            'btn_client_system_version': 'System version',
-            'btn_client_lang_code': 'App language',
-            'btn_client_system_lang_code': 'System language',
-            'btn_reload_patch': 'Reload patch',
-            'btn_enable_patch': 'Enable patch',
-            'btn_disable_patch': 'Disable patch',
-            'btn_unapply_patch': 'Unapply',
-            'btn_retry_patch': 'Retry',
-            'btn_experimental': 'Experimental features',
-            'main_title': 'XPatch Manager',
-            'main_mcub_version': 'Version (MCUB):',
-            'main_patch_stats': 'Applied: <b>{applied}</b>  Pending: <b>{pending}</b>  Failed: <b>{failed}</b>',
-            'main_flags': 'Stealth: <code>{stealth}</code>  Auto: <code>{auto_update}</code>  Notify: '
-                          '<code>{notifications}</code>',
-            'main_extera': '<b>ExteraProxy Inject:</b> <i>{status}</i>',
-            'main_core': 'Core:',
-            'main_xkernel_version': 'XPatchKernel version:',
-            'main_inactive_warning': 'XPatchKernel is inactive — patches and some features are unavailable',
-            'main_manager_update_warning': 'Update XPatch Manager from the repository; otherwise the UI cannot expose new '
-                                           'features.',
-            'manager_opening': 'Opening manager...',
-            'manager_open_failed': 'Failed to open manager',
-            'status_not_supported': 'Not supported by current kernel',
-            'status_disabled': 'Disabled',
-            'status_enabled_no_params': 'Enabled without parameters',
-            'status_enabled_params': 'Enabled, parameters: {count}',
-            'extera_forced_all_except': 'Forced for all except {count} module(s)',
-            'extera_forced_all': 'Forced for all',
-            'extera_inactive': 'Inactive',
-            'extera_forced_selected': 'Forced only for {count} module(s)',
-            'logs_empty': 'no [xpatch] logs found',
-            'logs_title': 'Live logs · [xpatch]',
-            'logs_desc': 'Shows the last <b>{max_lines}</b> lines with <code>[xpatch]</code> from '
-                         '<code>logs/kernel.log</code>. Refresh: <b>{interval}</b>s.',
-            'logs_lines_button': 'Lines: {current} > {next}',
-            'logs_interval_button': 'Refresh: {current}s > {next}s',
-            'logs_lines_answer': 'Live logs: {value} lines',
-            'logs_interval_answer': 'Live logs: refresh {value}s',
-            'utils_title': 'XPatch Utils',
-            'utils_logs_desc': '<b>Live logs</b> — live view of <code>[xpatch]</code> lines from '
-                               '<code>logs/kernel.log</code>. You can choose line limit and refresh interval.',
-            'utils_danger_desc': '<b>Danger zone</b> — remove the kernel, backups, patches, and manager module. You can '
-                                 'also choose default core and auto-restart.',
-            'remove_title': 'Remove XKernel',
-            'remove_desc': 'Choose what to remove. This is irreversible for selected files. Order: kernel > backups > '
-                           'patches > default core > manager > restart.',
-            'remove_opt_core': 'Kernel',
-            'remove_opt_backups': 'All backups',
-            'remove_opt_manager': 'Manager module',
-            'remove_opt_patches': 'All patches',
-            'remove_opt_default': 'Default > standard',
-            'remove_opt_restart': 'Auto-restart',
-            'remove_answer_start': 'Removing XKernel...',
-            'remove_failed_title': 'XKernel removal failed',
-            'remove_done_title': 'XKernel removal finished',
-            'settings_title': 'XPatch settings',
-            'settings_stealth_desc': 'VERSION without .XPatch, no VERSION_XKERNEL/ver, CORE_NAME=standard',
-            'settings_auto_desc': 'Install immediately when VERSION_XKERNEL becomes newer',
-            'settings_notify_desc': 'Bot writes to log chat or client DM',
-            'settings_stealth': 'Stealth mode',
-            'settings_auto': 'Kernel auto-update',
-            'settings_notify': 'Update notifications',
-            'client_title': 'Client Patch',
-            'client_desc': 'Patches <code>core.lib.base.client.TelegramClient</code> and changes client parameters: app '
-                           'name, device and language.',
-            'client_restart_warn': 'Changes apply after MCUB restart / TelegramClient recreation.',
-            'client_status': 'Status:',
-            'client_field_app_version': 'App version',
-            'client_field_device_model': 'Device model',
-            'client_field_system_version': 'System version',
-            'client_field_lang_code': 'App language',
-            'client_field_system_lang_code': 'System language',
-            'client_cleared': 'Client Patch parameters cleared',
-            'xpatch_inactive_alert': 'XPatchKernel is inactive',
-            'patches_title': 'Patches',
-            'patches_stats': 'Applied: <b>{applied}</b>  Pending: <b>{pending}</b>  Failed: <b>{failed}</b>  Disabled: '
-                             '<b>{disabled}</b>',
-            'patches_hint': 'Tap a patch to open details.',
-            'patches_empty': 'No patches found',
-            'btn_extera_proxy': 'ExteraProxy Inject',
-            'btn_client_patch': 'Client Patch',
-            'btn_patch_events': 'Patch events: {state}',
-            'btn_hot_reload': 'Hot reload: {state}',
-            'btn_extera_all': 'For all: {state}',
-            'btn_extera_root_custom': 'Root: ON > custom',
-            'btn_extera_scope': '{scope}: {state}',
-            'none': 'none',
-            'no_access': 'No access',
-            'remove_core_deleted': '✅ Kernel removed: <code>{path}</code>',
-            'remove_core_absent': 'ℹ️ Kernel is already absent',
-            'remove_backups_deleted': '✅ Backups removed: <b>{count}</b>',
-            'remove_patches_deleted': '✅ Patches removed: <code>{path}</code>',
-            'remove_patches_absent': 'ℹ️ Patches folder is already absent',
-            'remove_default_standard': '✅ Default core set to <code>standard</code>',
-            'remove_manager_requested': '✅ Manager module removal requested',
-            'remove_restart_requested': '✅ MCUB restart requested',
-            'remove_nothing_selected': 'ℹ️ Nothing selected',
-            'settings_toggle_stealth': 'Stealth: {state}',
-            'settings_toggle_auto': 'Auto update: {state}',
-            'settings_toggle_notify': 'Notify: {state}',
-            'extera_title': 'ExteraProxy Inject',
-            'extera_desc': 'What it does: gives selected modules access to protected XKernel objects: <b>kernel / client / '
-                           'event</b>. Use it only when a module explicitly needs a protected object, for example client '
-                           'session.',
-            'extera_do_not_touch': 'If you do not know why you need this — <b>do not touch it</b>.',
-            'extera_status_label': 'Status:',
-            'extera_scopes_label': 'Scopes:',
-            'extera_modules_selected': 'Selected modules',
-            'extera_modules_excluded': 'Exceptions',
-            'extera_trusted_warning': 'Enable only for known and trusted modules. Do not enable it for unknown or '
-                                      'suspicious modules.',
-            'extera_unsupported_scopes': 'Current XKernel does not support ExteraProxy scopes',
-            'extera_unsupported': 'Current XKernel does not support ExteraProxy',
-            'extera_scope_answer': 'ExteraProxy {scope}: {state}',
-            'extera_all_on_answer': 'ExteraProxy enabled for all. Careful: trusted modules only!',
-            'extera_all_off_answer': 'ExteraProxy disabled for all',
-            'experimental_title': 'Experimental XPatch features',
-            'experimental_events_desc': 'emit xpatch:applied / xpatch:failed / xpatch:unapplied',
-            'experimental_hot_reload_title': 'Patch hot reload',
-            'experimental_hot_reload_desc': 'watches patches/*.py files and reloads changed patches',
-            'experimental_warning': 'These features are experimental: enable them only if you understand the risks.',
-            'experimental_unavailable_title': 'Experimental features unavailable',
-            'experimental_unavailable_desc': 'Current kernel does not support XKernel runtime features.',
-            'stealth_enabled': 'Stealth enabled',
-            'stealth_disabled': 'Stealth disabled',
-            'auto_update_enabled': 'Kernel auto-update enabled',
-            'auto_update_disabled': 'Kernel auto-update disabled',
-            'notifications_enabled': 'Notifications enabled',
-            'notifications_disabled': 'Notifications disabled',
-            'client_patch_enabled': 'Client Patch enabled',
-            'client_patch_disabled': 'Client Patch disabled',
-            'unsupported_current_kernel': 'Not supported by current kernel',
-            'btn_extera_add_module': 'Add module',
-            'btn_extera_remove_module': 'Remove module',
-            'btn_extera_clear_list': 'Clear list',
-            'stealth_unsupported': 'Current XKernel does not support stealth mode. Update XKernel and restart MCUB.',
-            'client_patch_unsupported': 'Current XKernel does not support Client Patch',
-            'client_patch_updated': 'Client Patch updated',
-            'client_patch_clear_hint': 'To clear the field, send <code>-</code> or <code>clear</code>.',
-            'client_patch_value_cleared': 'cleared',
-            'extera_name_required': 'Specify module name',
-            'extera_updated': 'ExteraProxy updated',
-            'extera_add_result': 'Module <code>{module}</code> added',
-            'extera_remove_result': 'Module <code>{module}</code> removed',
-            'extera_clear_answer': 'ExteraProxy list cleared',
-            'patch_events_enabled': 'Patch events enabled',
-            'patch_events_disabled': 'Patch events disabled',
-            'hot_reload_enabled': 'Hot reload enabled',
-            'hot_reload_disabled': 'Hot reload disabled',
-            'patch_detail_title': 'Patch detail',
-            'patch_status_label': 'Status:',
-            'patch_label': 'Patch:',
-            'patch_target_label': 'Target:',
-            'patch_file_label': 'File:',
-            'patch_key_label': 'Key:',
-            'patch_result_label': 'Result',
-            'patch_pending_reason_label': 'Pending reason',
-            'patch_error_label': 'Error',
-            'patch_traceback_label': 'Traceback',
-            'patch_min_version': 'Minimum XKernel version for this patch: {version}',
-            'patch_version_ok': 'Patch is compatible with current XKernel version',
-            'patch_min_version_unknown': 'Minimum XKernel version is not specified for this patch',
-            'patch_reload_unsupported': 'This XKernel does not support single patch reload',
-            'patch_reload_failed': 'Reload failed',
-            'patch_file_not_found': 'Patch file not found',
-            'patch_reloaded': 'Reloaded',
-            'patch_unapply_result': 'Unapply: {result}',
-            'patch_toggle_unsupported': 'This XKernel does not support patch enable/disable',
-            'patch_disabled_answer': 'Patch disabled',
-            'patch_enabled_answer': 'Patch enabled',
-            'patch_retry_answer': 'Retrying patch...',
-            'details_file_label': 'File:',
-            'details_size_label': 'Size:',
-            'details_backups_label': 'Backups:',
-            'details_not_found': 'XKernel not found:',
-            'details_default_core': 'Default core:',
-            'details_not_set': 'not set',
-            'details_title': 'XKernel · Diagnostics',
-            'install_loading': 'Downloading XKernel...',
-            'platform_label': 'Platform:',
-            'install_done_title': 'XKernel installed',
-            'install_default_prompt': 'Make XKernel the default core?',
-            'install_default_desc': 'If yes, MCUB will start with XKernel without manual <code>--core XKernel</code>.',
-            'btn_set_default': 'Set as default',
-            'btn_no_thanks': 'No, thanks',
-            'install_error_title': 'Install error',
-            'install_finish_title': 'Done',
-            'install_default_unchanged': 'unchanged',
-            'restart_required': 'MCUB restart required',
-            'btn_restart': 'Restart',
-            'install_default_set_answer': 'XKernel set as default',
-            'install_default_skip_answer': 'Default core unchanged',
-            'update_checking': 'Checking XKernel...',
-            'update_check_failed_title': 'Update check failed',
-            'update_current_title': 'XKernel is already up to date',
-            'local_label': 'Local:',
-            'remote_label': 'Remote:',
-            'update_available_title': 'XKernel update available',
-            'btn_update_now': 'Update',
-            'update_loading': 'Updating XKernel...',
-            'update_failed_title': 'XKernel was not updated',
-            'reopen_manager_hint': 'Open manager again:',
-            'update_done_title': 'XKernel updated',
-            'version_label': 'Version:',
-            'apply_all_loading': 'Applying patches...',
-            'apply_all_error_title': 'apply_patches error',
-            'apply_all_result_title': 'Apply all — result',
-            'apply_applied_label': 'Applied',
-            'apply_pending_label': 'Pending',
-            'apply_failed_label': 'Failed',
-            'apply_skipped_label': 'Skipped',
-            'apply_restart_required': 'Restart is required to apply patches',
-            'rollback_no_backup': 'Backup not found',
-            'rollback_confirm_title': 'Rollback — confirmation',
-            'rollback_will_restore': 'Will restore:',
-            'rollback_restart_required': 'Restart is required after rollback',
-            'btn_rollback': 'Rollback',
-            'btn_cancel': 'Cancel',
-            'rollback_failed_title': 'Rollback failed',
-            'rollback_done_title': 'Rollback completed',
-            'rollback_restored_label': 'Restored:',
-            'restart_answer': 'Restarting MCUB...',
-            'cli_install_start': 'Installing XPatchKernel',
-            'cli_install_done_title': 'XKernel installed/updated',
-            'cli_install_failed_title': 'XKernel was not installed',
-            'cli_rollback_not_found': 'XKernel backup not found',
-            'cli_rollback_done_title': 'XKernel rollback completed',
-            'restart_prompt': 'Restart MCUB?',
-            'btn_reboot': 'Reboot',
-            'btn_client_patch_quick_toggle': 'Patch: {state}',
-            'settings_notify_state': 'Delay: <code>{delay}</code>s · Manager: <code>{manager}</code>',
-            'settings_notify_delay_button': 'Delay: {delay}s > {next_delay}s',
-            'settings_notify_manager_toggle': 'Manager notify: {state}',
-            'settings_notify_delay_answer': 'Notification delay: {delay}s',
-            'manager_notifications_enabled': 'XPatchKernelManager update notifications enabled',
-            'manager_notifications_disabled': 'XPatchKernelManager update notifications disabled',
-            'manager_update_notice_title': 'XPatchKernelManager update available',
-            'manager_update_notice_hint': 'Update the module from the repository to get new UI features.',
-            'btn_notify_settings': 'Notify settings',
-            'notify_settings_title': 'Notify settings',
-            'utils_rebuild_desc': '<b>Manager rebuild</b> — creates a copy with a new module name and sends the .py file '
-                                  'to chat.',
-            'btn_rebuild_manager': 'Manager rebuild',
-            'rebuild_title': 'Manager rebuild',
-            'rebuild_desc': 'Only string literals exactly equal to the current module name are replaced. Substrings inside '
-                            'longer texts are not touched.',
-            'rebuild_current_name': 'Current name:',
-            'rebuild_new_name': 'New name:',
-            'rebuild_replacements': 'Replacements:',
-            'rebuild_delete_state': 'Delete current after send:',
-            'btn_rebuild_name': 'New module name',
-            'btn_rebuild_random': 'Random',
-            'btn_rebuild_delete_current': 'Delete current after build',
-            'btn_rebuild_keep_current': 'Keep current module',
-            'btn_rebuild_send': 'Build and send',
-            'rebuild_random_answer': 'Random name: {name}',
-            'rebuild_name_updated': 'Rebuild name: {name}',
-            'rebuild_name_invalid': 'Invalid name. Use latin letters, digits and _, first char must be latin. No spaces or '
-                                    'special symbols.',
-            'rebuild_same_name': 'New name must differ from the current one.',
-            'rebuild_forbidden': 'Rebuild is available only from the original XPatchKernelManager.',
-            'rebuild_source_missing': 'Manager source file was not found.',
-            'rebuild_no_replacements': 'No replaceable strings found. Rebuild cancelled.',
-            'rebuild_sent': 'Rebuilt manager sent: <code>{file}</code>. Replacements: <b>{count}</b>.',
-            'rebuild_sent_delete': 'Rebuilt manager sent. Removing current module...',
-            'rebuild_send_failed': 'Failed to build or send manager',
-            'rebuild_config_state': 'Copy cfg:',
-            'btn_rebuild_copy_config': 'Copy cfg to new module',
-            'btn_rebuild_skip_config': 'Do not copy cfg',
-            'rebuild_config_copied': 'Cfg copied to <code>{name}</code>',
-            'rebuild_force_wipe_state': 'Delete current cfg:',
-            'btn_rebuild_force_wipe': 'Delete current with cfg (-f)',
-            'btn_rebuild_keep_current_cfg': 'Keep current cfg',
-            'rebuild_saved_only_no_delete': 'File was sent to Saved Messages, but forwarding to this chat failed. Current '
-                                            'manager was not removed.',
-            'btn_hot_reload_smart_disable': 'Smart disable: {state}',
-            'btn_hot_reload_retry_interval': 'Retry interval: {interval}s',
-            'btn_hot_reload_disable_on_first_fail': 'Disable on first error: {state}',
-            'btn_hot_load_new_patches': 'Hot load new patches: {state}',
-            'hot_reload_retry_interval_answer': 'Problem patch retry interval: {interval}s',
-            'hot_reload_retry_interval_invalid': 'Interval must be a number from 1 to 3600 seconds.',
-            'btn_load_problem_patch': 'Load problem patch',
-            'btn_hot_reload_settings': 'Hot reload settings',
-            'hot_reload_settings_title': 'Hot reload settings',
-            'hot_reload_old_core_warning': 'Current XKernel is old and does not support advanced Hot reload settings. '
-                                           'Update XKernel; otherwise these options are saved only in manager config.',
-            'hot_reload_settings_desc': '<b>Smart disable</b> — if hot reload fails to load a patch, it is temporarily '
-                                        'skipped.\n'
-                                        '<b>Retry interval</b> — seconds before retrying a problem patch.\n'
-                                        '<b>Disable on first error</b> — marks the patch disabled after the first hot '
-                                        'reload error.\n'
-                                        '<b>Hot load new patches</b> — loads new files from patches/ without restart.',
-            'hot_reload_smart_disable_desc': '<b>Smart disable</b> — if hot reload fails to load a patch, it is '
-                                             'temporarily skipped.',
-            'hot_reload_retry_interval_desc': '<b>Retry interval</b> — seconds before retrying a problem patch.',
-            'hot_reload_disable_on_first_fail_desc': '<b>Disable on first error</b> — marks the patch disabled after the '
-                                                     'first hot reload error.',
-            'hot_load_new_patches_desc': '<b>Hot load new patches</b> — loads new files from patches/ without restart.',
-            'btn_extera_extra_features': 'Extra features',
-            'mcmac_title': 'MCMAC',
-            'mcmac_desc': 'Mandatory Access Control for MCUB modules. Currently a safe permissive/no-op layer: enable '
-                          'audit and prepare policies.',
-            'mcmac_available': 'Available:',
-            'mcmac_enabled': 'Enabled:',
-            'mcmac_mode': 'Mode:',
-            'mcmac_path': 'Path:',
-            'mcmac_error': 'Error:',
-            'btn_mcmac_toggle': 'MCMAC: {state}',
-            'btn_mcmac_mode': 'Mode: {mode}',
-            'btn_mcmac_update_libs': 'Download/update MCMAC libs',
-            'mcmac_enabled_answer': 'MCMAC enabled',
-            'mcmac_disabled_answer': 'MCMAC disabled',
-            'mcmac_mode_answer': 'MCMAC mode: {mode}',
-            'mcmac_refresh_ok': 'MCMAC libs updated',
-            'mcmac_refresh_failed': 'Failed to update MCMAC libs',
-            'mcmac_contexts': 'Module types:',
-            'btn_mcmac_set_module_type': 'Set module type',
-            'mcmac_module_type_updated': 'MCMAC: <code>{module}</code> → <code>{type}</code>',
-            'mcmac_module_type_invalid': 'Format: <code>ModuleName:trusted</code>. Types: trusted, standard, untrusted, '
-                                         'quarantine.',
-            'mcmac_type_system_desc': '<b>system</b> — MCUB system modules. Full access, assigned automatically by kernel.',
-            'mcmac_type_trusted_desc': '<b>trusted</b> — trusted modules. Allows kernel read, Telegram send/delete/admin '
-                                       'and network; subprocess is denied.',
-            'mcmac_type_standard_desc': '<b>standard</b> — normal local modules. Allows kernel read, Telegram send/delete, '
-                                        'network and config db; denies admin/account/subprocess.',
-            'mcmac_type_untrusted_desc': '<b>untrusted</b> — remote/suspicious modules. Allows only basic send; denies '
-                                         'delete/admin/account/network/subprocess/config write/module load.',
-            'mcmac_type_quarantine_desc': '<b>quarantine</b> — quarantine. Everything is denied, only audit/permissive log '
-                                          'remains.'},
-     'rofl': {'state_on': 'ON',
-              'state_off': 'OFF',
-              'btn_back': 'Назад',
-              'btn_patches': 'Патчи',
-              'btn_details': 'Чекнуть кишки',
-              'btn_apply_all': 'Применить все',
-              'btn_failed_count': '{count} с ошибкой',
-              'btn_settings': 'Настройки',
-              'btn_check_update': 'Проверить обновление',
-              'btn_utils': 'Штуки',
-              'btn_install_update': 'Установить / обновить',
-              'btn_repo': 'Repo',
-              'btn_live_logs': 'Live logs',
-              'btn_danger_zone': 'Не нажимать 💀',
-              'btn_remove_xkernel': 'Удаление XKernel',
-              'btn_start_remove': 'Начать процесс удаления',
-              'btn_clear_params': 'Очистить параметры',
-              'btn_client_patch_toggle': 'Client Patch: {state}',
-              'btn_client_app_version': 'Версия приложения',
-              'btn_client_device_model': 'Модель устройства',
-              'btn_client_system_version': 'Версия системы',
-              'btn_client_lang_code': 'Язык приложения',
-              'btn_client_system_lang_code': 'Системный язык',
-              'btn_reload_patch': 'Перезагрузить патч',
-              'btn_enable_patch': 'Включить патч',
-              'btn_disable_patch': 'Отключить патч',
-              'btn_unapply_patch': 'Откатить применение',
-              'btn_retry_patch': 'Повторить',
-              'btn_experimental': 'Экспериментальные функции',
-              'main_title': 'XPatch Manager',
-              'main_mcub_version': 'Version (MCUB):',
-              'main_patch_stats': 'Применено: <b>{applied}</b>  Ожидает: <b>{pending}</b>  Ошибки: <b>{failed}</b>',
-              'main_flags': 'Stealth: <code>{stealth}</code>  Auto: <code>{auto_update}</code>  Notify: '
-                            '<code>{notifications}</code>',
-              'main_extera': '<b>ExteraProxy Inject:</b> <i>{status}</i>',
-              'main_core': 'Core:',
-              'main_xkernel_version': 'Version XPatchKernel:',
-              'main_inactive_warning': 'XPatchKernel спит — патчи и часть магии недоступны',
-              'main_manager_update_warning': 'Менеджер староват: обнови из репы, а то новые приколы в UI не появятся.',
-              'manager_opening': 'Открываю менеджер...',
-              'manager_open_failed': 'Не удалось открыть менеджер',
-              'status_not_supported': 'Не поддерживается текущим ядром',
-              'status_disabled': 'Выключен',
-              'status_enabled_no_params': 'Включен без параметров',
-              'status_enabled_params': 'Включен, параметров: {count}',
-              'extera_forced_all_except': 'Принуждёный для всех, кроме {count} модуля(-лей)',
-              'extera_forced_all': 'Принуждёный для всех',
-              'extera_inactive': 'Не активен',
-              'extera_forced_selected': 'Принуждёный только для {count} модуля(-лей)',
-              'logs_empty': 'логи [xpatch] не найдены',
-              'logs_title': 'Live logs · [xpatch]',
-              'logs_desc': 'Показывает последние <b>{max_lines}</b> строк с <code>[xpatch]</code> из '
-                           '<code>logs/kernel.log</code>. Обновление: <b>{interval}</b> сек.',
-              'logs_lines_button': 'Строк: {current} > {next}',
-              'logs_interval_button': 'Обновление: {current}с > {next}с',
-              'logs_lines_answer': 'Live logs: {value} строк',
-              'logs_interval_answer': 'Live logs: обновление {value} сек',
-              'utils_title': 'XPatch Utils',
-              'utils_logs_desc': '<b>Live logs</b> — live-просмотр строк <code>[xpatch]</code> из '
-                                 '<code>logs/kernel.log</code>. Можно выбрать лимит строк и интервал обновления.',
-              'utils_danger_desc': '<b>Опасная зона</b> — тут можно снести ядро, бекапы, патчи и сам менеджер. Жми только '
-                                   'если уверен.',
-              'remove_title': 'Удаление XKernel',
-              'remove_desc': 'Выбери, что удалить. Действие необратимо для выбранных файлов. Порядок: ядро > бэкапы > '
-                             'патчи > default core > менеджер > restart.',
-              'remove_opt_core': 'Ядро',
-              'remove_opt_backups': 'Все бекапы',
-              'remove_opt_manager': 'Модуль-менеджер',
-              'remove_opt_patches': 'Все патчи',
-              'remove_opt_default': 'Default > standard',
-              'remove_opt_restart': 'Авто-рестарт',
-              'remove_answer_start': 'Удаляю XKernel...',
-              'remove_failed_title': 'Удаление XKernel сорвалось',
-              'remove_done_title': 'Удаление XKernel завершено',
-              'settings_title': 'XPatch настройки',
-              'settings_stealth_desc': 'VERSION без .XPatch, без VERSION_XKERNEL/ver, CORE_NAME=standard',
-              'settings_auto_desc': 'Если VERSION_XKERNEL стал выше — ставить сразу',
-              'settings_notify_desc': 'Бот пишет в лог-чат или в ЛС клиенту',
-              'settings_stealth': 'Stealth mode',
-              'settings_auto': 'Auto update ядра',
-              'settings_notify': 'Уведомления об обновлении',
-              'client_title': 'Client Patch',
-              'client_desc': 'Патчит <code>core.lib.base.client.TelegramClient</code> и меняет параметры клиента: название '
-                             'приложения, девайс и язык.',
-              'client_restart_warn': 'Чтобы магия Client Patch реально сработала — рестартни MCUB / пересоздай клиент.',
-              'client_status': 'Статус:',
-              'client_field_app_version': 'Версия приложения',
-              'client_field_device_model': 'Модель устройства',
-              'client_field_system_version': 'Версия системы',
-              'client_field_lang_code': 'Язык приложения',
-              'client_field_system_lang_code': 'Системный язык',
-              'client_cleared': 'Параметры Client Patch очищены',
-              'xpatch_inactive_alert': 'XPatchKernel не активен',
-              'patches_title': 'Патчи',
-              'patches_stats': 'Applied: <b>{applied}</b>  Pending: <b>{pending}</b>  Failed: <b>{failed}</b>  Disabled: '
-                               '<b>{disabled}</b>',
-              'patches_hint': 'Тыкни патч, чтобы посмотреть что с ним не так или всё ок.',
-              'patches_empty': 'Патчи не найдены',
-              'btn_extera_proxy': 'ExteraProxy Inject',
-              'btn_client_patch': 'Client Patch',
-              'btn_patch_events': 'Patch events: {state}',
-              'btn_hot_reload': 'Hot reload: {state}',
-              'btn_extera_all': 'Для всех: {state}',
-              'btn_extera_root_custom': 'Root: ON > custom',
-              'btn_extera_scope': '{scope}: {state}',
-              'none': 'пусто, как холодильник',
-              'no_access': 'Доступа нет, сорян',
-              'remove_core_deleted': '✅ Ядро удалено: <code>{path}</code>',
-              'remove_core_absent': 'ℹ️ Ядро уже отсутствует',
-              'remove_backups_deleted': '✅ Бекапы удалены: <b>{count}</b>',
-              'remove_patches_deleted': '✅ Патчи удалены: <code>{path}</code>',
-              'remove_patches_absent': 'ℹ️ Папка патчей уже отсутствует',
-              'remove_default_standard': '✅ Default core установлен: <code>standard</code>',
-              'remove_manager_requested': '✅ Запрошено удаление модуля-менеджера',
-              'remove_restart_requested': '✅ Запрошен рестарт MCUB',
-              'remove_nothing_selected': 'ℹ️ Ничего не выбрано',
-              'settings_toggle_stealth': 'Stealth: {state}',
-              'settings_toggle_auto': 'Auto update: {state}',
-              'settings_toggle_notify': 'Notify: {state}',
-              'extera_title': 'ExteraProxy Inject',
-              'extera_desc': 'Что делает: даёт выбранным модулям доступ к защищённым объектам XKernel: <b>kernel / client '
-                             '/ event</b>. Нужно, если модуль явно требует защищённый объект, например session у client.',
-              'extera_do_not_touch': 'Не понимаешь зачем — <b>не тыкай</b>.',
-              'extera_status_label': 'Статус:',
-              'extera_scopes_label': 'Scopes:',
-              'extera_modules_selected': 'Выбранные модули',
-              'extera_modules_excluded': 'Исключения',
-              'extera_trusted_warning': 'Включай только для известных и доверенных модулей. Не включай для неизвестных или '
-                                        'подозрительных модулей.',
-              'extera_unsupported_scopes': 'Текущее XKernel ядро не поддерживает ExteraProxy scopes',
-              'extera_unsupported': 'Текущее XKernel ядро не поддерживает ExteraProxy',
-              'extera_scope_answer': 'ExteraProxy {scope}: {state}',
-              'extera_all_on_answer': 'ExteraProxy для всех включён. Осторожно: только для доверенных модулей!',
-              'extera_all_off_answer': 'ExteraProxy для всех выключен',
-              'experimental_title': 'Экспериментальные функции XPatch',
-              'experimental_events_desc': 'emit xpatch:applied / xpatch:failed / xpatch:unapplied',
-              'experimental_hot_reload_title': 'Hot reload патчей',
-              'experimental_hot_reload_desc': 'следит за файлами patches/*.py и перезагружает изменённые',
-              'experimental_warning': 'Эксперименты: включай только если готов к приколам.',
-              'experimental_unavailable_title': 'Экспериментальные функции недоступны',
-              'experimental_unavailable_desc': 'Текущее ядро не поддерживает runtime-функции XKernel.',
-              'stealth_enabled': 'Stealth включён',
-              'stealth_disabled': 'Stealth выключен',
-              'auto_update_enabled': 'Автообновление ядра включено',
-              'auto_update_disabled': 'Автообновление ядра выключено',
-              'notifications_enabled': 'Уведомления включены',
-              'notifications_disabled': 'Уведомления выключены',
-              'client_patch_enabled': 'Client Patch включён',
-              'client_patch_disabled': 'Client Patch выключен',
-              'unsupported_current_kernel': 'Не поддерживается текущим ядром',
-              'btn_extera_add_module': 'Добавить модуль',
-              'btn_extera_remove_module': 'Убрать модуль',
-              'btn_extera_clear_list': 'Очистить список',
-              'stealth_unsupported': 'Текущее XKernel ядро не поддерживает stealth mode. Обнови XKernel и перезапусти '
-                                     'MCUB.',
-              'client_patch_unsupported': 'Текущее XKernel ядро не поддерживает Client Patch',
-              'client_patch_updated': 'Client Patch обновлён',
-              'client_patch_clear_hint': 'Чтобы очистить поле, отправь <code>-</code> или <code>clear</code>.',
-              'client_patch_value_cleared': 'снесено',
-              'extera_name_required': 'Дай имя модуля',
-              'extera_updated': 'ExteraProxy обновлён',
-              'extera_add_result': 'Модуль <code>{module}</code> добавлен',
-              'extera_remove_result': 'Модуль <code>{module}</code> убран',
-              'extera_clear_answer': 'Список ExteraProxy очищен',
-              'patch_events_enabled': 'Patch events включены',
-              'patch_events_disabled': 'Patch events выключены',
-              'hot_reload_enabled': 'Hot reload включён',
-              'hot_reload_disabled': 'Hot reload выключен',
-              'patch_detail_title': 'Детали патча',
-              'patch_status_label': 'Статус:',
-              'patch_label': 'Патч:',
-              'patch_target_label': 'Цель:',
-              'patch_file_label': 'Файл:',
-              'patch_key_label': 'Ключ:',
-              'patch_result_label': 'Результат',
-              'patch_pending_reason_label': 'Причина ожидания',
-              'patch_error_label': 'Ошибка',
-              'patch_traceback_label': 'Traceback',
-              'patch_min_version': 'Минимальная версия XKernel для этого патча: {version}',
-              'patch_version_ok': 'Патч совместим с текущей версией XKernel',
-              'patch_min_version_unknown': 'Минимальная версия XKernel для этого патча не указана',
-              'patch_reload_unsupported': 'Это XKernel ядро не поддерживает reload одного патча',
-              'patch_reload_failed': 'Reload не удался',
-              'patch_file_not_found': 'Файл патча не найден',
-              'patch_reloaded': 'Патч перезагружен',
-              'patch_unapply_result': 'Откат: {result}',
-              'patch_toggle_unsupported': 'Это XKernel ядро не поддерживает enable/disable патчей',
-              'patch_disabled_answer': 'Патч отключён',
-              'patch_enabled_answer': 'Патч включён',
-              'patch_retry_answer': 'Пробую ещё разок...',
-              'details_file_label': 'Файл:',
-              'details_size_label': 'Размер:',
-              'details_backups_label': 'Бэкапов:',
-              'details_not_found': 'XKernel не найден:',
-              'details_default_core': 'Default core:',
-              'details_not_set': 'не задан',
-              'details_title': 'XKernel · Чек кишок',
-              'install_loading': 'Загружаю XKernel...',
-              'platform_label': 'Платформа:',
-              'install_done_title': 'XKernel установлен',
-              'install_default_prompt': 'Сделать XKernel ядром по умолчанию?',
-              'install_default_desc': 'Если выбрать да, MCUB будет стартовать с XKernel без ручного <code>--core '
-                                      'XKernel</code>.',
-              'btn_set_default': 'Установить по дефолту',
-              'btn_no_thanks': 'Не, спасибо',
-              'install_error_title': 'Ошибка установки',
-              'install_finish_title': 'Готово, босс',
-              'install_default_unchanged': 'не менял',
-              'restart_required': 'Рестартни MCUB, а то магии не будет',
-              'btn_restart': 'Рестарт',
-              'install_default_set_answer': 'XKernel установлен по умолчанию',
-              'install_default_skip_answer': 'Default core не менял',
-              'update_checking': 'Проверяю XKernel...',
-              'update_check_failed_title': 'Update check failed',
-              'update_current_title': 'XKernel свежий, не душни',
-              'local_label': 'Local:',
-              'remote_label': 'Remote:',
-              'update_available_title': 'Доступно обновление XKernel',
-              'btn_update_now': 'Обновиться',
-              'update_loading': 'Обновляю XKernel...',
-              'update_failed_title': 'XKernel не обновлён',
-              'reopen_manager_hint': 'Открой менеджер заново:',
-              'update_done_title': 'XKernel обновлён',
-              'version_label': 'Version:',
-              'apply_all_loading': 'Применяю патчи...',
-              'apply_all_error_title': 'Ошибка apply_patches',
-              'apply_all_result_title': 'Apply all — результат',
-              'apply_applied_label': 'Applied',
-              'apply_pending_label': 'Pending',
-              'apply_failed_label': 'Failed',
-              'apply_skipped_label': 'Skipped',
-              'apply_restart_required': 'Нужен рестарт для применения патчей',
-              'rollback_no_backup': 'Бекапа нет, откатываться некуда',
-              'rollback_confirm_title': 'Rollback — подтверждение',
-              'rollback_will_restore': 'Будет восстановлен:',
-              'rollback_restart_required': 'Нужен рестарт после отката',
-              'btn_rollback': 'Откатить',
-              'btn_cancel': 'Отмена',
-              'rollback_failed_title': 'Rollback не выполнен',
-              'rollback_done_title': 'Rollback выполнен',
-              'rollback_restored_label': 'Восстановлен:',
-              'restart_answer': 'Ребутаю, держись...',
-              'cli_install_start': 'Начинаю ставить XPatchKernel',
-              'cli_install_done_title': 'XKernel установлен/обновлён',
-              'cli_install_failed_title': 'XKernel не установлен',
-              'cli_rollback_not_found': 'Backup для XKernel не найден',
-              'cli_rollback_done_title': 'XKernel rollback выполнен',
-              'restart_prompt': 'Рестартнуть MCUB?',
-              'btn_reboot': 'Reboot',
-              'btn_client_patch_quick_toggle': 'Patch: {state}',
-              'settings_notify_state': 'Пауза: <code>{delay}</code>с · Manager: <code>{manager}</code>',
-              'settings_notify_delay_button': 'Подождать: {delay}с > {next_delay}с',
-              'settings_notify_manager_toggle': 'Manager notify: {state}',
-              'settings_notify_delay_answer': 'Задержка уведомлений: {delay}с',
-              'manager_notifications_enabled': 'Уведомления об обновлении XPatchKernelManager включены',
-              'manager_notifications_disabled': 'Уведомления об обновлении XPatchKernelManager выключены',
-              'manager_update_notice_title': 'Менеджер обновился, залетай',
-              'manager_update_notice_hint': 'Обнови модуль из репы, там новые приколы UI.',
-              'btn_notify_settings': 'Настройки Notify',
-              'notify_settings_title': 'Настройки Notify',
-              'utils_rebuild_desc': '<b>Пересборка менеджера</b> — создаёт копию модуля с новым именем и отправляет .py в '
-                                    'чат.',
-              'btn_rebuild_manager': 'Клонировать менеджер',
-              'rebuild_title': 'Клонирование менеджера',
-              'rebuild_desc': 'Заменяются только строковые литералы, которые точно равны текущему имени модуля. Подстроки '
-                              'внутри длинных текстов не трогаются.',
-              'rebuild_current_name': 'Текущее имя:',
-              'rebuild_new_name': 'Новое имя:',
-              'rebuild_replacements': 'Замен:',
-              'rebuild_delete_state': 'Удалить текущий после отправки:',
-              'btn_rebuild_name': 'Имя нового модуля',
-              'btn_rebuild_random': 'Random',
-              'btn_rebuild_delete_current': 'Удалить текущий после сборки',
-              'btn_rebuild_keep_current': 'Не удалять текущий',
-              'btn_rebuild_send': 'Собрать и кинуть сюда',
-              'rebuild_random_answer': 'Случайное имя: {name}',
-              'rebuild_name_updated': 'Имя для пересборки: {name}',
-              'rebuild_name_invalid': 'Некорректное имя. Используй латиницу, цифры и _, первая буква — латинская. Без '
-                                      'пробелов и спецсимволов.',
-              'rebuild_same_name': 'Новое имя должно отличаться от текущего.',
-              'rebuild_forbidden': 'Пересборка доступна только из оригинального XPatchKernelManager.',
-              'rebuild_source_missing': 'Не удалось найти исходный файл менеджера.',
-              'rebuild_no_replacements': 'Не найдено строк для замены. Пересборка отменена.',
-              'rebuild_sent': 'Пересобранный менеджер отправлен: <code>{file}</code>. Замен: <b>{count}</b>.',
-              'rebuild_sent_delete': 'Клон отправлен. Самовыпиливаюсь...',
-              'rebuild_send_failed': 'Не удалось собрать или отправить менеджер',
-              'rebuild_config_state': 'Утащить cfg:',
-              'btn_rebuild_copy_config': 'Утащить cfg в клон',
-              'btn_rebuild_skip_config': 'Cfg не трогать',
-              'rebuild_config_copied': 'Cfg перенесён на <code>{name}</code>',
-              'rebuild_force_wipe_state': 'Снести cfg текущего:',
-              'btn_rebuild_force_wipe': 'Снести с cfg (-f)',
-              'btn_rebuild_keep_current_cfg': 'Cfg текущего оставить',
-              'rebuild_saved_only_no_delete': 'Файл в Избранном, в чат не пролез. Самовыпил отменён.',
-              'btn_hot_reload_smart_disable': 'Не долбить сломанный патч: {state}',
-              'btn_hot_reload_retry_interval': 'Подождать перед ретраем: {interval}с',
-              'btn_hot_reload_disable_on_first_fail': 'Отключать при первой ошибке: {state}',
-              'btn_hot_load_new_patches': 'Hot load новых патчей: {state}',
-              'hot_reload_retry_interval_answer': 'Интервал ожидания проблемного патча: {interval}с',
-              'hot_reload_retry_interval_invalid': 'Интервал должен быть числом от 1 до 3600 секунд.',
-              'btn_load_problem_patch': 'Пнуть проблемный патч',
-              'btn_hot_reload_settings': 'Настройки Hot reload',
-              'hot_reload_settings_title': 'Настройки Hot reload',
-              'hot_reload_old_core_warning': 'Ядро старое, новые приколы Hot reload оно не понимает. Обнови XKernel, а '
-                                             'пока это просто сохранится в конфиг.',
-              'hot_reload_settings_desc': '<b>Не долбить сломанный патч</b> — если reload упал, патч временно не мучаем.\n'
-                                          '<b>Подождать перед ретраем</b> — через сколько секунд снова пнуть проблемный '
-                                          'патч.\n'
-                                          '<b>Отключать при первой ошибке</b> — сразу кидает патч в disabled после фейла.\n'
-                                          '<b>Hot load новых патчей</b> — подбирает новые файлы из patches/ на горячую.',
-              'hot_reload_smart_disable_desc': '<b>Не долбить сломанный патч</b> — если reload упал, патч временно не '
-                                               'мучаем.',
-              'hot_reload_retry_interval_desc': '<b>Подождать перед ретраем</b> — через сколько секунд снова пнуть '
-                                                'проблемный патч.',
-              'hot_reload_disable_on_first_fail_desc': '<b>Отключать при первой ошибке</b> — сразу помечает патч disabled '
-                                                       'после первой ошибки hot reload.',
-              'hot_load_new_patches_desc': '<b>Hot load новых патчей</b> — подбирает новые файлы из patches/ на горячую.',
-              'btn_extera_extra_features': 'Ещё приколы',
-              'mcmac_title': 'MCMAC',
-              'mcmac_desc': 'SELinux на минималках для MCUB модулей. Пока безопасно: audit/permissive, без внезапного '
-                            'краша мира.',
-              'mcmac_available': 'Доступен:',
-              'mcmac_enabled': 'Включён:',
-              'mcmac_mode': 'Mode:',
-              'mcmac_path': 'Path:',
-              'mcmac_error': 'Ошибка:',
-              'btn_mcmac_toggle': 'MCMAC: {state}',
-              'btn_mcmac_mode': 'Mode: {mode}',
-              'btn_mcmac_update_libs': 'Скачать/обновить MCMAC libs',
-              'mcmac_enabled_answer': 'MCMAC включён',
-              'mcmac_disabled_answer': 'MCMAC выключен',
-              'mcmac_mode_answer': 'MCMAC mode: {mode}',
-              'mcmac_refresh_ok': 'MCMAC libs обновлены',
-              'mcmac_refresh_failed': 'Не удалось обновить MCMAC libs',
-              'mcmac_contexts': 'Клейма модулей:',
-              'btn_mcmac_set_module_type': 'Повесить тип на модуль',
-              'mcmac_module_type_updated': 'MCMAC: <code>{module}</code> → <code>{type}</code>',
-              'mcmac_module_type_invalid': 'Формат: <code>ModuleName:trusted</code>. Типы: trusted, standard, untrusted, '
-                                           'quarantine.',
-              'mcmac_type_system_desc': '<b>system</b> — системные модули MCUB. Полный доступ, назначается ядром '
-                                        'автоматически.',
-              'mcmac_type_trusted_desc': '<b>trusted</b> — доверенные модули. Разрешены kernel read, Telegram '
-                                         'send/delete/admin, network; subprocess запрещён.',
-              'mcmac_type_standard_desc': '<b>standard</b> — обычные локальные модули. Разрешены kernel read, Telegram '
-                                          'send/delete, network, config db; запрещены admin/account/subprocess.',
-              'mcmac_type_untrusted_desc': '<b>untrusted</b> — remote/сомнительные модули. Разрешён только базовый send; '
-                                           'запрещены delete/admin/account/network/subprocess/config write/module load.',
-              'mcmac_type_quarantine_desc': '<b>quarantine</b> — в банку. Всё нельзя, только audit смотрит и грустит.'},
-     'linux': {'state_on': 'ON',
-               'state_off': 'OFF',
-               'btn_back': 'Back',
-               'btn_patches': 'Patches',
-               'btn_details': 'Diagnostics',
-               'btn_apply_all': 'Apply all',
-               'btn_failed_count': '{count} failed',
-               'btn_settings': 'Settings',
-               'btn_check_update': 'Check update',
-               'btn_utils': 'Utilities',
-               'btn_install_update': 'Install / update',
-               'btn_repo': 'Repo',
-               'btn_live_logs': 'Live logs',
-               'btn_danger_zone': 'Danger zone',
-               'btn_remove_xkernel': 'Remove XKernel',
-               'btn_start_remove': 'Start removal',
-               'btn_clear_params': 'Clear parameters',
-               'btn_client_patch_toggle': 'Client Patch: {state}',
-               'btn_client_app_version': 'App version',
-               'btn_client_device_model': 'Device model',
-               'btn_client_system_version': 'System version',
-               'btn_client_lang_code': 'App language',
-               'btn_client_system_lang_code': 'System language',
-               'btn_reload_patch': 'Reload patch',
-               'btn_enable_patch': 'Enable patch',
-               'btn_disable_patch': 'Disable patch',
-               'btn_unapply_patch': 'Unapply',
-               'btn_retry_patch': 'Retry',
-               'btn_experimental': 'Experimental features',
-               'main_title': 'XPatch Manager',
-               'main_mcub_version': 'Version (MCUB):',
-               'main_patch_stats': 'Applied: <b>{applied}</b>  Pending: <b>{pending}</b>  Failed: <b>{failed}</b>',
-               'main_flags': 'Stealth: <code>{stealth}</code>  Auto: <code>{auto_update}</code>  Notify: '
-                             '<code>{notifications}</code>',
-               'main_extera': '<b>ExteraProxy Inject:</b> <i>{status}</i>',
-               'main_core': 'Core:',
-               'main_xkernel_version': 'XPatchKernel version:',
-               'main_inactive_warning': 'XPatchKernel service is not active — patches and some units are unavailable',
-               'main_manager_update_warning': 'XPatch Manager package is outdated. Pull a newer build from repository to '
-                                              'unlock new UI flags.',
-               'manager_opening': 'Opening manager...',
-               'manager_open_failed': 'Failed to open manager',
-               'status_not_supported': 'Not supported by current kernel',
-               'status_disabled': 'Disabled',
-               'status_enabled_no_params': 'Enabled without parameters',
-               'status_enabled_params': 'Enabled, parameters: {count}',
-               'extera_forced_all_except': 'Forced for all except {count} package(s)',
-               'extera_forced_all': 'Forced for all',
-               'extera_inactive': 'Inactive',
-               'extera_forced_selected': 'Forced only for {count} package(s)',
-               'logs_empty': 'no [xpatch] logs found',
-               'logs_title': 'Live logs · [xpatch]',
-               'logs_desc': 'Shows the last <b>{max_lines}</b> lines with <code>[xpatch]</code> from '
-                            '<code>logs/kernel.log</code>. Refresh: <b>{interval}</b>s.',
-               'logs_lines_button': 'Lines: {current} > {next}',
-               'logs_interval_button': 'Refresh: {current}s > {next}s',
-               'logs_lines_answer': 'Live logs: {value} lines',
-               'logs_interval_answer': 'Live logs: refresh {value}s',
-               'utils_title': 'XPatch Utils',
-               'utils_logs_desc': '<b>Live logs</b> — live view of <code>[xpatch]</code> lines from '
-                                  '<code>logs/kernel.log</code>. You can choose line limit and refresh interval.',
-               'utils_danger_desc': '<b>Danger zone</b> — destructive maintenance operations: remove kernel, backups, '
-                                    'patches and manager unit.',
-               'remove_title': 'Remove XKernel',
-               'remove_desc': 'Choose what to remove. This is irreversible for selected files. Order: kernel > backups > '
-                              'patches > default core > manager > restart.',
-               'remove_opt_core': 'Kernel',
-               'remove_opt_backups': 'All backups',
-               'remove_opt_manager': 'Manager package',
-               'remove_opt_patches': 'All patches',
-               'remove_opt_default': 'Default > standard',
-               'remove_opt_restart': 'Auto-restart',
-               'remove_answer_start': 'Removing XKernel...',
-               'remove_failed_title': 'XKernel removal failed',
-               'remove_done_title': 'XKernel removal finished',
-               'settings_title': 'XPatch settings',
-               'settings_stealth_desc': 'VERSION without .XPatch, no VERSION_XKERNEL/ver, CORE_NAME=standard',
-               'settings_auto_desc': 'Install immediately when VERSION_XKERNEL becomes newer',
-               'settings_notify_desc': 'Bot writes to log chat or client DM',
-               'settings_stealth': 'Stealth mode',
-               'settings_auto': 'Kernel auto-update',
-               'settings_notify': 'Update notifications',
-               'client_title': 'Client Patch',
-               'client_desc': 'Patches <code>core.lib.base.client.TelegramClient</code> and changes client parameters: app '
-                              'name, device and language.',
-               'client_restart_warn': 'Changes are applied after MCUB service restart / TelegramClient reinitialization.',
-               'client_status': 'Status:',
-               'client_field_app_version': 'App version',
-               'client_field_device_model': 'Device model',
-               'client_field_system_version': 'System version',
-               'client_field_lang_code': 'App language',
-               'client_field_system_lang_code': 'System language',
-               'client_cleared': 'Client Patch parameters cleared',
-               'xpatch_inactive_alert': 'XPatchKernel is inactive',
-               'patches_title': 'Patches',
-               'patches_stats': 'Applied: <b>{applied}</b>  Pending: <b>{pending}</b>  Failed: <b>{failed}</b>  Disabled: '
-                                '<b>{disabled}</b>',
-               'patches_hint': 'Select a patch unit to inspect its state.',
-               'patches_empty': 'No patches found',
-               'btn_extera_proxy': 'ExteraProxy Inject',
-               'btn_client_patch': 'Client Patch',
-               'btn_patch_events': 'Patch events: {state}',
-               'btn_hot_reload': 'Hot reload: {state}',
-               'btn_extera_all': 'For all: {state}',
-               'btn_extera_root_custom': 'Root: ON > custom',
-               'btn_extera_scope': '{scope}: {state}',
-               'none': 'none',
-               'no_access': 'No access',
-               'remove_core_deleted': '✅ Kernel removed: <code>{path}</code>',
-               'remove_core_absent': 'ℹ️ Kernel is already absent',
-               'remove_backups_deleted': '✅ Backups removed: <b>{count}</b>',
-               'remove_patches_deleted': '✅ Patches removed: <code>{path}</code>',
-               'remove_patches_absent': 'ℹ️ Patches folder is already absent',
-               'remove_default_standard': '✅ Default core set to <code>standard</code>',
-               'remove_manager_requested': '✅ Manager package removal requested',
-               'remove_restart_requested': '✅ MCUB restart requested',
-               'remove_nothing_selected': 'ℹ️ Nothing selected',
-               'settings_toggle_stealth': 'Stealth: {state}',
-               'settings_toggle_auto': 'Auto update: {state}',
-               'settings_toggle_notify': 'Notify: {state}',
-               'extera_title': 'ExteraProxy Inject',
-               'extera_desc': 'What it does: grants selected packages access to protected XKernel objects: <b>kernel / '
-                              'client / event</b>. Use it only when a package explicitly needs a protected object, for '
-                              'example client session.',
-               'extera_do_not_touch': 'If the purpose is unknown — <b>leave this switch disabled</b>.',
-               'extera_status_label': 'Status:',
-               'extera_scopes_label': 'Scopes:',
-               'extera_modules_selected': 'Selected packages',
-               'extera_modules_excluded': 'Package exceptions',
-               'extera_trusted_warning': 'Enable only for known and trusted packages. Do not enable it for unknown or '
-                                         'suspicious packages.',
-               'extera_unsupported_scopes': 'Current XKernel does not support ExteraProxy scopes',
-               'extera_unsupported': 'Current XKernel does not support ExteraProxy',
-               'extera_scope_answer': 'ExteraProxy {scope}: {state}',
-               'extera_all_on_answer': 'ExteraProxy enabled for all packages. Careful: trusted packages only!',
-               'extera_all_off_answer': 'ExteraProxy disabled for all',
-               'experimental_title': 'Experimental XPatch units',
-               'experimental_events_desc': 'emit xpatch:applied / xpatch:failed / xpatch:unapplied',
-               'experimental_hot_reload_title': 'Patch hot reload',
-               'experimental_hot_reload_desc': 'watches patches/*.py files and reloads changed patches',
-               'experimental_warning': 'Experimental units: enable only after reading the logs.',
-               'experimental_unavailable_title': 'Experimental features unavailable',
-               'experimental_unavailable_desc': 'Current kernel does not support XKernel runtime features.',
-               'stealth_enabled': 'Stealth enabled',
-               'stealth_disabled': 'Stealth disabled',
-               'auto_update_enabled': 'Kernel auto-update enabled',
-               'auto_update_disabled': 'Kernel auto-update disabled',
-               'notifications_enabled': 'Notifications enabled',
-               'notifications_disabled': 'Notifications disabled',
-               'client_patch_enabled': 'Client Patch enabled',
-               'client_patch_disabled': 'Client Patch disabled',
-               'unsupported_current_kernel': 'Not supported by current kernel',
-               'btn_extera_add_module': 'Add package',
-               'btn_extera_remove_module': 'Remove package',
-               'btn_extera_clear_list': 'Clear package list',
-               'stealth_unsupported': 'Current XKernel does not support stealth mode. Update XKernel and restart MCUB.',
-               'client_patch_unsupported': 'Current XKernel does not support Client Patch',
-               'client_patch_updated': 'Client Patch updated',
-               'client_patch_clear_hint': 'To clear the field, send <code>-</code> or <code>clear</code>.',
-               'client_patch_value_cleared': 'cleared',
-               'extera_name_required': 'Specify package name',
-               'extera_updated': 'ExteraProxy updated',
-               'extera_add_result': 'Package <code>{module}</code> added',
-               'extera_remove_result': 'Package <code>{module}</code> removed',
-               'extera_clear_answer': 'ExteraProxy package list cleared',
-               'patch_events_enabled': 'Patch events enabled',
-               'patch_events_disabled': 'Patch events disabled',
-               'hot_reload_enabled': 'Hot reload enabled',
-               'hot_reload_disabled': 'Hot reload disabled',
-               'patch_detail_title': 'Patch detail',
-               'patch_status_label': 'Status:',
-               'patch_label': 'Patch:',
-               'patch_target_label': 'Target:',
-               'patch_file_label': 'File:',
-               'patch_key_label': 'Key:',
-               'patch_result_label': 'Result',
-               'patch_pending_reason_label': 'Pending reason',
-               'patch_error_label': 'Error',
-               'patch_traceback_label': 'Traceback',
-               'patch_min_version': 'Minimum XKernel version for this patch: {version}',
-               'patch_version_ok': 'Patch is compatible with current XKernel version',
-               'patch_min_version_unknown': 'Minimum XKernel version is not specified for this patch',
-               'patch_reload_unsupported': 'This XKernel does not support single patch reload',
-               'patch_reload_failed': 'Reload failed',
-               'patch_file_not_found': 'Patch file not found',
-               'patch_reloaded': 'Reloaded',
-               'patch_unapply_result': 'Unapply: {result}',
-               'patch_toggle_unsupported': 'This XKernel does not support patch enable/disable',
-               'patch_disabled_answer': 'Patch disabled',
-               'patch_enabled_answer': 'Patch enabled',
-               'patch_retry_answer': 'Retrying patch...',
-               'details_file_label': 'File:',
-               'details_size_label': 'Size:',
-               'details_backups_label': 'Backups:',
-               'details_not_found': 'XKernel not found:',
-               'details_default_core': 'Default core:',
-               'details_not_set': 'not set',
-               'details_title': 'XKernel · Diagnostics unit',
-               'install_loading': 'Downloading XKernel...',
-               'platform_label': 'Platform:',
-               'install_done_title': 'XKernel installed',
-               'install_default_prompt': 'Set XKernel as default core package?',
-               'install_default_desc': 'If yes, MCUB will boot this core package without manual <code>--core '
-                                       'XKernel</code>.',
-               'btn_set_default': 'Set as default',
-               'btn_no_thanks': 'No, thanks',
-               'install_error_title': 'Install error',
-               'install_finish_title': 'Done',
-               'install_default_unchanged': 'unchanged',
-               'restart_required': 'MCUB service restart required',
-               'btn_restart': 'Restart',
-               'install_default_set_answer': 'XKernel set as default core package',
-               'install_default_skip_answer': 'Default core package unchanged',
-               'update_checking': 'Checking XKernel...',
-               'update_check_failed_title': 'Update check failed',
-               'update_current_title': 'XKernel is already up to date',
-               'local_label': 'Local:',
-               'remote_label': 'Remote:',
-               'update_available_title': 'XKernel update available',
-               'btn_update_now': 'Update',
-               'update_loading': 'Updating XKernel...',
-               'update_failed_title': 'XKernel was not updated',
-               'reopen_manager_hint': 'Open manager again:',
-               'update_done_title': 'XKernel updated',
-               'version_label': 'Version:',
-               'apply_all_loading': 'Applying patches...',
-               'apply_all_error_title': 'apply_patches error',
-               'apply_all_result_title': 'Apply all — result',
-               'apply_applied_label': 'Applied',
-               'apply_pending_label': 'Pending',
-               'apply_failed_label': 'Failed',
-               'apply_skipped_label': 'Skipped',
-               'apply_restart_required': 'Service restart is required to apply patches',
-               'rollback_no_backup': 'Backup not found',
-               'rollback_confirm_title': 'Rollback — confirmation',
-               'rollback_will_restore': 'Will restore:',
-               'rollback_restart_required': 'Service restart is required after rollback',
-               'btn_rollback': 'Rollback',
-               'btn_cancel': 'Cancel',
-               'rollback_failed_title': 'Rollback failed',
-               'rollback_done_title': 'Rollback completed',
-               'rollback_restored_label': 'Restored:',
-               'restart_answer': 'Restarting MCUB service...',
-               'cli_install_start': 'Installing XPatchKernel',
-               'cli_install_done_title': 'XKernel installed/updated',
-               'cli_install_failed_title': 'XKernel was not installed',
-               'cli_rollback_not_found': 'XKernel backup not found',
-               'cli_rollback_done_title': 'XKernel rollback completed',
-               'restart_prompt': 'Restart MCUB service?',
-               'btn_reboot': 'Reboot',
-               'btn_client_patch_quick_toggle': 'Patch: {state}',
-               'settings_notify_state': 'Delay: <code>{delay}</code>s · Manager package: <code>{manager}</code>',
-               'settings_notify_delay_button': 'Delay: {delay}s > {next_delay}s',
-               'settings_notify_manager_toggle': 'Manager package notify: {state}',
-               'settings_notify_delay_answer': 'Notification delay: {delay}s',
-               'manager_notifications_enabled': 'XPatchKernelManager package update notifications enabled',
-               'manager_notifications_disabled': 'XPatchKernelManager package update notifications disabled',
-               'manager_update_notice_title': 'XPatchKernelManager package update available',
-               'manager_update_notice_hint': 'Upgrade the package from repository to get new UI units.',
-               'btn_notify_settings': 'Notify settings',
-               'notify_settings_title': 'Notify settings',
-               'utils_rebuild_desc': '<b>Manager package rebuild</b> — creates a copy with a new package key and sends the '
-                                     '.py file to chat.',
-               'btn_rebuild_manager': 'Manager package rebuild',
-               'rebuild_title': 'Manager package rebuild',
-               'rebuild_desc': 'Only string literals exactly equal to the current module name are replaced. Substrings '
-                               'inside longer texts are not touched.',
-               'rebuild_current_name': 'Current package key:',
-               'rebuild_new_name': 'New package key:',
-               'rebuild_replacements': 'Replacements:',
-               'rebuild_delete_state': 'Remove current package after send:',
-               'btn_rebuild_name': 'New package key',
-               'btn_rebuild_random': 'Random',
-               'btn_rebuild_delete_current': 'Remove current package after build',
-               'btn_rebuild_keep_current': 'Keep current package',
-               'btn_rebuild_send': 'Build and send',
-               'rebuild_random_answer': 'Random name: {name}',
-               'rebuild_name_updated': 'Rebuild name: {name}',
-               'rebuild_name_invalid': 'Invalid name. Use latin letters, digits and _, first char must be latin. No spaces '
-                                       'or special symbols.',
-               'rebuild_same_name': 'New name must differ from the current one.',
-               'rebuild_forbidden': 'Rebuild is available only from the original XPatchKernelManager.',
-               'rebuild_source_missing': 'Manager source file was not found.',
-               'rebuild_no_replacements': 'No replaceable strings found. Rebuild cancelled.',
-               'rebuild_sent': 'Rebuilt manager sent: <code>{file}</code>. Replacements: <b>{count}</b>.',
-               'rebuild_sent_delete': 'Rebuilt manager sent. Removing current module...',
-               'rebuild_send_failed': 'Failed to build or send manager',
-               'rebuild_config_state': 'Copy package cfg:',
-               'btn_rebuild_copy_config': 'Copy cfg to new package',
-               'btn_rebuild_skip_config': 'Do not copy package cfg',
-               'rebuild_config_copied': 'Cfg copied to package <code>{name}</code>',
-               'rebuild_force_wipe_state': 'Remove current package cfg:',
-               'btn_rebuild_force_wipe': 'Remove current package with cfg (-f)',
-               'btn_rebuild_keep_current_cfg': 'Keep current package cfg',
-               'rebuild_saved_only_no_delete': 'File was saved to Saved Messages, but forwarding to this chat failed. '
-                                               'Current package was not removed.',
-               'btn_hot_reload_smart_disable': 'Smart quarantine: {state}',
-               'btn_hot_reload_retry_interval': 'Retry timeout: {interval}s',
-               'btn_hot_reload_disable_on_first_fail': 'Disable unit on first error: {state}',
-               'btn_hot_load_new_patches': 'Hot load new patch units: {state}',
-               'hot_reload_retry_interval_answer': 'Problem patch retry interval: {interval}s',
-               'hot_reload_retry_interval_invalid': 'Interval must be a number from 1 to 3600 seconds.',
-               'btn_load_problem_patch': 'Load failed patch unit',
-               'btn_hot_reload_settings': 'Hot reload settings',
-               'hot_reload_settings_title': 'Hot reload settings',
-               'hot_reload_old_core_warning': 'Current XKernel package is old and does not support advanced Hot reload '
-                                              'units. Upgrade XKernel; otherwise these flags stay manager-side only.',
-               'hot_reload_settings_desc': '<b>Smart quarantine</b> — if hot reload fails to load a patch unit, it is '
-                                           'temporarily skipped.\n'
-                                           '<b>Retry timeout</b> — seconds before retrying a failed patch unit.\n'
-                                           '<b>Disable unit on first error</b> — marks the patch unit disabled after the '
-                                           'first hot reload error.\n'
-                                           '<b>Hot load new patch units</b> — loads new files from patches/ without '
-                                           'service restart.',
-               'hot_reload_smart_disable_desc': '<b>Smart quarantine</b> — if hot reload fails to load a patch unit, it is '
-                                                'temporarily skipped.',
-               'hot_reload_retry_interval_desc': '<b>Retry timeout</b> — seconds before retrying a failed patch unit.',
-               'hot_reload_disable_on_first_fail_desc': '<b>Disable unit on first error</b> — marks the patch unit '
-                                                        'disabled after the first hot reload error.',
-               'hot_load_new_patches_desc': '<b>Hot load new patch units</b> — loads new files from patches/ without '
-                                            'service restart.',
-               'btn_extera_extra_features': 'Extra units',
-               'mcmac_title': 'MCMAC',
-               'mcmac_desc': 'Mandatory Access Control for MCUB packages. Safe permissive/no-op layer for audit and policy '
-                             'preparation.',
-               'mcmac_available': 'Available:',
-               'mcmac_enabled': 'Enabled:',
-               'mcmac_mode': 'Mode:',
-               'mcmac_path': 'Path:',
-               'mcmac_error': 'Error:',
-               'btn_mcmac_toggle': 'MCMAC: {state}',
-               'btn_mcmac_mode': 'Mode: {mode}',
-               'btn_mcmac_update_libs': 'Download/update MCMAC libs',
-               'mcmac_enabled_answer': 'MCMAC enabled',
-               'mcmac_disabled_answer': 'MCMAC disabled',
-               'mcmac_mode_answer': 'MCMAC mode: {mode}',
-               'mcmac_refresh_ok': 'MCMAC libs updated',
-               'mcmac_refresh_failed': 'Failed to update MCMAC libs',
-               'mcmac_contexts': 'Package security types:',
-               'btn_mcmac_set_module_type': 'Set package type',
-               'mcmac_module_type_updated': 'MCMAC: <code>{module}</code> → <code>{type}</code>',
-               'mcmac_module_type_invalid': 'Format: <code>ModuleName:trusted</code>. Types: trusted, standard, untrusted, '
-                                            'quarantine.',
-               'mcmac_type_system_desc': '<b>system</b> — MCUB system packages. Full access, assigned automatically by '
-                                         'kernel.',
-               'mcmac_type_trusted_desc': '<b>trusted</b> — trusted packages. Allows kernel read, Telegram '
-                                          'send/delete/admin and network; subprocess is denied.',
-               'mcmac_type_standard_desc': '<b>standard</b> — normal local packages. Allows kernel read, Telegram '
-                                           'send/delete, network and config db; denies admin/account/subprocess.',
-               'mcmac_type_untrusted_desc': '<b>untrusted</b> — remote/suspicious packages. Allows only basic send; denies '
-                                            'delete/admin/account/network/subprocess/config write/package load.',
-               'mcmac_type_quarantine_desc': '<b>quarantine</b> — quarantine. Everything is denied, only audit/permissive '
-                                             'log remains.'}}
+    strings = {
+        "name": "XPatchKernelManager",
+        "ru": {
+            "state_on": "ON",
+            "state_off": "OFF",
+            "btn_back": "Назад",
+            "btn_patches": "Патчи",
+            "btn_details": "Диагностика",
+            "btn_apply_all": "Применить все",
+            "btn_failed_count": "{count} с ошибкой",
+            "btn_settings": "Настройки",
+            "btn_check_update": "Проверить обновление",
+            "btn_utils": "Инструменты",
+            "btn_install_update": "Установить / обновить",
+            "btn_repo": "Repo",
+            "btn_live_logs": "Live logs",
+            "btn_danger_zone": "Опасная зона",
+            "btn_remove_xkernel": "Удаление XKernel",
+            "btn_start_remove": "Начать процесс удаления",
+            "btn_clear_params": "Очистить параметры",
+            "btn_client_patch_toggle": "Client Patch: {state}",
+            "btn_client_app_version": "Версия приложения",
+            "btn_client_device_model": "Модель устройства",
+            "btn_client_system_version": "Версия системы",
+            "btn_client_lang_code": "Язык приложения",
+            "btn_client_system_lang_code": "Системный язык",
+            "btn_reload_patch": "Перезагрузить патч",
+            "btn_enable_patch": "Включить патч",
+            "btn_disable_patch": "Отключить патч",
+            "btn_unapply_patch": "Откатить применение",
+            "btn_retry_patch": "Повторить",
+            "btn_experimental": "Экспериментальные функции",
+            "main_title": "XPatch Manager",
+            "main_mcub_version": "Version (MCUB):",
+            "main_patch_stats": "Применено: <b>{applied}</b>  Ожидает: <b>{pending}</b>  Ошибки: <b>{failed}</b>",
+            "main_flags": "Stealth: <code>{stealth}</code>  Auto: <code>{auto_update}</code>  Notify: "
+            "<code>{notifications}</code>",
+            "main_extera": "<b>ExteraProxy Inject:</b> <i>{status}</i>",
+            "main_core": "Core:",
+            "main_xkernel_version": "Version XPatchKernel:",
+            "main_inactive_warning": "XPatchKernel не активен — патчи и некоторые функции недоступны",
+            "main_manager_update_warning": "Надо обновить XPatch Manager из репозитория, иначе через UI нельзя будет "
+            "потрогать новые фишки.",
+            "manager_opening": "Открываю менеджер...",
+            "manager_open_failed": "Не удалось открыть менеджер",
+            "status_not_supported": "Не поддерживается текущим ядром",
+            "status_disabled": "Выключен",
+            "status_enabled_no_params": "Включен без параметров",
+            "status_enabled_params": "Включен, параметров: {count}",
+            "extera_forced_all_except": "Принуждёный для всех, кроме {count} модуля(-лей)",
+            "extera_forced_all": "Принуждёный для всех",
+            "extera_inactive": "Не активен",
+            "extera_forced_selected": "Принуждёный только для {count} модуля(-лей)",
+            "logs_empty": "логи [xpatch] не найдены",
+            "logs_title": "Live logs · [xpatch]",
+            "logs_desc": "Показывает последние <b>{max_lines}</b> строк с <code>[xpatch]</code> из "
+            "<code>logs/kernel.log</code>. Обновление: <b>{interval}</b> сек.",
+            "logs_lines_button": "Строк: {current} > {next}",
+            "logs_interval_button": "Обновление: {current}с > {next}с",
+            "logs_lines_answer": "Live logs: {value} строк",
+            "logs_interval_answer": "Live logs: обновление {value} сек",
+            "utils_title": "XPatch Utils",
+            "utils_logs_desc": "<b>Live logs</b> — live-просмотр строк <code>[xpatch]</code> из "
+            "<code>logs/kernel.log</code>. Можно выбрать лимит строк и интервал обновления.",
+            "utils_danger_desc": "<b>Опасная зона</b> — удаление ядра, бекапов, патчей и модуля-менеджера. Можно отдельно "
+            "выбрать default core и авто-рестарт.",
+            "remove_title": "Удаление XKernel",
+            "remove_desc": "Выбери, что удалить. Действие необратимо для выбранных файлов. Порядок: ядро > бэкапы > патчи "
+            "> default core > менеджер > restart.",
+            "remove_opt_core": "Ядро",
+            "remove_opt_backups": "Все бекапы",
+            "remove_opt_manager": "Модуль-менеджер",
+            "remove_opt_patches": "Все патчи",
+            "remove_opt_default": "Default > standard",
+            "remove_opt_restart": "Авто-рестарт",
+            "remove_answer_start": "Удаляю XKernel...",
+            "remove_failed_title": "Удаление XKernel сорвалось",
+            "remove_done_title": "Удаление XKernel завершено",
+            "settings_title": "XPatch настройки",
+            "settings_stealth_desc": "VERSION без .XPatch, без VERSION_XKERNEL/ver, CORE_NAME=standard",
+            "settings_auto_desc": "Если VERSION_XKERNEL стал выше — ставить сразу",
+            "settings_notify_desc": "Бот пишет в лог-чат или в ЛС клиенту",
+            "settings_stealth": "Stealth mode",
+            "settings_auto": "Auto update ядра",
+            "settings_notify": "Уведомления об обновлении",
+            "client_title": "Client Patch",
+            "client_desc": "Патчит <code>core.lib.base.client.TelegramClient</code> и меняет параметры клиента: название "
+            "приложения, девайс и язык.",
+            "client_restart_warn": "Изменения применятся после рестарта MCUB / пересоздания клиента.",
+            "client_status": "Статус:",
+            "client_field_app_version": "Версия приложения",
+            "client_field_device_model": "Модель устройства",
+            "client_field_system_version": "Версия системы",
+            "client_field_lang_code": "Язык приложения",
+            "client_field_system_lang_code": "Системный язык",
+            "client_cleared": "Параметры Client Patch очищены",
+            "xpatch_inactive_alert": "XPatchKernel не активен",
+            "patches_title": "Патчи",
+            "patches_stats": "Applied: <b>{applied}</b>  Pending: <b>{pending}</b>  Failed: <b>{failed}</b>  Disabled: "
+            "<b>{disabled}</b>",
+            "patches_hint": "Нажми на патч, чтобы открыть детали.",
+            "patches_empty": "Патчи не найдены",
+            "btn_extera_proxy": "ExteraProxy Inject",
+            "btn_client_patch": "Client Patch",
+            "btn_patch_events": "Patch events: {state}",
+            "btn_hot_reload": "Hot reload: {state}",
+            "btn_extera_all": "Для всех: {state}",
+            "btn_extera_root_custom": "Root: ON > custom",
+            "btn_extera_scope": "{scope}: {state}",
+            "none": "нет",
+            "no_access": "Нет доступа",
+            "remove_core_deleted": "✅ Ядро удалено: <code>{path}</code>",
+            "remove_core_absent": "ℹ️ Ядро уже отсутствует",
+            "remove_backups_deleted": "✅ Бекапы удалены: <b>{count}</b>",
+            "remove_patches_deleted": "✅ Патчи удалены: <code>{path}</code>",
+            "remove_patches_absent": "ℹ️ Папка патчей уже отсутствует",
+            "remove_default_standard": "✅ Default core установлен: <code>standard</code>",
+            "remove_manager_requested": "✅ Запрошено удаление модуля-менеджера",
+            "remove_restart_requested": "✅ Запрошен рестарт MCUB",
+            "remove_nothing_selected": "ℹ️ Ничего не выбрано",
+            "settings_toggle_stealth": "Stealth: {state}",
+            "settings_toggle_auto": "Auto update: {state}",
+            "settings_toggle_notify": "Notify: {state}",
+            "extera_title": "ExteraProxy Inject",
+            "extera_desc": "Что делает: даёт выбранным модулям доступ к защищённым объектам XKernel: <b>kernel / client / "
+            "event</b>. Нужно, если модуль явно требует защищённый объект, например session у client.",
+            "extera_do_not_touch": "Если не знаешь зачем это нужно — <b>не трогай</b>.",
+            "extera_status_label": "Статус:",
+            "extera_scopes_label": "Scopes:",
+            "extera_modules_selected": "Выбранные модули",
+            "extera_modules_excluded": "Исключения",
+            "extera_trusted_warning": "Включай только для известных и доверенных модулей. Не включай для неизвестных или "
+            "подозрительных модулей.",
+            "extera_unsupported_scopes": "Текущее XKernel ядро не поддерживает ExteraProxy scopes",
+            "extera_unsupported": "Текущее XKernel ядро не поддерживает ExteraProxy",
+            "extera_scope_answer": "ExteraProxy {scope}: {state}",
+            "extera_all_on_answer": "ExteraProxy для всех включён. Осторожно: только для доверенных модулей!",
+            "extera_all_off_answer": "ExteraProxy для всех выключен",
+            "experimental_title": "Экспериментальные функции XPatch",
+            "experimental_events_desc": "emit xpatch:applied / xpatch:failed / xpatch:unapplied",
+            "experimental_hot_reload_title": "Hot reload патчей",
+            "experimental_hot_reload_desc": "следит за файлами patches/*.py и перезагружает изменённые",
+            "experimental_warning": "Функции экспериментальные: включай только если понимаешь риски.",
+            "experimental_unavailable_title": "Экспериментальные функции недоступны",
+            "experimental_unavailable_desc": "Текущее ядро не поддерживает runtime-функции XKernel.",
+            "stealth_enabled": "Stealth включён",
+            "stealth_disabled": "Stealth выключен",
+            "auto_update_enabled": "Автообновление ядра включено",
+            "auto_update_disabled": "Автообновление ядра выключено",
+            "notifications_enabled": "Уведомления включены",
+            "notifications_disabled": "Уведомления выключены",
+            "client_patch_enabled": "Client Patch включён",
+            "client_patch_disabled": "Client Patch выключен",
+            "unsupported_current_kernel": "Не поддерживается текущим ядром",
+            "btn_extera_add_module": "Добавить модуль",
+            "btn_extera_remove_module": "Убрать модуль",
+            "btn_extera_clear_list": "Очистить список",
+            "stealth_unsupported": "Текущее XKernel ядро не поддерживает stealth mode. Обнови XKernel и перезапусти MCUB.",
+            "client_patch_unsupported": "Текущее XKernel ядро не поддерживает Client Patch",
+            "client_patch_updated": "Client Patch обновлён",
+            "client_patch_clear_hint": "Чтобы очистить поле, отправь <code>-</code> или <code>clear</code>.",
+            "client_patch_value_cleared": "очищено",
+            "extera_name_required": "Укажи имя модуля",
+            "extera_updated": "ExteraProxy обновлён",
+            "extera_add_result": "Модуль <code>{module}</code> добавлен",
+            "extera_remove_result": "Модуль <code>{module}</code> убран",
+            "extera_clear_answer": "Список ExteraProxy очищен",
+            "patch_events_enabled": "Patch events включены",
+            "patch_events_disabled": "Patch events выключены",
+            "hot_reload_enabled": "Hot reload включён",
+            "hot_reload_disabled": "Hot reload выключен",
+            "patch_detail_title": "Детали патча",
+            "patch_status_label": "Статус:",
+            "patch_label": "Патч:",
+            "patch_target_label": "Цель:",
+            "patch_file_label": "Файл:",
+            "patch_key_label": "Ключ:",
+            "patch_result_label": "Результат",
+            "patch_pending_reason_label": "Причина ожидания",
+            "patch_error_label": "Ошибка",
+            "patch_traceback_label": "Traceback",
+            "patch_min_version": "Минимальная версия XKernel для этого патча: {version}",
+            "patch_version_ok": "Патч совместим с текущей версией XKernel",
+            "patch_min_version_unknown": "Минимальная версия XKernel для этого патча не указана",
+            "patch_reload_unsupported": "Это XKernel ядро не поддерживает reload одного патча",
+            "patch_reload_failed": "Reload не удался",
+            "patch_file_not_found": "Файл патча не найден",
+            "patch_reloaded": "Патч перезагружен",
+            "patch_unapply_result": "Откат: {result}",
+            "patch_toggle_unsupported": "Это XKernel ядро не поддерживает enable/disable патчей",
+            "patch_disabled_answer": "Патч отключён",
+            "patch_enabled_answer": "Патч включён",
+            "patch_retry_answer": "Повторяю патч...",
+            "details_file_label": "Файл:",
+            "details_size_label": "Размер:",
+            "details_backups_label": "Бэкапов:",
+            "details_not_found": "XKernel не найден:",
+            "details_default_core": "Default core:",
+            "details_not_set": "не задан",
+            "details_title": "XKernel · Диагностика",
+            "install_loading": "Загружаю XKernel...",
+            "platform_label": "Платформа:",
+            "install_done_title": "XKernel установлен",
+            "install_default_prompt": "Сделать XKernel ядром по умолчанию?",
+            "install_default_desc": "Если выбрать да, MCUB будет стартовать с XKernel без ручного <code>--core "
+            "XKernel</code>.",
+            "btn_set_default": "Установить по дефолту",
+            "btn_no_thanks": "Нет, спасибо",
+            "install_error_title": "Ошибка установки",
+            "install_finish_title": "Готово",
+            "install_default_unchanged": "не менял",
+            "restart_required": "Нужен рестарт MCUB",
+            "btn_restart": "Рестарт",
+            "install_default_set_answer": "XKernel установлен по умолчанию",
+            "install_default_skip_answer": "Default core не менял",
+            "update_checking": "Проверяю XKernel...",
+            "update_check_failed_title": "Update check failed",
+            "update_current_title": "XKernel уже актуален",
+            "local_label": "Local:",
+            "remote_label": "Remote:",
+            "update_available_title": "Доступно обновление XKernel",
+            "btn_update_now": "Обновиться",
+            "update_loading": "Обновляю XKernel...",
+            "update_failed_title": "XKernel не обновлён",
+            "reopen_manager_hint": "Открой менеджер заново:",
+            "update_done_title": "XKernel обновлён",
+            "version_label": "Version:",
+            "apply_all_loading": "Применяю патчи...",
+            "apply_all_error_title": "Ошибка apply_patches",
+            "apply_all_result_title": "Apply all — результат",
+            "apply_applied_label": "Applied",
+            "apply_pending_label": "Pending",
+            "apply_failed_label": "Failed",
+            "apply_skipped_label": "Skipped",
+            "apply_restart_required": "Нужен рестарт для применения патчей",
+            "rollback_no_backup": "Backup не найден",
+            "rollback_confirm_title": "Rollback — подтверждение",
+            "rollback_will_restore": "Будет восстановлен:",
+            "rollback_restart_required": "Нужен рестарт после отката",
+            "btn_rollback": "Откатить",
+            "btn_cancel": "Отмена",
+            "rollback_failed_title": "Rollback не выполнен",
+            "rollback_done_title": "Rollback выполнен",
+            "rollback_restored_label": "Восстановлен:",
+            "restart_answer": "Ребутаю MCUB...",
+            "cli_install_start": "Начинаю ставить XPatchKernel",
+            "cli_install_done_title": "XKernel установлен/обновлён",
+            "cli_install_failed_title": "XKernel не установлен",
+            "cli_rollback_not_found": "Backup для XKernel не найден",
+            "cli_rollback_done_title": "XKernel rollback выполнен",
+            "restart_prompt": "Рестарт MCUB?",
+            "btn_reboot": "Reboot",
+            "btn_client_patch_quick_toggle": "Patch Client: {state}",
+            "settings_notify_state": "Задержка: <code>{delay}</code>с · Manager: <code>{manager}</code>",
+            "settings_notify_delay_button": "Задержка: {delay}с > {next_delay}с",
+            "settings_notify_manager_toggle": "Manager notify: {state}",
+            "settings_notify_delay_answer": "Задержка уведомлений: {delay}с",
+            "manager_notifications_enabled": "Уведомления об обновлении XPatchKernelManager включены",
+            "manager_notifications_disabled": "Уведомления об обновлении XPatchKernelManager выключены",
+            "manager_update_notice_title": "Доступно обновление XPatchKernelManager",
+            "manager_update_notice_hint": "Обнови модуль из репозитория, чтобы получить новые UI-функции.",
+            "btn_notify_settings": "Настройки Notify",
+            "notify_settings_title": "Настройки Notify",
+            "utils_rebuild_desc": "<b>Пересборка менеджера</b> — создаёт копию модуля с новым именим и отправляет .py в "
+            "чат.",
+            "btn_rebuild_manager": "Пересборка менеджера",
+            "rebuild_title": "Пересборка менеджера",
+            "rebuild_desc": "Заменяются только строковые литералы, которые точно равны текущему имени модуля. Подстроки "
+            "внутри длинных текстов не трогаются.",
+            "rebuild_current_name": "Текущее имя:",
+            "rebuild_new_name": "Новое имя:",
+            "rebuild_replacements": "Замен:",
+            "rebuild_delete_state": "Удалить текущий после отправки:",
+            "btn_rebuild_name": "Имя нового модуля",
+            "btn_rebuild_random": "Random",
+            "btn_rebuild_delete_current": "Удалить текущий после сборки",
+            "btn_rebuild_keep_current": "Не удалять текущий",
+            "btn_rebuild_send": "Собрать и отправить",
+            "rebuild_random_answer": "Случайное имя: {name}",
+            "rebuild_name_updated": "Имя для пересборки: {name}",
+            "rebuild_name_invalid": "Некорректное имя. Используй латиницу, цифры и _, первая буква — латинская. Без "
+            "пробелов и спецсимволов.",
+            "rebuild_same_name": "Новое имя должно отличаться от текущего.",
+            "rebuild_forbidden": "Пересборка доступна только из оригинального XPatchKernelManager.",
+            "rebuild_source_missing": "Не удалось найти исходный файл менеджера.",
+            "rebuild_no_replacements": "Не найдено строк для замены. Пересборка отменена.",
+            "rebuild_sent": "Пересобранный менеджер отправлен: <code>{file}</code>. Замен: <b>{count}</b>.",
+            "rebuild_sent_delete": "Пересобранный менеджер отправлен. Удаляю текущий модуль...",
+            "rebuild_send_failed": "Не удалось собрать или отправить менеджер",
+            "rebuild_config_state": "Перенести cfg:",
+            "btn_rebuild_copy_config": "Перенести cfg на новый модуль",
+            "btn_rebuild_skip_config": "Не переносить cfg",
+            "rebuild_config_copied": "Cfg перенесён на <code>{name}</code>",
+            "rebuild_force_wipe_state": "Удалить cfg текущего:",
+            "btn_rebuild_force_wipe": "Удалить текущий с cfg (-f)",
+            "btn_rebuild_keep_current_cfg": "Оставить cfg текущего",
+            "rebuild_saved_only_no_delete": "Файл отправлен в Избранное, но не удалось переслать в этот чат. Текущий "
+            "менеджер не удалён.",
+            "btn_hot_reload_smart_disable": "Умное выключение: {state}",
+            "btn_hot_reload_retry_interval": "Интервал ожидания: {interval}с",
+            "btn_hot_reload_disable_on_first_fail": "Отключать при первой ошибке: {state}",
+            "btn_hot_load_new_patches": "Hot load новых патчей: {state}",
+            "hot_reload_retry_interval_answer": "Интервал ожидания проблемного патча: {interval}с",
+            "hot_reload_retry_interval_invalid": "Интервал должен быть числом от 1 до 3600 секунд.",
+            "btn_load_problem_patch": "Загрузить проблемный патч",
+            "btn_hot_reload_settings": "Настройки Hot reload",
+            "hot_reload_settings_title": "Настройки Hot reload",
+            "hot_reload_old_core_warning": "Текущее XKernel ядро старое и не поддерживает расширенные настройки Hot "
+            "reload. Обнови XKernel, иначе эти опции будут сохранены только в конфиге "
+            "менеджера.",
+            "hot_reload_settings_desc": "<b>Умное выключение</b> — если hot reload словил ошибку загрузки, патч временно "
+            "не трогается.\n"
+            "<b>Интервал ожидания</b> — через сколько секунд пробовать проблемный патч снова.\n"
+            "<b>Отключать при первой ошибке</b> — сразу помечает патч disabled после первой "
+            "ошибки hot reload.\n"
+            "<b>Hot load новых патчей</b> — подхватывает новые файлы из patches/ без рестарта.",
+            "hot_reload_smart_disable_desc": "<b>Умное выключение</b> — если hot reload словил ошибку загрузки, патч "
+            "временно не трогается.",
+            "hot_reload_retry_interval_desc": "<b>Интервал ожидания</b> — через сколько секунд пробовать проблемный патч "
+            "снова.",
+            "hot_reload_disable_on_first_fail_desc": "<b>Отключать при первой ошибке</b> — сразу помечает патч disabled "
+            "после первой ошибки hot reload.",
+            "hot_load_new_patches_desc": "<b>Hot load новых патчей</b> — подхватывает новые файлы из patches/ без "
+            "рестарта.",
+            "btn_extera_extra_features": "Дополнительные возможности",
+            "mcmac_title": "MCMAC",
+            "mcmac_desc": "Mandatory Access Control для модулей MCUB. Пока безопасный permissive/no-op слой: можно "
+            "включить audit и подготовить политики. коротко: SELinux но для MCUB",
+            "mcmac_available": "Доступен:",
+            "mcmac_enabled": "Включён:",
+            "mcmac_mode": "Mode:",
+            "mcmac_path": "Path:",
+            "mcmac_error": "Ошибка:",
+            "btn_mcmac_toggle": "MCMAC: {state}",
+            "btn_mcmac_mode": "Mode: {mode}",
+            "btn_mcmac_update_libs": "Скачать/обновить MCMAC libs",
+            "mcmac_enabled_answer": "MCMAC включён",
+            "mcmac_disabled_answer": "MCMAC выключен",
+            "mcmac_mode_answer": "MCMAC mode: {mode}",
+            "mcmac_refresh_ok": "MCMAC libs обновлены",
+            "mcmac_refresh_failed": "Не удалось обновить MCMAC libs",
+            "mcmac_contexts": "Типы модулей:",
+            "btn_mcmac_set_module_type": "Назначить тип модулю",
+            "mcmac_module_type_updated": "MCMAC: <code>{module}</code> → <code>{type}</code>",
+            "mcmac_module_type_invalid": "Формат: <code>ModuleName:trusted</code>. Типы: trusted, standard, untrusted, "
+            "quarantine.",
+            "mcmac_type_system_desc": "<b>system</b> — системные модули MCUB. Полный доступ, назначается ядром "
+            "автоматически.",
+            "mcmac_type_trusted_desc": "<b>trusted</b> — доверенные модули. Разрешены kernel read, Telegram "
+            "send/delete/admin, network; subprocess запрещён.",
+            "mcmac_type_standard_desc": "<b>standard</b> — обычные локальные модули. Разрешены kernel read, Telegram "
+            "send/delete, network, config db; запрещены admin/account/subprocess.",
+            "mcmac_type_untrusted_desc": "<b>untrusted</b> — remote/сомнительные модули. Разрешён только базовый send; "
+            "запрещены delete/admin/account/network/subprocess/config write/module load.",
+            "mcmac_type_quarantine_desc": "<b>quarantine</b> — карантин. Всё запрещено, остаётся только "
+            "audit/permissive-лог.",
+            "mcmac_mode_desc": "<b>permissive</b> — только audit/log, запрещённые действия не блокируются.\n"
+            "<b>enforcing</b> — запрещённые политикой действия блокируются через CallInsecure.",
+            "mcmac_module_type_removed": "MCMAC: override для <code>{module}</code> удалён",
+            "mcmac_module_type_remove_hint": "Чтобы удалить override: <code>- ModuleName</code>.",
+            "btn_mcmac_remove_module_type": "Удалить модуль из списка",
+            "mcmac_unavailable_warning": "MCMAC libs недоступны. Скачай/обнови libs, иначе настройки политики применяться "
+            "не будут.",
+            "btn_patch_system_module": "Patch system module",
+            "system_patch_title": "Patch system module",
+            "system_patch_desc": "Патчит системные модули MCUB: man и updates.",
+            "btn_system_patch_man": "man",
+            "btn_system_patch_updates": "updates",
+            "system_patch_man_title": "Patch man",
+            "system_patch_man_desc": "Добавляет в man информацию ExteraProxy и MCMAC для модуля.",
+            "system_patch_updates_title": "Patch updates",
+            "system_patch_updates_desc": "Добавляет в update информацию о XKernel core.",
+            "btn_system_patch_man_extera": "Man ExteraProxy info: {state}",
+            "btn_system_patch_man_mcmac": "Man MCMAC info: {state}",
+            "btn_system_patch_updates_xkernel": "Update XKernel status: {state}",
+            "system_patch_unsupported": "Текущее XKernel ядро не поддерживает Patch system module",
+        },
+        "en": {
+            "state_on": "ON",
+            "state_off": "OFF",
+            "btn_back": "Back",
+            "btn_patches": "Patches",
+            "btn_details": "Diagnostics",
+            "btn_apply_all": "Apply all",
+            "btn_failed_count": "{count} failed",
+            "btn_settings": "Settings",
+            "btn_check_update": "Check update",
+            "btn_utils": "Tools",
+            "btn_install_update": "Install / update",
+            "btn_repo": "Repo",
+            "btn_live_logs": "Live logs",
+            "btn_danger_zone": "Danger zone",
+            "btn_remove_xkernel": "Remove XKernel",
+            "btn_start_remove": "Start removal",
+            "btn_clear_params": "Clear parameters",
+            "btn_client_patch_toggle": "Client Patch: {state}",
+            "btn_client_app_version": "App version",
+            "btn_client_device_model": "Device model",
+            "btn_client_system_version": "System version",
+            "btn_client_lang_code": "App language",
+            "btn_client_system_lang_code": "System language",
+            "btn_reload_patch": "Reload patch",
+            "btn_enable_patch": "Enable patch",
+            "btn_disable_patch": "Disable patch",
+            "btn_unapply_patch": "Unapply",
+            "btn_retry_patch": "Retry",
+            "btn_experimental": "Experimental features",
+            "main_title": "XPatch Manager",
+            "main_mcub_version": "Version (MCUB):",
+            "main_patch_stats": "Applied: <b>{applied}</b>  Pending: <b>{pending}</b>  Failed: <b>{failed}</b>",
+            "main_flags": "Stealth: <code>{stealth}</code>  Auto: <code>{auto_update}</code>  Notify: "
+            "<code>{notifications}</code>",
+            "main_extera": "<b>ExteraProxy Inject:</b> <i>{status}</i>",
+            "main_core": "Core:",
+            "main_xkernel_version": "XPatchKernel version:",
+            "main_inactive_warning": "XPatchKernel is inactive — patches and some features are unavailable",
+            "main_manager_update_warning": "Update XPatch Manager from the repository; otherwise the UI cannot expose new "
+            "features.",
+            "manager_opening": "Opening manager...",
+            "manager_open_failed": "Failed to open manager",
+            "status_not_supported": "Not supported by current kernel",
+            "status_disabled": "Disabled",
+            "status_enabled_no_params": "Enabled without parameters",
+            "status_enabled_params": "Enabled, parameters: {count}",
+            "extera_forced_all_except": "Forced for all except {count} module(s)",
+            "extera_forced_all": "Forced for all",
+            "extera_inactive": "Inactive",
+            "extera_forced_selected": "Forced only for {count} module(s)",
+            "logs_empty": "no [xpatch] logs found",
+            "logs_title": "Live logs · [xpatch]",
+            "logs_desc": "Shows the last <b>{max_lines}</b> lines with <code>[xpatch]</code> from "
+            "<code>logs/kernel.log</code>. Refresh: <b>{interval}</b>s.",
+            "logs_lines_button": "Lines: {current} > {next}",
+            "logs_interval_button": "Refresh: {current}s > {next}s",
+            "logs_lines_answer": "Live logs: {value} lines",
+            "logs_interval_answer": "Live logs: refresh {value}s",
+            "utils_title": "XPatch Utils",
+            "utils_logs_desc": "<b>Live logs</b> — live view of <code>[xpatch]</code> lines from "
+            "<code>logs/kernel.log</code>. You can choose line limit and refresh interval.",
+            "utils_danger_desc": "<b>Danger zone</b> — remove the kernel, backups, patches, and manager module. You can "
+            "also choose default core and auto-restart.",
+            "remove_title": "Remove XKernel",
+            "remove_desc": "Choose what to remove. This is irreversible for selected files. Order: kernel > backups > "
+            "patches > default core > manager > restart.",
+            "remove_opt_core": "Kernel",
+            "remove_opt_backups": "All backups",
+            "remove_opt_manager": "Manager module",
+            "remove_opt_patches": "All patches",
+            "remove_opt_default": "Default > standard",
+            "remove_opt_restart": "Auto-restart",
+            "remove_answer_start": "Removing XKernel...",
+            "remove_failed_title": "XKernel removal failed",
+            "remove_done_title": "XKernel removal finished",
+            "settings_title": "XPatch settings",
+            "settings_stealth_desc": "VERSION without .XPatch, no VERSION_XKERNEL/ver, CORE_NAME=standard",
+            "settings_auto_desc": "Install immediately when VERSION_XKERNEL becomes newer",
+            "settings_notify_desc": "Bot writes to log chat or client DM",
+            "settings_stealth": "Stealth mode",
+            "settings_auto": "Kernel auto-update",
+            "settings_notify": "Update notifications",
+            "client_title": "Client Patch",
+            "client_desc": "Patches <code>core.lib.base.client.TelegramClient</code> and changes client parameters: app "
+            "name, device and language.",
+            "client_restart_warn": "Changes apply after MCUB restart / TelegramClient recreation.",
+            "client_status": "Status:",
+            "client_field_app_version": "App version",
+            "client_field_device_model": "Device model",
+            "client_field_system_version": "System version",
+            "client_field_lang_code": "App language",
+            "client_field_system_lang_code": "System language",
+            "client_cleared": "Client Patch parameters cleared",
+            "xpatch_inactive_alert": "XPatchKernel is inactive",
+            "patches_title": "Patches",
+            "patches_stats": "Applied: <b>{applied}</b>  Pending: <b>{pending}</b>  Failed: <b>{failed}</b>  Disabled: "
+            "<b>{disabled}</b>",
+            "patches_hint": "Tap a patch to open details.",
+            "patches_empty": "No patches found",
+            "btn_extera_proxy": "ExteraProxy Inject",
+            "btn_client_patch": "Client Patch",
+            "btn_patch_events": "Patch events: {state}",
+            "btn_hot_reload": "Hot reload: {state}",
+            "btn_extera_all": "For all: {state}",
+            "btn_extera_root_custom": "Root: ON > custom",
+            "btn_extera_scope": "{scope}: {state}",
+            "none": "none",
+            "no_access": "No access",
+            "remove_core_deleted": "✅ Kernel removed: <code>{path}</code>",
+            "remove_core_absent": "ℹ️ Kernel is already absent",
+            "remove_backups_deleted": "✅ Backups removed: <b>{count}</b>",
+            "remove_patches_deleted": "✅ Patches removed: <code>{path}</code>",
+            "remove_patches_absent": "ℹ️ Patches folder is already absent",
+            "remove_default_standard": "✅ Default core set to <code>standard</code>",
+            "remove_manager_requested": "✅ Manager module removal requested",
+            "remove_restart_requested": "✅ MCUB restart requested",
+            "remove_nothing_selected": "ℹ️ Nothing selected",
+            "settings_toggle_stealth": "Stealth: {state}",
+            "settings_toggle_auto": "Auto update: {state}",
+            "settings_toggle_notify": "Notify: {state}",
+            "extera_title": "ExteraProxy Inject",
+            "extera_desc": "What it does: gives selected modules access to protected XKernel objects: <b>kernel / client / "
+            "event</b>. Use it only when a module explicitly needs a protected object, for example client "
+            "session.",
+            "extera_do_not_touch": "If you do not know why you need this — <b>do not touch it</b>.",
+            "extera_status_label": "Status:",
+            "extera_scopes_label": "Scopes:",
+            "extera_modules_selected": "Selected modules",
+            "extera_modules_excluded": "Exceptions",
+            "extera_trusted_warning": "Enable only for known and trusted modules. Do not enable it for unknown or "
+            "suspicious modules.",
+            "extera_unsupported_scopes": "Current XKernel does not support ExteraProxy scopes",
+            "extera_unsupported": "Current XKernel does not support ExteraProxy",
+            "extera_scope_answer": "ExteraProxy {scope}: {state}",
+            "extera_all_on_answer": "ExteraProxy enabled for all. Careful: trusted modules only!",
+            "extera_all_off_answer": "ExteraProxy disabled for all",
+            "experimental_title": "Experimental XPatch features",
+            "experimental_events_desc": "emit xpatch:applied / xpatch:failed / xpatch:unapplied",
+            "experimental_hot_reload_title": "Patch hot reload",
+            "experimental_hot_reload_desc": "watches patches/*.py files and reloads changed patches",
+            "experimental_warning": "These features are experimental: enable them only if you understand the risks.",
+            "experimental_unavailable_title": "Experimental features unavailable",
+            "experimental_unavailable_desc": "Current kernel does not support XKernel runtime features.",
+            "stealth_enabled": "Stealth enabled",
+            "stealth_disabled": "Stealth disabled",
+            "auto_update_enabled": "Kernel auto-update enabled",
+            "auto_update_disabled": "Kernel auto-update disabled",
+            "notifications_enabled": "Notifications enabled",
+            "notifications_disabled": "Notifications disabled",
+            "client_patch_enabled": "Client Patch enabled",
+            "client_patch_disabled": "Client Patch disabled",
+            "unsupported_current_kernel": "Not supported by current kernel",
+            "btn_extera_add_module": "Add module",
+            "btn_extera_remove_module": "Remove module",
+            "btn_extera_clear_list": "Clear list",
+            "stealth_unsupported": "Current XKernel does not support stealth mode. Update XKernel and restart MCUB.",
+            "client_patch_unsupported": "Current XKernel does not support Client Patch",
+            "client_patch_updated": "Client Patch updated",
+            "client_patch_clear_hint": "To clear the field, send <code>-</code> or <code>clear</code>.",
+            "client_patch_value_cleared": "cleared",
+            "extera_name_required": "Specify module name",
+            "extera_updated": "ExteraProxy updated",
+            "extera_add_result": "Module <code>{module}</code> added",
+            "extera_remove_result": "Module <code>{module}</code> removed",
+            "extera_clear_answer": "ExteraProxy list cleared",
+            "patch_events_enabled": "Patch events enabled",
+            "patch_events_disabled": "Patch events disabled",
+            "hot_reload_enabled": "Hot reload enabled",
+            "hot_reload_disabled": "Hot reload disabled",
+            "patch_detail_title": "Patch detail",
+            "patch_status_label": "Status:",
+            "patch_label": "Patch:",
+            "patch_target_label": "Target:",
+            "patch_file_label": "File:",
+            "patch_key_label": "Key:",
+            "patch_result_label": "Result",
+            "patch_pending_reason_label": "Pending reason",
+            "patch_error_label": "Error",
+            "patch_traceback_label": "Traceback",
+            "patch_min_version": "Minimum XKernel version for this patch: {version}",
+            "patch_version_ok": "Patch is compatible with current XKernel version",
+            "patch_min_version_unknown": "Minimum XKernel version is not specified for this patch",
+            "patch_reload_unsupported": "This XKernel does not support single patch reload",
+            "patch_reload_failed": "Reload failed",
+            "patch_file_not_found": "Patch file not found",
+            "patch_reloaded": "Reloaded",
+            "patch_unapply_result": "Unapply: {result}",
+            "patch_toggle_unsupported": "This XKernel does not support patch enable/disable",
+            "patch_disabled_answer": "Patch disabled",
+            "patch_enabled_answer": "Patch enabled",
+            "patch_retry_answer": "Retrying patch...",
+            "details_file_label": "File:",
+            "details_size_label": "Size:",
+            "details_backups_label": "Backups:",
+            "details_not_found": "XKernel not found:",
+            "details_default_core": "Default core:",
+            "details_not_set": "not set",
+            "details_title": "XKernel · Diagnostics",
+            "install_loading": "Downloading XKernel...",
+            "platform_label": "Platform:",
+            "install_done_title": "XKernel installed",
+            "install_default_prompt": "Make XKernel the default core?",
+            "install_default_desc": "If yes, MCUB will start with XKernel without manual <code>--core XKernel</code>.",
+            "btn_set_default": "Set as default",
+            "btn_no_thanks": "No, thanks",
+            "install_error_title": "Install error",
+            "install_finish_title": "Done",
+            "install_default_unchanged": "unchanged",
+            "restart_required": "MCUB restart required",
+            "btn_restart": "Restart",
+            "install_default_set_answer": "XKernel set as default",
+            "install_default_skip_answer": "Default core unchanged",
+            "update_checking": "Checking XKernel...",
+            "update_check_failed_title": "Update check failed",
+            "update_current_title": "XKernel is already up to date",
+            "local_label": "Local:",
+            "remote_label": "Remote:",
+            "update_available_title": "XKernel update available",
+            "btn_update_now": "Update",
+            "update_loading": "Updating XKernel...",
+            "update_failed_title": "XKernel was not updated",
+            "reopen_manager_hint": "Open manager again:",
+            "update_done_title": "XKernel updated",
+            "version_label": "Version:",
+            "apply_all_loading": "Applying patches...",
+            "apply_all_error_title": "apply_patches error",
+            "apply_all_result_title": "Apply all — result",
+            "apply_applied_label": "Applied",
+            "apply_pending_label": "Pending",
+            "apply_failed_label": "Failed",
+            "apply_skipped_label": "Skipped",
+            "apply_restart_required": "Restart is required to apply patches",
+            "rollback_no_backup": "Backup not found",
+            "rollback_confirm_title": "Rollback — confirmation",
+            "rollback_will_restore": "Will restore:",
+            "rollback_restart_required": "Restart is required after rollback",
+            "btn_rollback": "Rollback",
+            "btn_cancel": "Cancel",
+            "rollback_failed_title": "Rollback failed",
+            "rollback_done_title": "Rollback completed",
+            "rollback_restored_label": "Restored:",
+            "restart_answer": "Restarting MCUB...",
+            "cli_install_start": "Installing XPatchKernel",
+            "cli_install_done_title": "XKernel installed/updated",
+            "cli_install_failed_title": "XKernel was not installed",
+            "cli_rollback_not_found": "XKernel backup not found",
+            "cli_rollback_done_title": "XKernel rollback completed",
+            "restart_prompt": "Restart MCUB?",
+            "btn_reboot": "Reboot",
+            "btn_client_patch_quick_toggle": "Patch Client: {state}",
+            "settings_notify_state": "Delay: <code>{delay}</code>s · Manager: <code>{manager}</code>",
+            "settings_notify_delay_button": "Delay: {delay}s > {next_delay}s",
+            "settings_notify_manager_toggle": "Manager notify: {state}",
+            "settings_notify_delay_answer": "Notification delay: {delay}s",
+            "manager_notifications_enabled": "XPatchKernelManager update notifications enabled",
+            "manager_notifications_disabled": "XPatchKernelManager update notifications disabled",
+            "manager_update_notice_title": "XPatchKernelManager update available",
+            "manager_update_notice_hint": "Update the module from the repository to get new UI features.",
+            "btn_notify_settings": "Notify settings",
+            "notify_settings_title": "Notify settings",
+            "utils_rebuild_desc": "<b>Manager rebuild</b> — creates a copy with a new module name and sends the .py file "
+            "to chat.",
+            "btn_rebuild_manager": "Manager rebuild",
+            "rebuild_title": "Manager rebuild",
+            "rebuild_desc": "Only string literals exactly equal to the current module name are replaced. Substrings inside "
+            "longer texts are not touched.",
+            "rebuild_current_name": "Current name:",
+            "rebuild_new_name": "New name:",
+            "rebuild_replacements": "Replacements:",
+            "rebuild_delete_state": "Delete current after send:",
+            "btn_rebuild_name": "New module name",
+            "btn_rebuild_random": "Random",
+            "btn_rebuild_delete_current": "Delete current after build",
+            "btn_rebuild_keep_current": "Keep current module",
+            "btn_rebuild_send": "Build and send",
+            "rebuild_random_answer": "Random name: {name}",
+            "rebuild_name_updated": "Rebuild name: {name}",
+            "rebuild_name_invalid": "Invalid name. Use latin letters, digits and _, first char must be latin. No spaces or "
+            "special symbols.",
+            "rebuild_same_name": "New name must differ from the current one.",
+            "rebuild_forbidden": "Rebuild is available only from the original XPatchKernelManager.",
+            "rebuild_source_missing": "Manager source file was not found.",
+            "rebuild_no_replacements": "No replaceable strings found. Rebuild cancelled.",
+            "rebuild_sent": "Rebuilt manager sent: <code>{file}</code>. Replacements: <b>{count}</b>.",
+            "rebuild_sent_delete": "Rebuilt manager sent. Removing current module...",
+            "rebuild_send_failed": "Failed to build or send manager",
+            "rebuild_config_state": "Copy cfg:",
+            "btn_rebuild_copy_config": "Copy cfg to new module",
+            "btn_rebuild_skip_config": "Do not copy cfg",
+            "rebuild_config_copied": "Cfg copied to <code>{name}</code>",
+            "rebuild_force_wipe_state": "Delete current cfg:",
+            "btn_rebuild_force_wipe": "Delete current with cfg (-f)",
+            "btn_rebuild_keep_current_cfg": "Keep current cfg",
+            "rebuild_saved_only_no_delete": "File was sent to Saved Messages, but forwarding to this chat failed. Current "
+            "manager was not removed.",
+            "btn_hot_reload_smart_disable": "Smart disable: {state}",
+            "btn_hot_reload_retry_interval": "Retry interval: {interval}s",
+            "btn_hot_reload_disable_on_first_fail": "Disable on first error: {state}",
+            "btn_hot_load_new_patches": "Hot load new patches: {state}",
+            "hot_reload_retry_interval_answer": "Problem patch retry interval: {interval}s",
+            "hot_reload_retry_interval_invalid": "Interval must be a number from 1 to 3600 seconds.",
+            "btn_load_problem_patch": "Load problem patch",
+            "btn_hot_reload_settings": "Hot reload settings",
+            "hot_reload_settings_title": "Hot reload settings",
+            "hot_reload_old_core_warning": "Current XKernel is old and does not support advanced Hot reload settings. "
+            "Update XKernel; otherwise these options are saved only in manager config.",
+            "hot_reload_settings_desc": "<b>Smart disable</b> — if hot reload fails to load a patch, it is temporarily "
+            "skipped.\n"
+            "<b>Retry interval</b> — seconds before retrying a problem patch.\n"
+            "<b>Disable on first error</b> — marks the patch disabled after the first hot "
+            "reload error.\n"
+            "<b>Hot load new patches</b> — loads new files from patches/ without restart.",
+            "hot_reload_smart_disable_desc": "<b>Smart disable</b> — if hot reload fails to load a patch, it is "
+            "temporarily skipped.",
+            "hot_reload_retry_interval_desc": "<b>Retry interval</b> — seconds before retrying a problem patch.",
+            "hot_reload_disable_on_first_fail_desc": "<b>Disable on first error</b> — marks the patch disabled after the "
+            "first hot reload error.",
+            "hot_load_new_patches_desc": "<b>Hot load new patches</b> — loads new files from patches/ without restart.",
+            "btn_extera_extra_features": "Extra features",
+            "mcmac_title": "MCMAC",
+            "mcmac_desc": "Mandatory Access Control for MCUB modules. Currently a safe permissive/no-op layer: enable"
+            "audit and prepare policies. in short: SELinux is for MCUB",
+            "mcmac_available": "Available:",
+            "mcmac_enabled": "Enabled:",
+            "mcmac_mode": "Mode:",
+            "mcmac_path": "Path:",
+            "mcmac_error": "Error:",
+            "btn_mcmac_toggle": "MCMAC: {state}",
+            "btn_mcmac_mode": "Mode: {mode}",
+            "btn_mcmac_update_libs": "Download/update MCMAC libs",
+            "mcmac_enabled_answer": "MCMAC enabled",
+            "mcmac_disabled_answer": "MCMAC disabled",
+            "mcmac_mode_answer": "MCMAC mode: {mode}",
+            "mcmac_refresh_ok": "MCMAC libs updated",
+            "mcmac_refresh_failed": "Failed to update MCMAC libs",
+            "mcmac_contexts": "Module types:",
+            "btn_mcmac_set_module_type": "Set module type",
+            "mcmac_module_type_updated": "MCMAC: <code>{module}</code> → <code>{type}</code>",
+            "mcmac_module_type_invalid": "Format: <code>ModuleName:trusted</code>. Types: trusted, standard, untrusted, "
+            "quarantine.",
+            "mcmac_type_system_desc": "<b>system</b> — MCUB system modules. Full access, assigned automatically by kernel.",
+            "mcmac_type_trusted_desc": "<b>trusted</b> — trusted modules. Allows kernel read, Telegram send/delete/admin "
+            "and network; subprocess is denied.",
+            "mcmac_type_standard_desc": "<b>standard</b> — normal local modules. Allows kernel read, Telegram send/delete, "
+            "network and config db; denies admin/account/subprocess.",
+            "mcmac_type_untrusted_desc": "<b>untrusted</b> — remote/suspicious modules. Allows only basic send; denies "
+            "delete/admin/account/network/subprocess/config write/module load.",
+            "mcmac_type_quarantine_desc": "<b>quarantine</b> — quarantine. Everything is denied, only audit/permissive log "
+            "remains.",
+            "mcmac_mode_desc": "<b>permissive</b> — audit/log only, denied actions are not blocked.\n"
+            "<b>enforcing</b> — policy-denied actions are blocked with CallInsecure.",
+            "mcmac_module_type_removed": "MCMAC: override for <code>{module}</code> removed",
+            "mcmac_module_type_remove_hint": "To remove an override: <code>- ModuleName</code>.",
+            "btn_mcmac_remove_module_type": "Remove module override",
+            "mcmac_unavailable_warning": "MCMAC libs are unavailable. Download/update libs; otherwise policy settings will "
+            "not be applied.",
+            "btn_patch_system_module": "Patch system module",
+            "system_patch_title": "Patch system module",
+            "system_patch_desc": "Patches MCUB system modules: man and updates.",
+            "btn_system_patch_man": "man",
+            "btn_system_patch_updates": "updates",
+            "system_patch_man_title": "Patch man",
+            "system_patch_man_desc": "Adds ExteraProxy and MCMAC module info to man.",
+            "system_patch_updates_title": "Patch updates",
+            "system_patch_updates_desc": "Adds XKernel core info to update.",
+            "btn_system_patch_man_extera": "Man ExteraProxy info: {state}",
+            "btn_system_patch_man_mcmac": "Man MCMAC info: {state}",
+            "btn_system_patch_updates_xkernel": "Update XKernel status: {state}",
+            "system_patch_unsupported": "Текущее XKernel ядро не поддерживает Patch system module",
+        },
+        "rofl": {
+            "state_on": "ON",
+            "state_off": "OFF",
+            "btn_back": "Назад",
+            "btn_patches": "Патчи",
+            "btn_details": "Чекнуть кишки",
+            "btn_apply_all": "Применить все",
+            "btn_failed_count": "{count} с ошибкой",
+            "btn_settings": "Настройки",
+            "btn_check_update": "Проверить обновление",
+            "btn_utils": "Штуки",
+            "btn_install_update": "Установить / обновить",
+            "btn_repo": "Repo",
+            "btn_live_logs": "Live logs",
+            "btn_danger_zone": "Не нажимать 💀",
+            "btn_remove_xkernel": "Удаление XKernel",
+            "btn_start_remove": "Начать процесс удаления",
+            "btn_clear_params": "Очистить параметры",
+            "btn_client_patch_toggle": "Client Patch: {state}",
+            "btn_client_app_version": "Версия приложения",
+            "btn_client_device_model": "Модель устройства",
+            "btn_client_system_version": "Версия системы",
+            "btn_client_lang_code": "Язык приложения",
+            "btn_client_system_lang_code": "Системный язык",
+            "btn_reload_patch": "Перезагрузить патч",
+            "btn_enable_patch": "Включить патч",
+            "btn_disable_patch": "Отключить патч",
+            "btn_unapply_patch": "Откатить применение",
+            "btn_retry_patch": "Повторить",
+            "btn_experimental": "Экспериментальные функции",
+            "main_title": "XPatch Manager",
+            "main_mcub_version": "Version (MCUB):",
+            "main_patch_stats": "Применено: <b>{applied}</b>  Ожидает: <b>{pending}</b>  Ошибки: <b>{failed}</b>",
+            "main_flags": "Stealth: <code>{stealth}</code>  Auto: <code>{auto_update}</code>  Notify: "
+            "<code>{notifications}</code>",
+            "main_extera": "<b>ExteraProxy Inject:</b> <i>{status}</i>",
+            "main_core": "Core:",
+            "main_xkernel_version": "Version XPatchKernel:",
+            "main_inactive_warning": "XPatchKernel спит — патчи и часть магии недоступны",
+            "main_manager_update_warning": "Менеджер староват: обнови из репы, а то новые приколы в UI не появятся.",
+            "manager_opening": "Открываю менеджер...",
+            "manager_open_failed": "Не удалось открыть менеджер",
+            "status_not_supported": "Не поддерживается текущим ядром",
+            "status_disabled": "Выключен",
+            "status_enabled_no_params": "Включен без параметров",
+            "status_enabled_params": "Включен, параметров: {count}",
+            "extera_forced_all_except": "Принуждёный для всех, кроме {count} модуля(-лей)",
+            "extera_forced_all": "Принуждёный для всех",
+            "extera_inactive": "Не активен",
+            "extera_forced_selected": "Принуждёный только для {count} модуля(-лей)",
+            "logs_empty": "логи [xpatch] не найдены",
+            "logs_title": "Live logs · [xpatch]",
+            "logs_desc": "Показывает последние <b>{max_lines}</b> строк с <code>[xpatch]</code> из "
+            "<code>logs/kernel.log</code>. Обновление: <b>{interval}</b> сек.",
+            "logs_lines_button": "Строк: {current} > {next}",
+            "logs_interval_button": "Обновление: {current}с > {next}с",
+            "logs_lines_answer": "Live logs: {value} строк",
+            "logs_interval_answer": "Live logs: обновление {value} сек",
+            "utils_title": "XPatch Utils",
+            "utils_logs_desc": "<b>Live logs</b> — live-просмотр строк <code>[xpatch]</code> из "
+            "<code>logs/kernel.log</code>. Можно выбрать лимит строк и интервал обновления.",
+            "utils_danger_desc": "<b>Опасная зона</b> — тут можно снести ядро, бекапы, патчи и сам менеджер. Жми только "
+            "если уверен.",
+            "remove_title": "Удаление XKernel",
+            "remove_desc": "Выбери, что удалить. Действие необратимо для выбранных файлов. Порядок: ядро > бэкапы > "
+            "патчи > default core > менеджер > restart.",
+            "remove_opt_core": "Ядро",
+            "remove_opt_backups": "Все бекапы",
+            "remove_opt_manager": "Модуль-менеджер",
+            "remove_opt_patches": "Все патчи",
+            "remove_opt_default": "Default > standard",
+            "remove_opt_restart": "Авто-рестарт",
+            "remove_answer_start": "Удаляю XKernel...",
+            "remove_failed_title": "Удаление XKernel сорвалось",
+            "remove_done_title": "Удаление XKernel завершено",
+            "settings_title": "XPatch настройки",
+            "settings_stealth_desc": "VERSION без .XPatch, без VERSION_XKERNEL/ver, CORE_NAME=standard",
+            "settings_auto_desc": "Если VERSION_XKERNEL стал выше — ставить сразу",
+            "settings_notify_desc": "Бот пишет в лог-чат или в ЛС клиенту",
+            "settings_stealth": "Stealth mode",
+            "settings_auto": "Auto update ядра",
+            "settings_notify": "Уведомления об обновлении",
+            "client_title": "Client Patch",
+            "client_desc": "Патчит <code>core.lib.base.client.TelegramClient</code> и меняет параметры клиента: название "
+            "приложения, девайс и язык.",
+            "client_restart_warn": "Чтобы магия Client Patch реально сработала — рестартни MCUB / пересоздай клиент.",
+            "client_status": "Статус:",
+            "client_field_app_version": "Версия приложения",
+            "client_field_device_model": "Модель устройства",
+            "client_field_system_version": "Версия системы",
+            "client_field_lang_code": "Язык приложения",
+            "client_field_system_lang_code": "Системный язык",
+            "client_cleared": "Параметры Client Patch очищены",
+            "xpatch_inactive_alert": "XPatchKernel не активен",
+            "patches_title": "Патчи",
+            "patches_stats": "Applied: <b>{applied}</b>  Pending: <b>{pending}</b>  Failed: <b>{failed}</b>  Disabled: "
+            "<b>{disabled}</b>",
+            "patches_hint": "Тыкни патч, чтобы посмотреть что с ним не так или всё ок.",
+            "patches_empty": "Патчи не найдены",
+            "btn_extera_proxy": "ExteraProxy Inject",
+            "btn_client_patch": "Client Patch",
+            "btn_patch_events": "Patch events: {state}",
+            "btn_hot_reload": "Hot reload: {state}",
+            "btn_extera_all": "Для всех: {state}",
+            "btn_extera_root_custom": "Root: ON > custom",
+            "btn_extera_scope": "{scope}: {state}",
+            "none": "пусто, как холодильник",
+            "no_access": "Доступа нет, сорян",
+            "remove_core_deleted": "✅ Ядро удалено: <code>{path}</code>",
+            "remove_core_absent": "ℹ️ Ядро уже отсутствует",
+            "remove_backups_deleted": "✅ Бекапы удалены: <b>{count}</b>",
+            "remove_patches_deleted": "✅ Патчи удалены: <code>{path}</code>",
+            "remove_patches_absent": "ℹ️ Папка патчей уже отсутствует",
+            "remove_default_standard": "✅ Default core установлен: <code>standard</code>",
+            "remove_manager_requested": "✅ Запрошено удаление модуля-менеджера",
+            "remove_restart_requested": "✅ Запрошен рестарт MCUB",
+            "remove_nothing_selected": "ℹ️ Ничего не выбрано",
+            "settings_toggle_stealth": "Stealth: {state}",
+            "settings_toggle_auto": "Auto update: {state}",
+            "settings_toggle_notify": "Notify: {state}",
+            "extera_title": "ExteraProxy Inject",
+            "extera_desc": "Что делает: даёт выбранным модулям доступ к защищённым объектам XKernel: <b>kernel / client "
+            "/ event</b>. Нужно, если модуль явно требует защищённый объект, например session у client.",
+            "extera_do_not_touch": "Не понимаешь зачем — <b>не тыкай</b>.",
+            "extera_status_label": "Статус:",
+            "extera_scopes_label": "Scopes:",
+            "extera_modules_selected": "Выбранные модули",
+            "extera_modules_excluded": "Исключения",
+            "extera_trusted_warning": "Включай только для известных и доверенных модулей. Не включай для неизвестных или "
+            "подозрительных модулей.",
+            "extera_unsupported_scopes": "Текущее XKernel ядро не поддерживает ExteraProxy scopes",
+            "extera_unsupported": "Текущее XKernel ядро не поддерживает ExteraProxy",
+            "extera_scope_answer": "ExteraProxy {scope}: {state}",
+            "extera_all_on_answer": "ExteraProxy для всех включён. Осторожно: только для доверенных модулей!",
+            "extera_all_off_answer": "ExteraProxy для всех выключен",
+            "experimental_title": "Экспериментальные функции XPatch",
+            "experimental_events_desc": "emit xpatch:applied / xpatch:failed / xpatch:unapplied",
+            "experimental_hot_reload_title": "Hot reload патчей",
+            "experimental_hot_reload_desc": "следит за файлами patches/*.py и перезагружает изменённые",
+            "experimental_warning": "Эксперименты: включай только если готов к приколам.",
+            "experimental_unavailable_title": "Экспериментальные функции недоступны",
+            "experimental_unavailable_desc": "Текущее ядро не поддерживает runtime-функции XKernel.",
+            "stealth_enabled": "Stealth включён",
+            "stealth_disabled": "Stealth выключен",
+            "auto_update_enabled": "Автообновление ядра включено",
+            "auto_update_disabled": "Автообновление ядра выключено",
+            "notifications_enabled": "Уведомления включены",
+            "notifications_disabled": "Уведомления выключены",
+            "client_patch_enabled": "Client Patch включён",
+            "client_patch_disabled": "Client Patch выключен",
+            "unsupported_current_kernel": "Не поддерживается текущим ядром",
+            "btn_extera_add_module": "Добавить модуль",
+            "btn_extera_remove_module": "Убрать модуль",
+            "btn_extera_clear_list": "Очистить список",
+            "stealth_unsupported": "Текущее XKernel ядро не поддерживает stealth mode. Обнови XKernel и перезапусти "
+            "MCUB.",
+            "client_patch_unsupported": "Текущее XKernel ядро не поддерживает Client Patch",
+            "client_patch_updated": "Client Patch обновлён",
+            "client_patch_clear_hint": "Чтобы очистить поле, отправь <code>-</code> или <code>clear</code>.",
+            "client_patch_value_cleared": "снесено",
+            "extera_name_required": "Дай имя модуля",
+            "extera_updated": "ExteraProxy обновлён",
+            "extera_add_result": "Модуль <code>{module}</code> добавлен",
+            "extera_remove_result": "Модуль <code>{module}</code> убран",
+            "extera_clear_answer": "Список ExteraProxy очищен",
+            "patch_events_enabled": "Patch events включены",
+            "patch_events_disabled": "Patch events выключены",
+            "hot_reload_enabled": "Hot reload включён",
+            "hot_reload_disabled": "Hot reload выключен",
+            "patch_detail_title": "Детали патча",
+            "patch_status_label": "Статус:",
+            "patch_label": "Патч:",
+            "patch_target_label": "Цель:",
+            "patch_file_label": "Файл:",
+            "patch_key_label": "Ключ:",
+            "patch_result_label": "Результат",
+            "patch_pending_reason_label": "Причина ожидания",
+            "patch_error_label": "Ошибка",
+            "patch_traceback_label": "Traceback",
+            "patch_min_version": "Минимальная версия XKernel для этого патча: {version}",
+            "patch_version_ok": "Патч совместим с текущей версией XKernel",
+            "patch_min_version_unknown": "Минимальная версия XKernel для этого патча не указана",
+            "patch_reload_unsupported": "Это XKernel ядро не поддерживает reload одного патча",
+            "patch_reload_failed": "Reload не удался",
+            "patch_file_not_found": "Файл патча не найден",
+            "patch_reloaded": "Патч перезагружен",
+            "patch_unapply_result": "Откат: {result}",
+            "patch_toggle_unsupported": "Это XKernel ядро не поддерживает enable/disable патчей",
+            "patch_disabled_answer": "Патч отключён",
+            "patch_enabled_answer": "Патч включён",
+            "patch_retry_answer": "Пробую ещё разок...",
+            "details_file_label": "Файл:",
+            "details_size_label": "Размер:",
+            "details_backups_label": "Бэкапов:",
+            "details_not_found": "XKernel не найден:",
+            "details_default_core": "Default core:",
+            "details_not_set": "не задан",
+            "details_title": "XKernel · Чек кишок",
+            "install_loading": "Загружаю XKernel...",
+            "platform_label": "Платформа:",
+            "install_done_title": "XKernel установлен",
+            "install_default_prompt": "Сделать XKernel ядром по умолчанию?",
+            "install_default_desc": "Если выбрать да, MCUB будет стартовать с XKernel без ручного <code>--core "
+            "XKernel</code>.",
+            "btn_set_default": "Установить по дефолту",
+            "btn_no_thanks": "Не, спасибо",
+            "install_error_title": "Ошибка установки",
+            "install_finish_title": "Готово, босс",
+            "install_default_unchanged": "не менял",
+            "restart_required": "Рестартни MCUB, а то магии не будет",
+            "btn_restart": "Рестарт",
+            "install_default_set_answer": "XKernel установлен по умолчанию",
+            "install_default_skip_answer": "Default core не менял",
+            "update_checking": "Проверяю XKernel...",
+            "update_check_failed_title": "Update check failed",
+            "update_current_title": "XKernel свежий, не душни",
+            "local_label": "Local:",
+            "remote_label": "Remote:",
+            "update_available_title": "Доступно обновление XKernel",
+            "btn_update_now": "Обновиться",
+            "update_loading": "Обновляю XKernel...",
+            "update_failed_title": "XKernel не обновлён",
+            "reopen_manager_hint": "Открой менеджер заново:",
+            "update_done_title": "XKernel обновлён",
+            "version_label": "Version:",
+            "apply_all_loading": "Применяю патчи...",
+            "apply_all_error_title": "Ошибка apply_patches",
+            "apply_all_result_title": "Apply all — результат",
+            "apply_applied_label": "Applied",
+            "apply_pending_label": "Pending",
+            "apply_failed_label": "Failed",
+            "apply_skipped_label": "Skipped",
+            "apply_restart_required": "Нужен рестарт для применения патчей",
+            "rollback_no_backup": "Бекапа нет, откатываться некуда",
+            "rollback_confirm_title": "Rollback — подтверждение",
+            "rollback_will_restore": "Будет восстановлен:",
+            "rollback_restart_required": "Нужен рестарт после отката",
+            "btn_rollback": "Откатить",
+            "btn_cancel": "Отмена",
+            "rollback_failed_title": "Rollback не выполнен",
+            "rollback_done_title": "Rollback выполнен",
+            "rollback_restored_label": "Восстановлен:",
+            "restart_answer": "Ребутаю, держись...",
+            "cli_install_start": "Начинаю ставить XPatchKernel",
+            "cli_install_done_title": "XKernel установлен/обновлён",
+            "cli_install_failed_title": "XKernel не установлен",
+            "cli_rollback_not_found": "Backup для XKernel не найден",
+            "cli_rollback_done_title": "XKernel rollback выполнен",
+            "restart_prompt": "Рестартнуть MCUB?",
+            "btn_reboot": "Reboot",
+            "btn_client_patch_quick_toggle": "Patch Client: {state}",
+            "settings_notify_state": "Пауза: <code>{delay}</code>с · Manager: <code>{manager}</code>",
+            "settings_notify_delay_button": "Подождать: {delay}с > {next_delay}с",
+            "settings_notify_manager_toggle": "Manager notify: {state}",
+            "settings_notify_delay_answer": "Задержка уведомлений: {delay}с",
+            "manager_notifications_enabled": "Уведомления об обновлении XPatchKernelManager включены",
+            "manager_notifications_disabled": "Уведомления об обновлении XPatchKernelManager выключены",
+            "manager_update_notice_title": "Менеджер обновился, залетай",
+            "manager_update_notice_hint": "Обнови модуль из репы, там новые приколы UI.",
+            "btn_notify_settings": "Настройки Notify",
+            "notify_settings_title": "Настройки Notify",
+            "utils_rebuild_desc": "<b>Пересборка менеджера</b> — создаёт копию модуля с новым именем и отправляет .py в "
+            "чат.",
+            "btn_rebuild_manager": "Клонировать менеджер",
+            "rebuild_title": "Клонирование менеджера",
+            "rebuild_desc": "Заменяются только строковые литералы, которые точно равны текущему имени модуля. Подстроки "
+            "внутри длинных текстов не трогаются.",
+            "rebuild_current_name": "Текущее имя:",
+            "rebuild_new_name": "Новое имя:",
+            "rebuild_replacements": "Замен:",
+            "rebuild_delete_state": "Удалить текущий после отправки:",
+            "btn_rebuild_name": "Имя нового модуля",
+            "btn_rebuild_random": "Random",
+            "btn_rebuild_delete_current": "Удалить текущий после сборки",
+            "btn_rebuild_keep_current": "Не удалять текущий",
+            "btn_rebuild_send": "Собрать и кинуть сюда",
+            "rebuild_random_answer": "Случайное имя: {name}",
+            "rebuild_name_updated": "Имя для пересборки: {name}",
+            "rebuild_name_invalid": "Некорректное имя. Используй латиницу, цифры и _, первая буква — латинская. Без "
+            "пробелов и спецсимволов.",
+            "rebuild_same_name": "Новое имя должно отличаться от текущего.",
+            "rebuild_forbidden": "Пересборка доступна только из оригинального XPatchKernelManager.",
+            "rebuild_source_missing": "Не удалось найти исходный файл менеджера.",
+            "rebuild_no_replacements": "Не найдено строк для замены. Пересборка отменена.",
+            "rebuild_sent": "Пересобранный менеджер отправлен: <code>{file}</code>. Замен: <b>{count}</b>.",
+            "rebuild_sent_delete": "Клон отправлен. Самовыпиливаюсь...",
+            "rebuild_send_failed": "Не удалось собрать или отправить менеджер",
+            "rebuild_config_state": "Утащить cfg:",
+            "btn_rebuild_copy_config": "Утащить cfg в клон",
+            "btn_rebuild_skip_config": "Cfg не трогать",
+            "rebuild_config_copied": "Cfg перенесён на <code>{name}</code>",
+            "rebuild_force_wipe_state": "Снести cfg текущего:",
+            "btn_rebuild_force_wipe": "Снести с cfg (-f)",
+            "btn_rebuild_keep_current_cfg": "Cfg текущего оставить",
+            "rebuild_saved_only_no_delete": "Файл в Избранном, в чат не пролез. Самовыпил отменён.",
+            "btn_hot_reload_smart_disable": "Не долбить сломанный патч: {state}",
+            "btn_hot_reload_retry_interval": "Подождать перед ретраем: {interval}с",
+            "btn_hot_reload_disable_on_first_fail": "Отключать при первой ошибке: {state}",
+            "btn_hot_load_new_patches": "Hot load новых патчей: {state}",
+            "hot_reload_retry_interval_answer": "Интервал ожидания проблемного патча: {interval}с",
+            "hot_reload_retry_interval_invalid": "Интервал должен быть числом от 1 до 3600 секунд.",
+            "btn_load_problem_patch": "Пнуть проблемный патч",
+            "btn_hot_reload_settings": "Настройки Hot reload",
+            "hot_reload_settings_title": "Настройки Hot reload",
+            "hot_reload_old_core_warning": "Ядро старое, новые приколы Hot reload оно не понимает. Обнови XKernel, а "
+            "пока это просто сохранится в конфиг.",
+            "hot_reload_settings_desc": "<b>Не долбить сломанный патч</b> — если reload упал, патч временно не мучаем.\n"
+            "<b>Подождать перед ретраем</b> — через сколько секунд снова пнуть проблемный "
+            "патч.\n"
+            "<b>Отключать при первой ошибке</b> — сразу кидает патч в disabled после фейла.\n"
+            "<b>Hot load новых патчей</b> — подбирает новые файлы из patches/ на горячую.",
+            "hot_reload_smart_disable_desc": "<b>Не долбить сломанный патч</b> — если reload упал, патч временно не "
+            "мучаем.",
+            "hot_reload_retry_interval_desc": "<b>Подождать перед ретраем</b> — через сколько секунд снова пнуть "
+            "проблемный патч.",
+            "hot_reload_disable_on_first_fail_desc": "<b>Отключать при первой ошибке</b> — сразу помечает патч disabled "
+            "после первой ошибки hot reload.",
+            "hot_load_new_patches_desc": "<b>Hot load новых патчей</b> — подбирает новые файлы из patches/ на горячую.",
+            "btn_extera_extra_features": "Ещё приколы",
+            "mcmac_title": "MCMAC",
+            "mcmac_desc": "SELinux на минималках для MCUB модулей. Пока безопасно: audit/permissive, без внезапного "
+            "краша мира.",
+            "mcmac_available": "Доступен:",
+            "mcmac_enabled": "Включён:",
+            "mcmac_mode": "Mode:",
+            "mcmac_path": "Path:",
+            "mcmac_error": "Ошибка:",
+            "btn_mcmac_toggle": "MCMAC: {state}",
+            "btn_mcmac_mode": "Mode: {mode}",
+            "btn_mcmac_update_libs": "Скачать/обновить MCMAC libs",
+            "mcmac_enabled_answer": "MCMAC включён",
+            "mcmac_disabled_answer": "MCMAC выключен",
+            "mcmac_mode_answer": "MCMAC mode: {mode}",
+            "mcmac_refresh_ok": "MCMAC libs обновлены",
+            "mcmac_refresh_failed": "Не удалось обновить MCMAC libs",
+            "mcmac_contexts": "Клейма модулей:",
+            "btn_mcmac_set_module_type": "Повесить тип на модуль",
+            "mcmac_module_type_updated": "MCMAC: <code>{module}</code> → <code>{type}</code>",
+            "mcmac_module_type_invalid": "Формат: <code>ModuleName:trusted</code>. Типы: trusted, standard, untrusted, "
+            "quarantine.",
+            "mcmac_type_system_desc": "<b>system</b> — системные модули MCUB. Полный доступ, назначается ядром "
+            "автоматически.",
+            "mcmac_type_trusted_desc": "<b>trusted</b> — доверенные модули. Разрешены kernel read, Telegram "
+            "send/delete/admin, network; subprocess запрещён.",
+            "mcmac_type_standard_desc": "<b>standard</b> — обычные локальные модули. Разрешены kernel read, Telegram "
+            "send/delete, network, config db; запрещены admin/account/subprocess.",
+            "mcmac_type_untrusted_desc": "<b>untrusted</b> — remote/сомнительные модули. Разрешён только базовый send; "
+            "запрещены delete/admin/account/network/subprocess/config write/module load.",
+            "mcmac_type_quarantine_desc": "<b>quarantine</b> — в банку. Всё нельзя, только audit смотрит и грустит.",
+            "mcmac_mode_desc": "<b>permissive</b> — только стучим в audit, но не бьём по рукам.\n"
+            "<b>enforcing</b> — реально бьём CallInsecure по запрещёнке.",
+            "mcmac_module_type_removed": "MCMAC: override для <code>{module}</code> удалён",
+            "mcmac_module_type_remove_hint": "Чтобы удалить override: <code>- ModuleName</code>.",
+            "btn_mcmac_remove_module_type": "Снять клеймо с модуля",
+            "mcmac_unavailable_warning": "MCMAC libs не найдены. Жми обновить, иначе эта магия не заведётся.",
+            "btn_patch_system_module": "Patch system module",
+            "system_patch_title": "Patch system module",
+            "system_patch_desc": "Патчит системные модули MCUB: man и updates.",
+            "btn_system_patch_man": "man",
+            "btn_system_patch_updates": "updates",
+            "system_patch_man_title": "Patch man",
+            "system_patch_man_desc": "Добавляет в man информацию ExteraProxy и MCMAC для модуля.",
+            "system_patch_updates_title": "Patch updates",
+            "system_patch_updates_desc": "Добавляет в update информацию о XKernel core.",
+            "btn_system_patch_man_extera": "Man ExteraProxy info: {state}",
+            "btn_system_patch_man_mcmac": "Man MCMAC info: {state}",
+            "btn_system_patch_updates_xkernel": "Update XKernel status: {state}",
+            "system_patch_unsupported": "Текущее XKernel ядро не поддерживает Patch system module",
+        },
+        "linux": {
+            "state_on": "ON",
+            "state_off": "OFF",
+            "btn_back": "Back",
+            "btn_patches": "Patches",
+            "btn_details": "Diagnostics",
+            "btn_apply_all": "Apply all",
+            "btn_failed_count": "{count} failed",
+            "btn_settings": "Settings",
+            "btn_check_update": "Check update",
+            "btn_utils": "Utilities",
+            "btn_install_update": "Install / update",
+            "btn_repo": "Repo",
+            "btn_live_logs": "Live logs",
+            "btn_danger_zone": "Danger zone",
+            "btn_remove_xkernel": "Remove XKernel",
+            "btn_start_remove": "Start removal",
+            "btn_clear_params": "Clear parameters",
+            "btn_client_patch_toggle": "Client Patch: {state}",
+            "btn_client_app_version": "App version",
+            "btn_client_device_model": "Device model",
+            "btn_client_system_version": "System version",
+            "btn_client_lang_code": "App language",
+            "btn_client_system_lang_code": "System language",
+            "btn_reload_patch": "Reload patch",
+            "btn_enable_patch": "Enable patch",
+            "btn_disable_patch": "Disable patch",
+            "btn_unapply_patch": "Unapply",
+            "btn_retry_patch": "Retry",
+            "btn_experimental": "Experimental features",
+            "main_title": "XPatch Manager",
+            "main_mcub_version": "Version (MCUB):",
+            "main_patch_stats": "Applied: <b>{applied}</b>  Pending: <b>{pending}</b>  Failed: <b>{failed}</b>",
+            "main_flags": "Stealth: <code>{stealth}</code>  Auto: <code>{auto_update}</code>  Notify: "
+            "<code>{notifications}</code>",
+            "main_extera": "<b>ExteraProxy Inject:</b> <i>{status}</i>",
+            "main_core": "Core:",
+            "main_xkernel_version": "XPatchKernel version:",
+            "main_inactive_warning": "XPatchKernel service is not active — patches and some units are unavailable",
+            "main_manager_update_warning": "XPatch Manager package is outdated. Pull a newer build from repository to "
+            "unlock new UI flags.",
+            "manager_opening": "Opening manager...",
+            "manager_open_failed": "Failed to open manager",
+            "status_not_supported": "Not supported by current kernel",
+            "status_disabled": "Disabled",
+            "status_enabled_no_params": "Enabled without parameters",
+            "status_enabled_params": "Enabled, parameters: {count}",
+            "extera_forced_all_except": "Forced for all except {count} package(s)",
+            "extera_forced_all": "Forced for all",
+            "extera_inactive": "Inactive",
+            "extera_forced_selected": "Forced only for {count} package(s)",
+            "logs_empty": "no [xpatch] logs found",
+            "logs_title": "Live logs · [xpatch]",
+            "logs_desc": "Shows the last <b>{max_lines}</b> lines with <code>[xpatch]</code> from "
+            "<code>logs/kernel.log</code>. Refresh: <b>{interval}</b>s.",
+            "logs_lines_button": "Lines: {current} > {next}",
+            "logs_interval_button": "Refresh: {current}s > {next}s",
+            "logs_lines_answer": "Live logs: {value} lines",
+            "logs_interval_answer": "Live logs: refresh {value}s",
+            "utils_title": "XPatch Utils",
+            "utils_logs_desc": "<b>Live logs</b> — live view of <code>[xpatch]</code> lines from "
+            "<code>logs/kernel.log</code>. You can choose line limit and refresh interval.",
+            "utils_danger_desc": "<b>Danger zone</b> — destructive maintenance operations: remove kernel, backups, "
+            "patches and manager unit.",
+            "remove_title": "Remove XKernel",
+            "remove_desc": "Choose what to remove. This is irreversible for selected files. Order: kernel > backups > "
+            "patches > default core > manager > restart.",
+            "remove_opt_core": "Kernel",
+            "remove_opt_backups": "All backups",
+            "remove_opt_manager": "Manager package",
+            "remove_opt_patches": "All patches",
+            "remove_opt_default": "Default > standard",
+            "remove_opt_restart": "Auto-restart",
+            "remove_answer_start": "Removing XKernel...",
+            "remove_failed_title": "XKernel removal failed",
+            "remove_done_title": "XKernel removal finished",
+            "settings_title": "XPatch settings",
+            "settings_stealth_desc": "VERSION without .XPatch, no VERSION_XKERNEL/ver, CORE_NAME=standard",
+            "settings_auto_desc": "Install immediately when VERSION_XKERNEL becomes newer",
+            "settings_notify_desc": "Bot writes to log chat or client DM",
+            "settings_stealth": "Stealth mode",
+            "settings_auto": "Kernel auto-update",
+            "settings_notify": "Update notifications",
+            "client_title": "Client Patch",
+            "client_desc": "Patches <code>core.lib.base.client.TelegramClient</code> and changes client parameters: app "
+            "name, device and language.",
+            "client_restart_warn": "Changes are applied after MCUB service restart / TelegramClient reinitialization.",
+            "client_status": "Status:",
+            "client_field_app_version": "App version",
+            "client_field_device_model": "Device model",
+            "client_field_system_version": "System version",
+            "client_field_lang_code": "App language",
+            "client_field_system_lang_code": "System language",
+            "client_cleared": "Client Patch parameters cleared",
+            "xpatch_inactive_alert": "XPatchKernel is inactive",
+            "patches_title": "Patches",
+            "patches_stats": "Applied: <b>{applied}</b>  Pending: <b>{pending}</b>  Failed: <b>{failed}</b>  Disabled: "
+            "<b>{disabled}</b>",
+            "patches_hint": "Select a patch unit to inspect its state.",
+            "patches_empty": "No patches found",
+            "btn_extera_proxy": "ExteraProxy Inject",
+            "btn_client_patch": "Client Patch",
+            "btn_patch_events": "Patch events: {state}",
+            "btn_hot_reload": "Hot reload: {state}",
+            "btn_extera_all": "For all: {state}",
+            "btn_extera_root_custom": "Root: ON > custom",
+            "btn_extera_scope": "{scope}: {state}",
+            "none": "none",
+            "no_access": "No access",
+            "remove_core_deleted": "✅ Kernel removed: <code>{path}</code>",
+            "remove_core_absent": "ℹ️ Kernel is already absent",
+            "remove_backups_deleted": "✅ Backups removed: <b>{count}</b>",
+            "remove_patches_deleted": "✅ Patches removed: <code>{path}</code>",
+            "remove_patches_absent": "ℹ️ Patches folder is already absent",
+            "remove_default_standard": "✅ Default core set to <code>standard</code>",
+            "remove_manager_requested": "✅ Manager package removal requested",
+            "remove_restart_requested": "✅ MCUB restart requested",
+            "remove_nothing_selected": "ℹ️ Nothing selected",
+            "settings_toggle_stealth": "Stealth: {state}",
+            "settings_toggle_auto": "Auto update: {state}",
+            "settings_toggle_notify": "Notify: {state}",
+            "extera_title": "ExteraProxy Inject",
+            "extera_desc": "What it does: grants selected packages access to protected XKernel objects: <b>kernel / "
+            "client / event</b>. Use it only when a package explicitly needs a protected object, for "
+            "example client session.",
+            "extera_do_not_touch": "If the purpose is unknown — <b>leave this switch disabled</b>.",
+            "extera_status_label": "Status:",
+            "extera_scopes_label": "Scopes:",
+            "extera_modules_selected": "Selected packages",
+            "extera_modules_excluded": "Package exceptions",
+            "extera_trusted_warning": "Enable only for known and trusted packages. Do not enable it for unknown or "
+            "suspicious packages.",
+            "extera_unsupported_scopes": "Current XKernel does not support ExteraProxy scopes",
+            "extera_unsupported": "Current XKernel does not support ExteraProxy",
+            "extera_scope_answer": "ExteraProxy {scope}: {state}",
+            "extera_all_on_answer": "ExteraProxy enabled for all packages. Careful: trusted packages only!",
+            "extera_all_off_answer": "ExteraProxy disabled for all",
+            "experimental_title": "Experimental XPatch units",
+            "experimental_events_desc": "emit xpatch:applied / xpatch:failed / xpatch:unapplied",
+            "experimental_hot_reload_title": "Patch hot reload",
+            "experimental_hot_reload_desc": "watches patches/*.py files and reloads changed patches",
+            "experimental_warning": "Experimental units: enable only after reading the logs.",
+            "experimental_unavailable_title": "Experimental features unavailable",
+            "experimental_unavailable_desc": "Current kernel does not support XKernel runtime features.",
+            "stealth_enabled": "Stealth enabled",
+            "stealth_disabled": "Stealth disabled",
+            "auto_update_enabled": "Kernel auto-update enabled",
+            "auto_update_disabled": "Kernel auto-update disabled",
+            "notifications_enabled": "Notifications enabled",
+            "notifications_disabled": "Notifications disabled",
+            "client_patch_enabled": "Client Patch enabled",
+            "client_patch_disabled": "Client Patch disabled",
+            "unsupported_current_kernel": "Not supported by current kernel",
+            "btn_extera_add_module": "Add package",
+            "btn_extera_remove_module": "Remove package",
+            "btn_extera_clear_list": "Clear package list",
+            "stealth_unsupported": "Current XKernel does not support stealth mode. Update XKernel and restart MCUB.",
+            "client_patch_unsupported": "Current XKernel does not support Client Patch",
+            "client_patch_updated": "Client Patch updated",
+            "client_patch_clear_hint": "To clear the field, send <code>-</code> or <code>clear</code>.",
+            "client_patch_value_cleared": "cleared",
+            "extera_name_required": "Specify package name",
+            "extera_updated": "ExteraProxy updated",
+            "extera_add_result": "Package <code>{module}</code> added",
+            "extera_remove_result": "Package <code>{module}</code> removed",
+            "extera_clear_answer": "ExteraProxy package list cleared",
+            "patch_events_enabled": "Patch events enabled",
+            "patch_events_disabled": "Patch events disabled",
+            "hot_reload_enabled": "Hot reload enabled",
+            "hot_reload_disabled": "Hot reload disabled",
+            "patch_detail_title": "Patch detail",
+            "patch_status_label": "Status:",
+            "patch_label": "Patch:",
+            "patch_target_label": "Target:",
+            "patch_file_label": "File:",
+            "patch_key_label": "Key:",
+            "patch_result_label": "Result",
+            "patch_pending_reason_label": "Pending reason",
+            "patch_error_label": "Error",
+            "patch_traceback_label": "Traceback",
+            "patch_min_version": "Minimum XKernel version for this patch: {version}",
+            "patch_version_ok": "Patch is compatible with current XKernel version",
+            "patch_min_version_unknown": "Minimum XKernel version is not specified for this patch",
+            "patch_reload_unsupported": "This XKernel does not support single patch reload",
+            "patch_reload_failed": "Reload failed",
+            "patch_file_not_found": "Patch file not found",
+            "patch_reloaded": "Reloaded",
+            "patch_unapply_result": "Unapply: {result}",
+            "patch_toggle_unsupported": "This XKernel does not support patch enable/disable",
+            "patch_disabled_answer": "Patch disabled",
+            "patch_enabled_answer": "Patch enabled",
+            "patch_retry_answer": "Retrying patch...",
+            "details_file_label": "File:",
+            "details_size_label": "Size:",
+            "details_backups_label": "Backups:",
+            "details_not_found": "XKernel not found:",
+            "details_default_core": "Default core:",
+            "details_not_set": "not set",
+            "details_title": "XKernel · Diagnostics unit",
+            "install_loading": "Downloading XKernel...",
+            "platform_label": "Platform:",
+            "install_done_title": "XKernel installed",
+            "install_default_prompt": "Set XKernel as default core package?",
+            "install_default_desc": "If yes, MCUB will boot this core package without manual <code>--core "
+            "XKernel</code>.",
+            "btn_set_default": "Set as default",
+            "btn_no_thanks": "No, thanks",
+            "install_error_title": "Install error",
+            "install_finish_title": "Done",
+            "install_default_unchanged": "unchanged",
+            "restart_required": "MCUB service restart required",
+            "btn_restart": "Restart",
+            "install_default_set_answer": "XKernel set as default core package",
+            "install_default_skip_answer": "Default core package unchanged",
+            "update_checking": "Checking XKernel...",
+            "update_check_failed_title": "Update check failed",
+            "update_current_title": "XKernel is already up to date",
+            "local_label": "Local:",
+            "remote_label": "Remote:",
+            "update_available_title": "XKernel update available",
+            "btn_update_now": "Update",
+            "update_loading": "Updating XKernel...",
+            "update_failed_title": "XKernel was not updated",
+            "reopen_manager_hint": "Open manager again:",
+            "update_done_title": "XKernel updated",
+            "version_label": "Version:",
+            "apply_all_loading": "Applying patches...",
+            "apply_all_error_title": "apply_patches error",
+            "apply_all_result_title": "Apply all — result",
+            "apply_applied_label": "Applied",
+            "apply_pending_label": "Pending",
+            "apply_failed_label": "Failed",
+            "apply_skipped_label": "Skipped",
+            "apply_restart_required": "Service restart is required to apply patches",
+            "rollback_no_backup": "Backup not found",
+            "rollback_confirm_title": "Rollback — confirmation",
+            "rollback_will_restore": "Will restore:",
+            "rollback_restart_required": "Service restart is required after rollback",
+            "btn_rollback": "Rollback",
+            "btn_cancel": "Cancel",
+            "rollback_failed_title": "Rollback failed",
+            "rollback_done_title": "Rollback completed",
+            "rollback_restored_label": "Restored:",
+            "restart_answer": "Restarting MCUB service...",
+            "cli_install_start": "Installing XPatchKernel",
+            "cli_install_done_title": "XKernel installed/updated",
+            "cli_install_failed_title": "XKernel was not installed",
+            "cli_rollback_not_found": "XKernel backup not found",
+            "cli_rollback_done_title": "XKernel rollback completed",
+            "restart_prompt": "Restart MCUB service?",
+            "btn_reboot": "Reboot",
+            "btn_client_patch_quick_toggle": "Patch Client: {state}",
+            "settings_notify_state": "Delay: <code>{delay}</code>s · Manager package: <code>{manager}</code>",
+            "settings_notify_delay_button": "Delay: {delay}s > {next_delay}s",
+            "settings_notify_manager_toggle": "Manager package notify: {state}",
+            "settings_notify_delay_answer": "Notification delay: {delay}s",
+            "manager_notifications_enabled": "XPatchKernelManager package update notifications enabled",
+            "manager_notifications_disabled": "XPatchKernelManager package update notifications disabled",
+            "manager_update_notice_title": "XPatchKernelManager package update available",
+            "manager_update_notice_hint": "Upgrade the package from repository to get new UI units.",
+            "btn_notify_settings": "Notify settings",
+            "notify_settings_title": "Notify settings",
+            "utils_rebuild_desc": "<b>Manager package rebuild</b> — creates a copy with a new package key and sends the "
+            ".py file to chat.",
+            "btn_rebuild_manager": "Manager package rebuild",
+            "rebuild_title": "Manager package rebuild",
+            "rebuild_desc": "Only string literals exactly equal to the current module name are replaced. Substrings "
+            "inside longer texts are not touched.",
+            "rebuild_current_name": "Current package key:",
+            "rebuild_new_name": "New package key:",
+            "rebuild_replacements": "Replacements:",
+            "rebuild_delete_state": "Remove current package after send:",
+            "btn_rebuild_name": "New package key",
+            "btn_rebuild_random": "Random",
+            "btn_rebuild_delete_current": "Remove current package after build",
+            "btn_rebuild_keep_current": "Keep current package",
+            "btn_rebuild_send": "Build and send",
+            "rebuild_random_answer": "Random name: {name}",
+            "rebuild_name_updated": "Rebuild name: {name}",
+            "rebuild_name_invalid": "Invalid name. Use latin letters, digits and _, first char must be latin. No spaces "
+            "or special symbols.",
+            "rebuild_same_name": "New name must differ from the current one.",
+            "rebuild_forbidden": "Rebuild is available only from the original XPatchKernelManager.",
+            "rebuild_source_missing": "Manager source file was not found.",
+            "rebuild_no_replacements": "No replaceable strings found. Rebuild cancelled.",
+            "rebuild_sent": "Rebuilt manager sent: <code>{file}</code>. Replacements: <b>{count}</b>.",
+            "rebuild_sent_delete": "Rebuilt manager sent. Removing current module...",
+            "rebuild_send_failed": "Failed to build or send manager",
+            "rebuild_config_state": "Copy package cfg:",
+            "btn_rebuild_copy_config": "Copy cfg to new package",
+            "btn_rebuild_skip_config": "Do not copy package cfg",
+            "rebuild_config_copied": "Cfg copied to package <code>{name}</code>",
+            "rebuild_force_wipe_state": "Remove current package cfg:",
+            "btn_rebuild_force_wipe": "Remove current package with cfg (-f)",
+            "btn_rebuild_keep_current_cfg": "Keep current package cfg",
+            "rebuild_saved_only_no_delete": "File was saved to Saved Messages, but forwarding to this chat failed. "
+            "Current package was not removed.",
+            "btn_hot_reload_smart_disable": "Smart quarantine: {state}",
+            "btn_hot_reload_retry_interval": "Retry timeout: {interval}s",
+            "btn_hot_reload_disable_on_first_fail": "Disable unit on first error: {state}",
+            "btn_hot_load_new_patches": "Hot load new patch units: {state}",
+            "hot_reload_retry_interval_answer": "Problem patch retry interval: {interval}s",
+            "hot_reload_retry_interval_invalid": "Interval must be a number from 1 to 3600 seconds.",
+            "btn_load_problem_patch": "Load failed patch unit",
+            "btn_hot_reload_settings": "Hot reload settings",
+            "hot_reload_settings_title": "Hot reload settings",
+            "hot_reload_old_core_warning": "Current XKernel package is old and does not support advanced Hot reload "
+            "units. Upgrade XKernel; otherwise these flags stay manager-side only.",
+            "hot_reload_settings_desc": "<b>Smart quarantine</b> — if hot reload fails to load a patch unit, it is "
+            "temporarily skipped.\n"
+            "<b>Retry timeout</b> — seconds before retrying a failed patch unit.\n"
+            "<b>Disable unit on first error</b> — marks the patch unit disabled after the "
+            "first hot reload error.\n"
+            "<b>Hot load new patch units</b> — loads new files from patches/ without "
+            "service restart.",
+            "hot_reload_smart_disable_desc": "<b>Smart quarantine</b> — if hot reload fails to load a patch unit, it is "
+            "temporarily skipped.",
+            "hot_reload_retry_interval_desc": "<b>Retry timeout</b> — seconds before retrying a failed patch unit.",
+            "hot_reload_disable_on_first_fail_desc": "<b>Disable unit on first error</b> — marks the patch unit "
+            "disabled after the first hot reload error.",
+            "hot_load_new_patches_desc": "<b>Hot load new patch units</b> — loads new files from patches/ without "
+            "service restart.",
+            "btn_extera_extra_features": "Extra units",
+            "mcmac_title": "MCMAC",
+            "mcmac_desc": "Mandatory Access Control for MCUB packages. Safe permissive/no-op layer for audit and policy "
+            "preparation. in short: SELinux is for MCUB",
+            "mcmac_available": "Available:",
+            "mcmac_enabled": "Enabled:",
+            "mcmac_mode": "Mode:",
+            "mcmac_path": "Path:",
+            "mcmac_error": "Error:",
+            "btn_mcmac_toggle": "MCMAC: {state}",
+            "btn_mcmac_mode": "Mode: {mode}",
+            "btn_mcmac_update_libs": "Download/update MCMAC libs",
+            "mcmac_enabled_answer": "MCMAC enabled",
+            "mcmac_disabled_answer": "MCMAC disabled",
+            "mcmac_mode_answer": "MCMAC mode: {mode}",
+            "mcmac_refresh_ok": "MCMAC libs updated",
+            "mcmac_refresh_failed": "Failed to update MCMAC libs",
+            "mcmac_contexts": "Package security types:",
+            "btn_mcmac_set_module_type": "Set package type",
+            "mcmac_module_type_updated": "MCMAC: <code>{module}</code> → <code>{type}</code>",
+            "mcmac_module_type_invalid": "Format: <code>ModuleName:trusted</code>. Types: trusted, standard, untrusted, "
+            "quarantine.",
+            "mcmac_type_system_desc": "<b>system</b> — MCUB system packages. Full access, assigned automatically by "
+            "kernel.",
+            "mcmac_type_trusted_desc": "<b>trusted</b> — trusted packages. Allows kernel read, Telegram "
+            "send/delete/admin and network; subprocess is denied.",
+            "mcmac_type_standard_desc": "<b>standard</b> — normal local packages. Allows kernel read, Telegram "
+            "send/delete, network and config db; denies admin/account/subprocess.",
+            "mcmac_type_untrusted_desc": "<b>untrusted</b> — remote/suspicious packages. Allows only basic send; denies "
+            "delete/admin/account/network/subprocess/config write/package load.",
+            "mcmac_type_quarantine_desc": "<b>quarantine</b> — quarantine. Everything is denied, only audit/permissive "
+            "log remains.",
+            "mcmac_mode_desc": "<b>permissive</b> — audit/log only, denied actions are not blocked.\n"
+            "<b>enforcing</b> — policy-denied actions are blocked with CallInsecure.",
+            "mcmac_module_type_removed": "MCMAC: override for <code>{module}</code> removed",
+            "mcmac_module_type_remove_hint": "To remove a package override: <code>- PackageName</code>.",
+            "btn_mcmac_remove_module_type": "Remove package override",
+            "mcmac_unavailable_warning": "MCMAC libs are unavailable. Download/update package libs; otherwise policy "
+            "flags stay inactive.",
+            "btn_patch_system_module": "Patch system module",
+            "system_patch_title": "Patch system module",
+            "system_patch_desc": "Patches MCUB system modules: man and updates.",
+            "btn_system_patch_man": "man",
+            "btn_system_patch_updates": "updates",
+            "system_patch_man_title": "Patch man",
+            "system_patch_man_desc": "Adds ExteraProxy and MCMAC module info to man.",
+            "system_patch_updates_title": "Patch updates",
+            "system_patch_updates_desc": "Adds XKernel core info to update.",
+            "btn_system_patch_man_extera": "Man ExteraProxy info: {state}",
+            "btn_system_patch_man_mcmac": "Man MCMAC info: {state}",
+            "btn_system_patch_updates_xkernel": "Update XKernel status: {state}",
+            "system_patch_unsupported": "Текущее XKernel ядро не поддерживает Patch system module",
+        },
+    }
 
     config = ModuleConfig(
         ConfigValue(
@@ -1546,6 +1635,24 @@ class XKernelInstaller(ModuleBase):
             validator=String(default="permissive"),
         ),
         ConfigValue(
+            "system_patch_man_extera",
+            False,
+            description="Add ExteraProxy info to man module details",
+            validator=Boolean(default=False),
+        ),
+        ConfigValue(
+            "system_patch_man_mcmac",
+            False,
+            description="Add MCMAC info to man module details",
+            validator=Boolean(default=False),
+        ),
+        ConfigValue(
+            "system_patch_updates_xkernel",
+            False,
+            description="Add XKernel status to updates.update command",
+            validator=Boolean(default=False),
+        ),
+        ConfigValue(
             "client_patch_app_version",
             "",
             description="Client Patch app_version override",
@@ -1631,11 +1738,12 @@ class XKernelInstaller(ModuleBase):
         ),
     )
 
-    X_KERNEL_URL = (
-        "https://raw.githubusercontent.com/hairpin01/XKernel/refs/heads/main/XKernel.py"
-    )
-    X_MANAGER_URL = "https://raw.githubusercontent.com/hairpin01/XKernel/refs/heads/main/XPatchKernelManager.py"
+    X_RAW_ROOT = "https://raw.githubusercontent.com/hairpin01/XKernel/refs/heads/main"
+    X_KERNEL_URL = f"{X_RAW_ROOT}/XKernel.py"
+    X_MANAGER_URL = f"{X_RAW_ROOT}/XPatchKernelManager.py"
     X_KERNEL_REPO = "https://github.com/hairpin01/XKernel"
+    X_HASH_FILE_NAME = "SHA256:hash.txt"
+    SHA256_RE = re.compile(r"\b[a-fA-F0-9]{64}\b")
     MANAGER_UPDATE_CACHE_TTL = 6 * 60 * 60
 
     async def on_load(self) -> None:
@@ -1690,6 +1798,7 @@ class XKernelInstaller(ModuleBase):
         self._apply_experimental_from_config()
         self._apply_extera_proxy_from_config()
         self._apply_mcmac_from_config()
+        self._apply_system_module_patches_from_config()
         self._apply_client_patch_from_config()
         self._ensure_update_task()
         self.log.info("XKernelInstaller loaded")
@@ -1970,7 +2079,13 @@ class XKernelInstaller(ModuleBase):
         try:
             getter = object.__getattribute__(self._kernel_object(), "mcmac_status")
         except Exception as exc:
-            return {"available": False, "enabled": False, "mode": "permissive", "error": str(exc), "path": ""}
+            return {
+                "available": False,
+                "enabled": False,
+                "mode": "permissive",
+                "error": str(exc),
+                "path": "",
+            }
         if not callable(getter):
             return {
                 "available": False,
@@ -1982,7 +2097,13 @@ class XKernelInstaller(ModuleBase):
         try:
             return dict(getter() or {})
         except Exception as exc:
-            return {"available": False, "enabled": False, "mode": "permissive", "error": str(exc), "path": ""}
+            return {
+                "available": False,
+                "enabled": False,
+                "mode": "permissive",
+                "error": str(exc),
+                "path": "",
+            }
 
     def _set_runtime_mcmac_enabled(self, enabled: bool) -> bool:
         try:
@@ -2002,18 +2123,35 @@ class XKernelInstaller(ModuleBase):
             return False
         return bool(setter(mode))
 
-    def _set_runtime_mcmac_module_type(self, module_name: str, security_type: str) -> bool:
+    def _set_runtime_mcmac_module_type(
+        self, module_name: str, security_type: str
+    ) -> bool:
         try:
-            setter = object.__getattribute__(self._kernel_object(), "set_mcmac_module_type")
+            setter = object.__getattribute__(
+                self._kernel_object(), "set_mcmac_module_type"
+            )
         except Exception:
             setter = None
         if not callable(setter):
             return False
         return bool(setter(module_name, security_type))
 
+    def _clear_runtime_mcmac_module_type(self, module_name: str) -> bool:
+        try:
+            clearer = object.__getattribute__(
+                self._kernel_object(), "clear_mcmac_module_type"
+            )
+        except Exception:
+            clearer = None
+        if not callable(clearer):
+            return False
+        return bool(clearer(module_name))
+
     async def _refresh_mcmac_runtime(self) -> bool:
         try:
-            refresher = object.__getattribute__(self._kernel_object(), "refresh_mcmac_runtime")
+            refresher = object.__getattribute__(
+                self._kernel_object(), "refresh_mcmac_runtime"
+            )
         except Exception:
             refresher = None
         if not callable(refresher):
@@ -2024,8 +2162,50 @@ class XKernelInstaller(ModuleBase):
         return bool(result)
 
     def _apply_mcmac_from_config(self) -> None:
-        self._set_runtime_mcmac_mode(str(self._cfg("mcmac_mode", "permissive") or "permissive"))
+        self._set_runtime_mcmac_mode(
+            str(self._cfg("mcmac_mode", "permissive") or "permissive")
+        )
         self._set_runtime_mcmac_enabled(bool(self._cfg("mcmac_enabled", False)))
+
+    def _set_runtime_system_module_patches(self) -> bool:
+        try:
+            setter = object.__getattribute__(
+                self._kernel_object(), "patch_system_modules"
+            )
+        except Exception:
+            setter = None
+        if not callable(setter):
+            return False
+        return bool(
+            setter(
+                man_extera=bool(self._cfg("system_patch_man_extera", False)),
+                man_mcmac=bool(self._cfg("system_patch_man_mcmac", False)),
+                updates_xkernel=bool(self._cfg("system_patch_updates_xkernel", False)),
+            )
+        )
+
+    def _system_module_patch_status(self) -> dict[str, Any]:
+        try:
+            getter = object.__getattribute__(
+                self._kernel_object(), "system_module_patch_status"
+            )
+        except Exception as exc:
+            return {"available": False, "error": str(exc), "options": {}}
+        if not callable(getter):
+            return {
+                "available": False,
+                "error": self.strings("system_patch_unsupported"),
+                "options": {},
+            }
+        try:
+            status = dict(getter() or {})
+            status.setdefault("available", True)
+            return status
+        except Exception as exc:
+            return {"available": False, "error": str(exc), "options": {}}
+
+    def _apply_system_module_patches_from_config(self) -> None:
+        self._set_runtime_system_module_patches()
 
     def _client_patch_options_from_config(self) -> dict[str, str]:
         keys = {
@@ -2689,6 +2869,7 @@ class XKernelInstaller(ModuleBase):
         text = (
             f"{C['utils']} <b>{self.strings('utils_title')}</b>\n\n"
             f"<blockquote>{C['logs']} {self.strings('utils_logs_desc')}</blockquote>\n"
+            f"<blockquote>{C['settings']} <b>{self.strings('btn_patch_system_module')}</b> — {self.strings('system_patch_desc')}</blockquote>\n"
             f"<blockquote>{C['rebuild']} {self.strings('utils_rebuild_desc')}</blockquote>\n"
             f"<blockquote>{C['warning']} {self.strings('utils_danger_desc')}</blockquote>"
         )
@@ -2697,6 +2878,13 @@ class XKernelInstaller(ModuleBase):
                 self.Button.inline(
                     f"{self._clear_text(C['logs'])} {self.strings('btn_live_logs')}",
                     self.on_live_logs_menu,
+                    ttl=600,
+                )
+            ],
+            [
+                self.Button.inline(
+                    f"{self._clear_text(C['settings'])} {self.strings('btn_patch_system_module')}",
+                    self.on_system_patch_menu,
                     ttl=600,
                 )
             ],
@@ -2723,6 +2911,154 @@ class XKernelInstaller(ModuleBase):
             ],
         ]
         return text, buttons
+
+    def _build_system_patch_page(self) -> tuple[str, list]:
+        C = self.C
+        status = self._system_module_patch_status()
+        text = (
+            f"{C['settings']} <b>{self.strings('system_patch_title')}</b>\n\n"
+            f"<blockquote>{self.strings('system_patch_desc')}</blockquote>"
+        )
+        if not status.get("available", False):
+            text += f"\n<blockquote>{C['warning']} {html.escape(str(status.get('error', self.strings('system_patch_unsupported'))))}</blockquote>"
+        buttons = [
+            [
+                self.Button.inline(
+                    self.strings("btn_system_patch_man"),
+                    self.on_system_patch_man_menu,
+                    ttl=600,
+                )
+            ],
+            [
+                self.Button.inline(
+                    self.strings("btn_system_patch_updates"),
+                    self.on_system_patch_updates_menu,
+                    ttl=600,
+                )
+            ],
+            [
+                self.Button.inline(
+                    f"{self._clear_text(C['back'])} {self.strings('btn_back')}",
+                    self.on_back_to_utils,
+                    ttl=600,
+                )
+            ],
+        ]
+        return text, buttons
+
+    def _build_system_patch_man_page(self) -> tuple[str, list]:
+        C = self.C
+        man_extera = bool(self._cfg("system_patch_man_extera", False))
+        man_mcmac = bool(self._cfg("system_patch_man_mcmac", False))
+        text = (
+            f"{C['settings']} <b>{self.strings('system_patch_man_title')}</b>\n\n"
+            f"<blockquote>{self.strings('system_patch_man_desc')}</blockquote>"
+        )
+        buttons = [
+            [
+                self.Button.inline(
+                    self.strings(
+                        "btn_system_patch_man_extera",
+                        state=self.strings("state_on" if man_extera else "state_off"),
+                    ),
+                    self.on_toggle_system_patch_man_extera,
+                    ttl=600,
+                    style="success" if man_extera else "danger",
+                )
+            ],
+            [
+                self.Button.inline(
+                    self.strings(
+                        "btn_system_patch_man_mcmac",
+                        state=self.strings("state_on" if man_mcmac else "state_off"),
+                    ),
+                    self.on_toggle_system_patch_man_mcmac,
+                    ttl=600,
+                    style="success" if man_mcmac else "danger",
+                )
+            ],
+            [
+                self.Button.inline(
+                    f"{self._clear_text(C['back'])} {self.strings('btn_back')}",
+                    self.on_system_patch_menu,
+                    ttl=600,
+                )
+            ],
+        ]
+        return text, buttons
+
+    def _build_system_patch_updates_page(self) -> tuple[str, list]:
+        C = self.C
+        enabled = bool(self._cfg("system_patch_updates_xkernel", False))
+        text = (
+            f"{C['settings']} <b>{self.strings('system_patch_updates_title')}</b>\n\n"
+            f"<blockquote>{self.strings('system_patch_updates_desc')}</blockquote>"
+        )
+        buttons = [
+            [
+                self.Button.inline(
+                    self.strings(
+                        "btn_system_patch_updates_xkernel",
+                        state=self.strings("state_on" if enabled else "state_off"),
+                    ),
+                    self.on_toggle_system_patch_updates_xkernel,
+                    ttl=600,
+                    style="success" if enabled else "danger",
+                )
+            ],
+            [
+                self.Button.inline(
+                    f"{self._clear_text(C['back'])} {self.strings('btn_back')}",
+                    self.on_system_patch_menu,
+                    ttl=600,
+                )
+            ],
+        ]
+        return text, buttons
+
+    @callback(ttl=600)
+    async def on_system_patch_menu(self, call) -> None:
+        text, buttons = self._build_system_patch_page()
+        await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
+    async def on_system_patch_man_menu(self, call) -> None:
+        text, buttons = self._build_system_patch_man_page()
+        await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
+    async def on_system_patch_updates_menu(self, call) -> None:
+        text, buttons = self._build_system_patch_updates_page()
+        await call.edit(text, buttons=buttons)
+
+    async def _toggle_system_patch_option(
+        self, call: Any, key: str, builder: Any
+    ) -> None:
+        self.config[key] = not bool(self._cfg(key, False))
+        ok = self._set_runtime_system_module_patches()
+        await self._save_config()
+        if not ok:
+            await call.answer(self.strings("system_patch_unsupported"), alert=True)
+        text, buttons = builder()
+        await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
+    async def on_toggle_system_patch_man_extera(self, call) -> None:
+        await self._toggle_system_patch_option(
+            call, "system_patch_man_extera", self._build_system_patch_man_page
+        )
+
+    @callback(ttl=600)
+    async def on_toggle_system_patch_man_mcmac(self, call) -> None:
+        await self._toggle_system_patch_option(
+            call, "system_patch_man_mcmac", self._build_system_patch_man_page
+        )
+
+    @callback(ttl=600)
+    async def on_toggle_system_patch_updates_xkernel(self, call) -> None:
+        await self._toggle_system_patch_option(
+            call, "system_patch_updates_xkernel", self._build_system_patch_updates_page
+        )
 
     @callback(ttl=600)
     async def on_utils_menu(self, call) -> None:
@@ -3569,70 +3905,105 @@ class XKernelInstaller(ModuleBase):
         text = (
             f"{C['lock']} <b>{self.strings('mcmac_title')}</b>\n\n"
             f"<blockquote>{self.strings('mcmac_desc')}</blockquote>\n"
+            f"<blockquote>{self.strings('mcmac_mode_desc')}</blockquote>\n"
             f"<blockquote>{self.strings('mcmac_type_system_desc')}</blockquote>\n"
             f"<blockquote>{self.strings('mcmac_type_trusted_desc')}</blockquote>\n"
             f"<blockquote>{self.strings('mcmac_type_standard_desc')}</blockquote>\n"
             f"<blockquote>{self.strings('mcmac_type_untrusted_desc')}</blockquote>\n"
             f"<blockquote>{self.strings('mcmac_type_quarantine_desc')}</blockquote>\n"
-            f"{C['info']} {self.strings('mcmac_available')} <code>{self.strings('state_on' if available else 'state_off')}</code>\n"
             f"{self._bool_icon(enabled)} {self.strings('mcmac_enabled')} <code>{self.strings('state_on' if enabled else 'state_off')}</code>\n"
             f"{C['settings']} {self.strings('mcmac_mode')} <code>{html.escape(mode)}</code>\n"
             f"{C['dir']} {self.strings('mcmac_path')} <code>{path}</code>\n"
             f"{C['menu']} {self.strings('mcmac_contexts')} {contexts_text}"
         )
+        if not available:
+            text += f"\n<blockquote>{C['warning']} {self.strings('mcmac_unavailable_warning')}</blockquote>"
         if error:
-            text += f"\n{C['warning']} {self.strings('mcmac_error')} <code>{error}</code>"
-        buttons = [
+            text += (
+                f"\n{C['warning']} {self.strings('mcmac_error')} <code>{error}</code>"
+            )
+        buttons = []
+        if available:
+            buttons.append(
+                [
+                    self.Button.inline(
+                        self.strings(
+                            "btn_mcmac_toggle",
+                            state=self.strings("state_on" if enabled else "state_off"),
+                        ),
+                        self.on_toggle_mcmac_enabled,
+                        ttl=600,
+                        style="success" if enabled else "danger",
+                    )
+                ]
+            )
+        if available and enabled:
+            buttons.extend(
+                [
+                    [
+                        self.Button.inline(
+                            self.strings("btn_mcmac_mode", mode=mode),
+                            self.on_toggle_mcmac_mode,
+                            ttl=600,
+                            style="primary",
+                        )
+                    ],
+                    [
+                        self.Button.input(
+                            self.strings("btn_mcmac_set_module_type"),
+                            self.on_mcmac_module_type_input,
+                            placeholder="ModuleName:trusted",
+                            ttl=600,
+                            style="primary",
+                        ),
+                        self.Button.input(
+                            self.strings("btn_mcmac_remove_module_type"),
+                            self.on_mcmac_module_type_remove_input,
+                            placeholder="ModuleName",
+                            ttl=600,
+                            style="danger",
+                        ),
+                    ],
+                ]
+            )
+        buttons.extend(
             [
-                self.Button.inline(
-                    self.strings(
-                        "btn_mcmac_toggle",
-                        state=self.strings("state_on" if enabled else "state_off"),
-                    ),
-                    self.on_toggle_mcmac_enabled,
-                    ttl=600,
-                    style="success" if enabled else "danger",
-                )
-            ],
-            [
-                self.Button.inline(
-                    self.strings("btn_mcmac_mode", mode=mode),
-                    self.on_toggle_mcmac_mode,
-                    ttl=600,
-                    style="primary",
-                )
-            ],
-            [
-                self.Button.input(
-                    self.strings("btn_mcmac_set_module_type"),
-                    self.on_mcmac_module_type_input,
-                    placeholder="ModuleName:trusted",
-                    ttl=600,
-                    style="primary",
-                )
-            ],
-            [
-                self.Button.inline(
-                    f"{self._clear_text(C['reload'])} {self.strings('btn_mcmac_update_libs')}",
-                    self.on_refresh_mcmac_runtime,
-                    ttl=600,
-                    style="primary",
-                )
-            ],
-            [
-                self.Button.inline(
-                    f"{self._clear_text(C['back'])} {self.strings('btn_back')}",
-                    self.on_extera_proxy_menu,
-                    ttl=600,
-                )
-            ],
-        ]
+                [
+                    self.Button.inline(
+                        f"{self._clear_text(C['reload'])} {self.strings('btn_mcmac_update_libs')}",
+                        self.on_refresh_mcmac_runtime,
+                        ttl=600,
+                        style="primary",
+                    )
+                ],
+                [
+                    self.Button.inline(
+                        f"{self._clear_text(C['back'])} {self.strings('btn_back')}",
+                        self.on_extera_proxy_menu,
+                        ttl=600,
+                    )
+                ],
+            ]
+        )
         return text, buttons
 
     @callback(ttl=600)
     async def on_mcmac_settings_menu(self, call) -> None:
+        self._mcmac_settings_event = call
         text, buttons = self._build_mcmac_settings_page()
         await call.edit(text, buttons=buttons)
+
+    async def _refresh_mcmac_settings_event(self) -> bool:
+        call = getattr(self, "_mcmac_settings_event", None)
+        if call is None:
+            return False
+        try:
+            text, buttons = self._build_mcmac_settings_page()
+            await call.edit(text, buttons=buttons)
+            return True
+        except Exception as exc:
+            self.log.debug("cannot refresh MCMAC settings menu: %s", exc)
+            return False
 
     @callback(ttl=600)
     async def on_toggle_mcmac_enabled(self, call) -> None:
@@ -3641,7 +4012,9 @@ class XKernelInstaller(ModuleBase):
         ok = self._set_runtime_mcmac_enabled(new_value)
         await self._save_config()
         await call.answer(
-            self.strings("mcmac_enabled_answer" if new_value else "mcmac_disabled_answer"),
+            self.strings(
+                "mcmac_enabled_answer" if new_value else "mcmac_disabled_answer"
+            ),
             alert=not ok,
         )
         text, buttons = self._build_mcmac_settings_page()
@@ -3668,20 +4041,51 @@ class XKernelInstaller(ModuleBase):
         data: Any = None,
     ) -> None:
         raw = str(text or "").strip()
+        if raw.startswith("-"):
+            await self.on_mcmac_module_type_remove_input(event, raw[1:].strip())
+            return
         if ":" not in raw:
             await self._edit(event, f"🚫 {self.strings('mcmac_module_type_invalid')}")
             return
         module_name, security_type = [part.strip() for part in raw.split(":", 1)]
         security_type = security_type.casefold()
-        if not module_name or security_type not in {"trusted", "standard", "untrusted", "quarantine"}:
+        if not module_name or security_type not in {
+            "trusted",
+            "standard",
+            "untrusted",
+            "quarantine",
+        }:
             await self._edit(event, f"🚫 {self.strings('mcmac_module_type_invalid')}")
             return
         ok = self._set_runtime_mcmac_module_type(module_name, security_type)
+        await self._refresh_mcmac_settings_event()
         await self._edit(
             event,
             (
                 f"{self.C['true']} "
                 f"{self.strings('mcmac_module_type_updated', module=html.escape(module_name), type=security_type)}"
+                if ok
+                else f"🚫 {self.strings('unsupported_current_kernel')}"
+            ),
+        )
+
+    async def on_mcmac_module_type_remove_input(
+        self,
+        event: Any,
+        text: str,
+        data: Any = None,
+    ) -> None:
+        module_name = str(text or "").strip()
+        if not module_name:
+            await self._edit(event, f"🚫 {self.strings('mcmac_module_type_invalid')}")
+            return
+        ok = self._clear_runtime_mcmac_module_type(module_name)
+        await self._refresh_mcmac_settings_event()
+        await self._edit(
+            event,
+            (
+                f"{self.C['true']} "
+                f"{self.strings('mcmac_module_type_removed', module=html.escape(module_name))}"
                 if ok
                 else f"🚫 {self.strings('unsupported_current_kernel')}"
             ),
@@ -5745,23 +6149,59 @@ class XKernelInstaller(ModuleBase):
                 self._format_version(version),
             )
 
+    @classmethod
+    def _hash_url(cls, module_name: str) -> str:
+        return f"{cls.X_RAW_ROOT}/hash/{module_name}/{cls.X_HASH_FILE_NAME}"
+
+    @classmethod
+    def _extract_sha256_hash(cls, source: str) -> str:
+        match = cls.SHA256_RE.search(str(source or ""))
+        if match is None:
+            raise ValueError("SHA256 hash file does not contain a valid digest")
+        return match.group(0).casefold()
+
+    async def _download_text(
+        self, session: aiohttp.ClientSession, url: str, label: str
+    ) -> str:
+        async with session.get(url) as response:
+            if response.status != 200:
+                raise RuntimeError(f"{label} download failed: HTTP {response.status}")
+            return await response.text(encoding="utf-8")
+
+    def _verify_remote_sha256(
+        self, module_name: str, source: str, hash_source: str
+    ) -> str:
+        expected = self._extract_sha256_hash(hash_source)
+        actual = self._sha256(source)
+        if actual != expected:
+            raise RuntimeError(
+                f"SHA256 mismatch for {module_name}: expected {expected}, got {actual}"
+            )
+        return actual
+
+    async def _download_verified_module(
+        self, session: aiohttp.ClientSession, module_name: str, url: str
+    ) -> str:
+        source = await self._download_text(session, url, module_name)
+        hash_source = await self._download_text(
+            session, self._hash_url(module_name), f"{module_name} SHA256"
+        )
+        self._verify_remote_sha256(module_name, source, hash_source)
+        return source
+
     async def _download_xkernel(self) -> str:
         timeout = aiohttp.ClientTimeout(total=30)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(self.X_KERNEL_URL) as response:
-                if response.status != 200:
-                    raise RuntimeError(f"download failed: HTTP {response.status}")
-                return await response.text(encoding="utf-8")
+            return await self._download_verified_module(
+                session, "XKernel", self.X_KERNEL_URL
+            )
 
     async def _download_manager(self) -> str:
         timeout = aiohttp.ClientTimeout(total=30)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(self.X_MANAGER_URL) as response:
-                if response.status != 200:
-                    raise RuntimeError(
-                        f"manager download failed: HTTP {response.status}"
-                    )
-                return await response.text(encoding="utf-8")
+            return await self._download_verified_module(
+                session, "XPatchKernelManager", self.X_MANAGER_URL
+            )
 
     @staticmethod
     def _manager_version_from_source(source: str) -> tuple[int, ...] | None:
