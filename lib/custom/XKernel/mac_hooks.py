@@ -237,6 +237,19 @@ class _MacClientProxy:
         object.__setattr__(self, "_enforcer", enforcer)
         object.__setattr__(self, "_module_name", module_name)
 
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        client = object.__getattribute__(self, "_client")
+        target = client if callable(client) else getattr(client, "client", None)
+        if not callable(target):
+            raise TypeError(f"{type(client).__name__!s} object is not callable")
+        object.__getattribute__(self, "_enforcer").check_access(
+            object.__getattribute__(self, "_module_name"),
+            ObjectClass.NETWORK.value,
+            Action.CONNECT.value,
+            "client.__call__",
+        )
+        return target(*args, **kwargs)
+
     def __getattr__(self, name: str) -> Any:
         attr = getattr(object.__getattribute__(self, "_client"), name)
         if callable(attr):

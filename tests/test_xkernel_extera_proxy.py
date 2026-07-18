@@ -615,6 +615,16 @@ def test_mcmac_patches_imported_proxy_aliases_and_context():
             target = Path(td) / "core" / "lib" / "custom" / "XKernel"
             source_dir = ROOT / "lib" / "custom" / "XKernel"
             kernel = Kernel()
+            calls = []
+
+            class CallableClient:
+                session = "callable-session"
+
+                def __call__(self, request):
+                    calls.append(request)
+                    return f"called:{request}"
+
+            kernel.client = CallableClient()
             kernel._mcmac_runtime_dir = lambda: target
 
             async def download(file_name):
@@ -632,6 +642,8 @@ def test_mcmac_patches_imported_proxy_aliases_and_context():
 
             proxied_client = base.get_module_client(kernel, "UnsafeMod", False)
             assert type(proxied_client).__name__ == "_MacClientProxy"
+            assert proxied_client("request") == "called:request"
+            assert calls == ["request"]
 
             assert kernel.set_mcmac_module_type("UnsafeMod", "quarantine") is True
             assert kernel.mcmac_module_type("UnsafeMod") == "quarantine"

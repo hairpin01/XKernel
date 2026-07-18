@@ -416,8 +416,14 @@ class XKernelInstaller(ModuleBase):
             "mcmac_mode_desc": "<b>permissive</b> — только audit/log, запрещённые действия не блокируются.\n"
             "<b>enforcing</b> — запрещённые политикой действия блокируются через CallInsecure.",
             "mcmac_module_type_removed": "MCMAC: override для <code>{module}</code> удалён",
-            "mcmac_module_type_remove_hint": "Чтобы удалить override: <code>- ModuleName</code>.",
+            "mcmac_module_type_remove_hint": "Чтобы удалить override, открой список и нажми кнопку модуля.",
             "btn_mcmac_remove_module_type": "Удалить модуль из списка",
+            "mcmac_remove_module_type_title": "Удаление MCMAC override",
+            "mcmac_remove_module_type_desc": "Выбери модуль, с которого нужно снять MCMAC тип.",
+            "mcmac_remove_module_type_empty": "Список override пуст.",
+            "mcmac_remove_module_type_page": "Страница {page}/{pages}",
+            "btn_mcmac_prev_page": "⬅️ Назад",
+            "btn_mcmac_next_page": "Вперёд ➡️",
             "mcmac_unavailable_warning": "MCMAC libs недоступны. Скачай/обнови libs, иначе настройки политики применяться "
             "не будут.",
             "btn_patch_system_module": "Patch system module",
@@ -800,8 +806,14 @@ class XKernelInstaller(ModuleBase):
             "mcmac_mode_desc": "<b>permissive</b> — audit/log only, denied actions are not blocked.\n"
             "<b>enforcing</b> — policy-denied actions are blocked with CallInsecure.",
             "mcmac_module_type_removed": "MCMAC: override for <code>{module}</code> removed",
-            "mcmac_module_type_remove_hint": "To remove an override: <code>- ModuleName</code>.",
+            "mcmac_module_type_remove_hint": "To remove an override, open the list and press the module button.",
             "btn_mcmac_remove_module_type": "Remove module override",
+            "mcmac_remove_module_type_title": "Remove MCMAC override",
+            "mcmac_remove_module_type_desc": "Choose a module to remove its MCMAC type override.",
+            "mcmac_remove_module_type_empty": "Override list is empty.",
+            "mcmac_remove_module_type_page": "Page {page}/{pages}",
+            "btn_mcmac_prev_page": "⬅️ Prev",
+            "btn_mcmac_next_page": "Next ➡️",
             "mcmac_unavailable_warning": "MCMAC libs are unavailable. Download/update libs; otherwise policy settings will "
             "not be applied.",
             "btn_patch_system_module": "Patch system module",
@@ -1183,8 +1195,14 @@ class XKernelInstaller(ModuleBase):
             "mcmac_mode_desc": "<b>permissive</b> — только стучим в audit, но не бьём по рукам.\n"
             "<b>enforcing</b> — реально бьём CallInsecure по запрещёнке.",
             "mcmac_module_type_removed": "MCMAC: override для <code>{module}</code> удалён",
-            "mcmac_module_type_remove_hint": "Чтобы удалить override: <code>- ModuleName</code>.",
+            "mcmac_module_type_remove_hint": "Чтобы удалить override, открой список и нажми кнопку модуля.",
             "btn_mcmac_remove_module_type": "Снять клеймо с модуля",
+            "mcmac_remove_module_type_title": "Удаление MCMAC override",
+            "mcmac_remove_module_type_desc": "Выбери модуль, с которого нужно снять MCMAC тип.",
+            "mcmac_remove_module_type_empty": "Список override пуст.",
+            "mcmac_remove_module_type_page": "Страница {page}/{pages}",
+            "btn_mcmac_prev_page": "⬅️ Назад",
+            "btn_mcmac_next_page": "Вперёд ➡️",
             "mcmac_unavailable_warning": "MCMAC libs не найдены. Жми обновить, иначе эта магия не заведётся.",
             "btn_patch_system_module": "Patch system module",
             "system_patch_title": "Patch system module",
@@ -1570,8 +1588,14 @@ class XKernelInstaller(ModuleBase):
             "mcmac_mode_desc": "<b>permissive</b> — audit/log only, denied actions are not blocked.\n"
             "<b>enforcing</b> — policy-denied actions are blocked with CallInsecure.",
             "mcmac_module_type_removed": "MCMAC: override for <code>{module}</code> removed",
-            "mcmac_module_type_remove_hint": "To remove a package override: <code>- PackageName</code>.",
+            "mcmac_module_type_remove_hint": "To remove a package override, open the list and press the package button.",
             "btn_mcmac_remove_module_type": "Remove package override",
+            "mcmac_remove_module_type_title": "Remove MCMAC override",
+            "mcmac_remove_module_type_desc": "Choose a package to remove its MCMAC type override.",
+            "mcmac_remove_module_type_empty": "Override list is empty.",
+            "mcmac_remove_module_type_page": "Page {page}/{pages}",
+            "btn_mcmac_prev_page": "⬅️ Prev",
+            "btn_mcmac_next_page": "Next ➡️",
             "mcmac_unavailable_warning": "MCMAC libs are unavailable. Download/update package libs; otherwise policy "
             "flags stay inactive.",
             "btn_patch_system_module": "Patch system module",
@@ -4073,10 +4097,9 @@ class XKernelInstaller(ModuleBase):
                             ttl=600,
                             style="primary",
                         ),
-                        self.Button.input(
+                        self.Button.inline(
                             self.strings("btn_mcmac_remove_module_type"),
-                            self.on_mcmac_module_type_remove_input,
-                            placeholder="ModuleName",
+                            self.on_mcmac_module_type_remove_menu,
                             ttl=600,
                             style="danger",
                         ),
@@ -4138,6 +4161,88 @@ class XKernelInstaller(ModuleBase):
             ]
             for mode, label in modes
         ]
+        buttons.append(
+            [
+                self.Button.inline(
+                    f"{self._clear_text(C['back'])} {self.strings('btn_back')}",
+                    self.on_mcmac_settings_menu,
+                    ttl=600,
+                )
+            ]
+        )
+        return text, buttons
+
+    def _mcmac_module_type_overrides(self) -> dict[str, str]:
+        overrides = self._mcmac_module_types_config()
+        contexts = self._mcmac_status().get("contexts") or {}
+        if isinstance(contexts, dict):
+            for module_name, security_type in contexts.items():
+                module = str(module_name or "").strip()
+                value = str(security_type or "").strip().casefold()
+                if module and value:
+                    overrides.setdefault(module, value)
+        return dict(sorted(overrides.items(), key=lambda item: item[0].casefold()))
+
+    def _build_mcmac_module_type_remove_page(
+        self, page: int = 0
+    ) -> tuple[str, list]:
+        C = self.C
+        page_size = 8
+        overrides = self._mcmac_module_type_overrides()
+        items = list(overrides.items())
+        pages = max(1, (len(items) + page_size - 1) // page_size)
+        page = max(0, min(int(page or 0), pages - 1))
+        start = page * page_size
+        page_items = items[start : start + page_size]
+
+        if page_items:
+            list_text = "\n".join(
+                f"<code>{html.escape(module)}</code>: <code>{html.escape(security_type)}</code>"
+                for module, security_type in page_items
+            )
+        else:
+            list_text = self.strings("mcmac_remove_module_type_empty")
+
+        text = (
+            f"{C['lock']} <b>{self.strings('mcmac_remove_module_type_title')}</b>\n\n"
+            f"{self.strings('mcmac_remove_module_type_desc')}\n\n"
+            f"<blockquote>{list_text}</blockquote>\n"
+            f"{C['menu']} {self.strings('mcmac_remove_module_type_page', page=page + 1, pages=pages)}"
+        )
+        buttons = [
+            [
+                self.Button.inline(
+                    f"❌ {module}",
+                    self.on_mcmac_module_type_remove_choice,
+                    data={"module": module, "page": page},
+                    ttl=600,
+                    style="danger",
+                )
+            ]
+            for module, _ in page_items
+        ]
+        if pages > 1:
+            nav = []
+            if page > 0:
+                nav.append(
+                    self.Button.inline(
+                        self.strings("btn_mcmac_prev_page"),
+                        self.on_mcmac_module_type_remove_menu,
+                        data=page - 1,
+                        ttl=600,
+                    )
+                )
+            if page < pages - 1:
+                nav.append(
+                    self.Button.inline(
+                        self.strings("btn_mcmac_next_page"),
+                        self.on_mcmac_module_type_remove_menu,
+                        data=page + 1,
+                        ttl=600,
+                    )
+                )
+            if nav:
+                buttons.append(nav)
         buttons.append(
             [
                 self.Button.inline(
@@ -4224,9 +4329,6 @@ class XKernelInstaller(ModuleBase):
         data: Any = None,
     ) -> None:
         raw = str(text or "").strip()
-        if raw.startswith("-"):
-            await self.on_mcmac_module_type_remove_input(event, raw[1:].strip())
-            return
         if ":" not in raw:
             await self._edit(event, f"🚫 {self.strings('mcmac_module_type_invalid')}")
             return
@@ -4256,31 +4358,46 @@ class XKernelInstaller(ModuleBase):
             ),
         )
 
-    async def on_mcmac_module_type_remove_input(
-        self,
-        event: Any,
-        text: str,
-        data: Any = None,
+    @callback(ttl=600)
+    async def on_mcmac_module_type_remove_menu(
+        self, call, data: Any = None
     ) -> None:
-        module_name = str(text or "").strip()
+        self._mcmac_settings_event = call
+        try:
+            page = int(data or 0)
+        except (TypeError, ValueError):
+            page = 0
+        text, buttons = self._build_mcmac_module_type_remove_page(page)
+        await call.edit(text, buttons=buttons)
+
+    @callback(ttl=600)
+    async def on_mcmac_module_type_remove_choice(
+        self, call, data: Any = None
+    ) -> None:
+        if isinstance(data, dict):
+            module_name = str(data.get("module") or "").strip()
+            page = int(data.get("page") or 0)
+        else:
+            module_name = str(data or "").strip()
+            page = 0
         if not module_name:
-            await self._edit(event, f"🚫 {self.strings('mcmac_module_type_invalid')}")
+            await call.answer(self.strings("mcmac_module_type_invalid"), alert=True)
             return
         ok = self._clear_runtime_mcmac_module_type(module_name)
         if ok:
             module_types = self._mcmac_module_types_config()
             module_types.pop(module_name, None)
             await self._save_mcmac_module_types_config(module_types)
-        await self._refresh_mcmac_settings_event()
-        await self._edit(
-            event,
-            (
-                f"{self.C['true']} "
-                f"{self.strings('mcmac_module_type_removed', module=html.escape(module_name))}"
+        await call.answer(
+            self._clear_text(
+                self.strings("mcmac_module_type_removed", module=module_name)
                 if ok
-                else f"🚫 {self.strings('unsupported_current_kernel')}"
+                else self.strings("unsupported_current_kernel")
             ),
+            alert=not ok,
         )
+        text, buttons = self._build_mcmac_module_type_remove_page(page)
+        await call.edit(text, buttons=buttons)
 
     @callback(ttl=600)
     async def on_refresh_mcmac_runtime(self, call) -> None:

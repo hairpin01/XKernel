@@ -985,7 +985,7 @@ def test_extera_proxy_extra_features_open_mcmac_settings():
             assert "on_toggle_mcmac_mode" in rendered_buttons
             assert "on_mcmac_audit_mode_menu" in rendered_buttons
             assert "on_mcmac_module_type_input" in rendered_buttons
-            assert "on_mcmac_module_type_remove_input" in rendered_buttons
+            assert "on_mcmac_module_type_remove_menu" in rendered_buttons
 
             await manager.on_toggle_mcmac_mode(call)
             assert fake_kernel.mode == "enforcing"
@@ -1011,13 +1011,35 @@ def test_extera_proxy_extra_features_open_mcmac_settings():
 
             input_event = Call()
             await manager.on_mcmac_module_type_input(input_event, "UnsafeMod:quarantine")
+            for index in range(9):
+                await manager.on_mcmac_module_type_input(
+                    input_event, f"Mod{index:02d}:untrusted"
+                )
             assert fake_kernel.contexts["UnsafeMod"] == "quarantine"
-            assert manager.config["mcmac_module_types"] == {
-                "UnsafeMod": "quarantine"
-            }
-            await manager.on_mcmac_module_type_input(input_event, "- UnsafeMod")
+            assert manager.config["mcmac_module_types"]["UnsafeMod"] == "quarantine"
+
+            await manager.on_mcmac_module_type_remove_menu(call)
+            text, buttons = call.edits[-1]
+            assert "Удаление MCMAC override" in text
+            assert "Mod00" in text
+            assert "Вперёд" in str(buttons)
+            assert "on_mcmac_module_type_remove_choice" in str(buttons)
+
+            await manager.on_mcmac_module_type_remove_menu(call, 1)
+            text, buttons = call.edits[-1]
+            assert "Страница 2/2" in text
+            assert "UnsafeMod" in text
+            assert "⬅️ Назад" in str(buttons)
+
+            await manager.on_mcmac_module_type_remove_choice(
+                call, {"module": "UnsafeMod", "page": 1}
+            )
             assert "UnsafeMod" not in fake_kernel.contexts
-            assert manager.config["mcmac_module_types"] == {}
+            assert "UnsafeMod" not in manager.config["mcmac_module_types"]
+            assert call.answers[-1] == (
+                "MCMAC: override для UnsafeMod удалён",
+                False,
+            )
 
         asyncio.run(run())
 
