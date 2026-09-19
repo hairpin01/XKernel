@@ -1836,7 +1836,7 @@ class XKernelInstaller(ModuleBase):
     MANAGER_UPDATE_CACHE_TTL = 6 * 60 * 60
 
     async def on_load(self) -> None:
-      await super().on_load()
+        await super().on_load()
         self.CUSTOM_EMOJI = {
             "loading": '<tg-emoji emoji-id="5260348422266822411">💬</tg-emoji>',
             "install": '<tg-emoji emoji-id="5327790373865530387">🫥</tg-emoji>',
