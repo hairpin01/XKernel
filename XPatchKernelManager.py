@@ -1836,6 +1836,7 @@ class XKernelInstaller(ModuleBase):
     MANAGER_UPDATE_CACHE_TTL = 6 * 60 * 60
 
     async def on_load(self) -> None:
+      await super().on_load()
         self.CUSTOM_EMOJI = {
             "loading": '<tg-emoji emoji-id="5260348422266822411">💬</tg-emoji>',
             "install": '<tg-emoji emoji-id="5327790373865530387">🫥</tg-emoji>',
@@ -2790,7 +2791,13 @@ class XKernelInstaller(ModuleBase):
             event, f"{self.C['loading']} {self.strings('manager_opening')}"
         )
         text, buttons = self._build_main_page()
-        ok, _ = await self.inline(event.chat_id, text, buttons=buttons, ttl=600)
+        ok, _ = await self.subinline.form(
+          event.chat_id, 
+          text,
+          buttons=buttons, 
+          ttl=600,
+          reply_to=getattr(event, "reply_to", None),
+        )
         if not ok:
             await self._edit(event, f"🚫 {self.strings('manager_open_failed')}")
             return
