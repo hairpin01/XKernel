@@ -1,0 +1,26 @@
+format = 2
+
+[module]
+id = "xpatchkernelmanager"
+
+[bundle]
+source = "Src"
+entrypoint = "XKernelInstaller.py"
+locales = "Locals"
+output = "dist/XPatchDebug.py"
+sign = true
+fail_on_secrets = true
+
+[lint]
+auto = true
+ignore = [".*", "dist/*"]
+
+[lint.tools.debug]
+ruff = false
+black = true
+mypy = false
+
+[lint.tools.release]
+ruff = false
+black = true
+mypy = false
